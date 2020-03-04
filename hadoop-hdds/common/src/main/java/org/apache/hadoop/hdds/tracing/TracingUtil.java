@@ -25,6 +25,7 @@ import io.opentracing.Scope;
 import io.opentracing.Span;
 import io.opentracing.SpanContext;
 import io.opentracing.Tracer;
+import io.opentracing.propagation.Format;
 import io.opentracing.util.GlobalTracer;
 
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -49,6 +50,8 @@ public final class TracingUtil {
       JaegerTracer tracer = config.getTracerBuilder()
           .registerExtractor(StringCodec.FORMAT, new StringCodec())
           .registerInjector(StringCodec.FORMAT, new StringCodec())
+          .registerExtractor(Format.Builtin.BINARY, new ByteBufferCodec())
+          .registerInjector(Format.Builtin.BINARY, new ByteBufferCodec())
           .build();
       GlobalTracer.register(tracer);
     }
