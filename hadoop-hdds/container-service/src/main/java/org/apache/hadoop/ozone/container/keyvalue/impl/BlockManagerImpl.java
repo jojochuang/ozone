@@ -26,6 +26,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerExcep
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
+import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -93,6 +94,12 @@ public class BlockManagerImpl implements BlockManager {
    */
   public long putBlock(Container container, BlockData data,
       boolean incrKeyCount) throws IOException {
+    return persistPutBlock((KeyValueContainer) container, data, config, incrKeyCount);
+  }
+
+  public static long persistPutBlock(KeyValueContainer container,
+      BlockData data, ConfigurationSource config, boolean incrKeyCount)
+      throws IOException {
     Preconditions.checkNotNull(data, "BlockData cannot be null for put " +
         "operation.");
     Preconditions.checkState(data.getContainerID() >= 0, "Container Id " +
@@ -100,7 +107,7 @@ public class BlockManagerImpl implements BlockManager {
     // We are not locking the key manager since LevelDb serializes all actions
     // against a single DB. We rely on DB level locking to avoid conflicts.
     try(ReferenceCountedDB db = BlockUtils.
-        getDB((KeyValueContainerData) container.getContainerData(), config)) {
+        getDB(container.getContainerData(), config)) {
       // This is a post condition that acts as a hint to the user.
       // Should never fail.
       Preconditions.checkNotNull(db, DB_NULL_ERR_MSG);
@@ -118,8 +125,8 @@ public class BlockManagerImpl implements BlockManager {
         // transaction is reapplied in the ContainerStateMachine on restart.
         // It also implies that the given block must already exist in the db.
         // just log and return
-        LOG.debug("blockCommitSequenceId {} in the Container Db is greater"
-                + " than the supplied value {}. Ignoring it",
+        LOG.warn("blockCommitSequenceId {} in the Container Db is greater than"
+                + " the supplied value {}. Ignoring it",
             containerBCSId, bcsId);
         return data.getSize();
       }

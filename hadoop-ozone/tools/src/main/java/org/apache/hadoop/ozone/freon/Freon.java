@@ -53,7 +53,8 @@ import picocli.CommandLine.Option;
         FollowerAppendLogEntryGenerator.class,
         ChunkManagerDiskWrite.class,
         LeaderAppendLogEntryGenerator.class,
-        ClosedContainerReplicator.class},
+        ClosedContainerReplicator.class,
+        ContainerGenerator.class},
     versionProvider = HddsVersionProvider.class,
     mixinStandardHelpOptions = true)
 public class Freon extends GenericCli {

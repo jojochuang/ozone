@@ -112,6 +112,15 @@ public class ContainerReportHandler extends AbstractContainerReportHandler
     final ContainerReportsProto containerReport =
         reportFromDatanode.getReport();
 
+    if (LOG.isTraceEnabled()) {
+      LOG.debug("Processing container report from [datanode={}]: {}",
+          datanodeDetails.getUuid(),
+          containerReport.toString().replaceAll("\n", "\\\\n"));
+    } else if (LOG.isDebugEnabled()) {
+      LOG.debug("Processing container report from {}",
+          datanodeDetails.getUuid());
+    }
+
     try {
       final List<ContainerReplicaProto> replicas =
           containerReport.getReportsList();

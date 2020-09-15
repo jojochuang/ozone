@@ -120,6 +120,9 @@ public class VersionEndpointTask implements
             "is in {} state", rpcEndPoint.getState());
       }
     } catch (DiskOutOfSpaceException ex) {
+      LOG.error(
+          "GetVersion task couldn't be finished due to an error in disk volumes",
+          ex);
       rpcEndPoint.setState(EndpointStateMachine.EndPointStates.SHUTDOWN);
     } catch(IOException ex) {
       rpcEndPoint.logIfNeeded(ex);

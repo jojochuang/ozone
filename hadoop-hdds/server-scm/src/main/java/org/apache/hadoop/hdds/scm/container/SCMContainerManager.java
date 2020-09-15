@@ -16,6 +16,7 @@
  */
 package org.apache.hadoop.hdds.scm.container;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -98,6 +99,8 @@ public class SCMContainerManager implements ContainerManager {
 
     this.batchHandler = batchHandler;
     this.containerStore = containerStore;
+    //
+    //final File containerDBPath = SCMContainerManager.getContainerDBPath(conf);
     this.lock = new ReentrantLock();
     this.pipelineManager = pipelineManager;
     this.containerStateManager = new ContainerStateManager(conf);
