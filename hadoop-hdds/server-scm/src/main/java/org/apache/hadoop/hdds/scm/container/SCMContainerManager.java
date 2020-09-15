@@ -97,8 +97,6 @@ public class SCMContainerManager implements ContainerManager {
 
     this.batchHandler = batchHandler;
     this.containerStore = containerStore;
-    //
-    //final File containerDBPath = SCMContainerManager.getContainerDBPath(conf);
     this.lock = new ReentrantLock();
     this.pipelineManager = pipelineManager;
     this.containerStateManager = new ContainerStateManager(conf);

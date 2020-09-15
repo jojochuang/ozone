@@ -20,7 +20,6 @@ package org.apache.hadoop.ozone.recon.scm;
 
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleEvent.FINALIZE;
 
-import java.io.File;
 import java.io.IOException;
 
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -117,11 +116,6 @@ public class ReconContainerManager extends SCMContainerManager {
     return replicaState != ContainerReplicaProto.State.UNHEALTHY
         && replicaState != ContainerReplicaProto.State.INVALID
         && replicaState != ContainerReplicaProto.State.DELETED;
-  }
-
-  public static File getContainerDBPath(Configuration conf) {
-    File metaDir = ReconUtils.getReconScmDbDir(conf);
-    return new File(metaDir, RECON_SCM_CONTAINER_DB);
   }
 
   /**
