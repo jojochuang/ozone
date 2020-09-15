@@ -41,19 +41,15 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
-import org.apache.hadoop.hdds.scm.container.SCMContainerManager;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
-import org.apache.hadoop.hdds.utils.MetadataStore;
-import org.apache.hadoop.hdds.utils.MetadataStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.RocksDBConfiguration;
 import org.apache.hadoop.hdds.utils.db.Table;
-import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
@@ -66,8 +62,6 @@ import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.impl.BlockManagerImpl;
 import org.apache.hadoop.ozone.container.keyvalue.impl.ChunkManagerFactory;
-import org.apache.hadoop.ozone.container.keyvalue.impl.ChunkManagerImpl;
-import org.apache.hadoop.ozone.container.keyvalue.impl.FilePerBlockStrategy;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.BlockManager;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
 import org.apache.hadoop.ozone.om.OMStorage;
@@ -78,7 +72,6 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 
 import com.codahale.metrics.Timer;
-import com.google.common.primitives.Longs;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
@@ -150,7 +143,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   private VolumeSet volumeSet;
 
-  //private MetadataStore containerStore;
   private Table<ContainerID, ContainerInfo> containerStore;
 
   private DBStore omDb;
@@ -168,9 +160,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     try {
       init();
       ozoneConfiguration = createOzoneConfiguration();
-
-      //final File containerDBPath =
-      //    SCMContainerManager.getContainerDBPath(ozoneConfiguration);
 
       scmDb = DBStoreBuilder.createDBStore(ozoneConfiguration, new SCMDBDefinition());
       containerStore = CONTAINERS.getTable(scmDb);
@@ -213,6 +202,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       runTests(this::writeKey);
 
+      // FIXME: too many open container isn't scalable.
       for (KeyValueContainer container : containers.values()) {
         container.close();
       }
