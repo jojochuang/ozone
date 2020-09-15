@@ -23,6 +23,7 @@ import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
+import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs.Builder;
@@ -117,7 +118,10 @@ public class OmKeyGenerator extends BaseFreonGenerator
 
     timer.time(() -> {
       OpenKeySession openKeySession = ozoneManagerClient.openKey(keyArgs);
-
+      ozoneManagerClient
+          .allocateBlock(keyArgs, openKeySession.getId(), new ExcludeList());
+      keyArgs.setLocationInfoList(openKeySession.getKeyInfo()
+          .getLatestVersionLocations().getLocationList());
       ozoneManagerClient.commitKey(keyArgs, openKeySession.getId());
       return null;
     });

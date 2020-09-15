@@ -28,6 +28,7 @@ import org.apache.hadoop.ozone.insight.Component.Type;
 import org.apache.hadoop.ozone.insight.datanode.RatisInsight;
 import org.apache.hadoop.ozone.insight.om.KeyManagerInsight;
 import org.apache.hadoop.ozone.insight.om.OmProtocolInsight;
+import org.apache.hadoop.ozone.insight.scm.ContainerReportInsight;
 import org.apache.hadoop.ozone.insight.scm.EventQueueInsight;
 import org.apache.hadoop.ozone.insight.scm.NodeManagerInsight;
 import org.apache.hadoop.ozone.insight.scm.ReplicaManagerInsight;
@@ -89,6 +90,7 @@ public class BaseInsightSubCommand {
     insights.put("scm.node-manager", new NodeManagerInsight());
     insights.put("scm.replica-manager", new ReplicaManagerInsight());
     insights.put("scm.event-queue", new EventQueueInsight());
+    insights.put("scm.container-report", new ContainerReportInsight());
     insights.put("scm.protocol.block-location",
         new ScmProtocolBlockLocationInsight());
     insights.put("scm.protocol.container-location",
