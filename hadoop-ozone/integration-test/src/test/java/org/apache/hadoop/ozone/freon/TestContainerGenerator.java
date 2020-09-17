@@ -64,11 +64,15 @@ public class TestContainerGenerator {
             "--scm-id", "68551182-c2a1-4318-90e8-ad3d26555f9a",
             "--block-per-container", "1000",
             "--size", "1024",
-            "--write-datanode",
+            "--om-key-batch-size", "1000",
+            //"--write-datanode",
             "--write-scm",
             "--write-om",
             "-t", "1",
             "-n", "1000"
             });
+
+    // TODO load up OM, SCM and DNs
+
   }
 }
