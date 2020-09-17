@@ -62,11 +62,13 @@ public class TestContainerGenerator {
         new String[]{"-conf", confPath, "cg",
             "--datanode-id", "b02c60b5-596a-463a-80c3-97ba395ae5e9",
             "--scm-id", "68551182-c2a1-4318-90e8-ad3d26555f9a",
-            "--block-per-container", "1",
+            "--block-per-container", "1000",
+            "--size", "1024",
             "--write-datanode",
-            //"--write-scm",
+            "--write-scm",
+            "--write-om",
             "-t", "1",
-            "-n", "10000"
+            "-n", "1000"
             });
   }
 }
