@@ -161,19 +161,13 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       init();
       ozoneConfiguration = createOzoneConfiguration();
 
+      // TODO: enable the configuration to make SCM learn about new containers
+      // added to DNs.
       scmDb = DBStoreBuilder.createDBStore(ozoneConfiguration, new SCMDBDefinition());
       containerStore = CONTAINERS.getTable(scmDb);
 
       // TODO: the default DB profile uses cache size 256MB.
       //  Consider lowering to 10MB to make it consistent with the old code.
-
-
-      /*this.containerStore = MetadataStoreBuilder.newBuilder()
-          .setConf(ozoneConfiguration)
-          .setDbFile(containerDBPath)
-          .setCacheSize(10 * OzoneConsts.MB)
-          .build();*/
-
       File metaDir = OMStorage.getOmDbDir(ozoneConfiguration);
 
       RocksDBConfiguration rocksDBConfiguration =
@@ -188,7 +182,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       omDb = dbStoreBuilder.build();
 
-      volumeSet = new MutableVolumeSet(datanodeId,
+      volumeSet = new MutableVolumeSet(datanodeId, "clusterid",
           ozoneConfiguration);
 
       data = RandomStringUtils.randomAscii(chunkSize)
@@ -251,7 +245,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
           .setOwner("hadoop")
           .build();
 
-      //final byte[] dbKey = Longs.toByteArray(containerId);
       containerStore.put(new ContainerID(containerId), containerInfo);
 
     }
@@ -359,8 +352,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   }
 
   private void writeChunk(long l, KeyValueContainer container, BlockID blockId,
-      ChunkInfo chunkInfo, ByteBuffer byteBuffer)
-      throws StorageContainerException {
+      ChunkInfo chunkInfo, ByteBuffer byteBuffer) throws IOException {
     DispatcherContext context =
         new DispatcherContext.Builder()
             .setStage(WriteChunkStage.WRITE_DATA)
@@ -384,6 +376,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .writeChunk(container, blockId, chunkInfo,
             byteBuffer,
             context);
+
+    chunkManager.finishWriteChunks(container, new BlockData(blockId));
   }
 
 }
