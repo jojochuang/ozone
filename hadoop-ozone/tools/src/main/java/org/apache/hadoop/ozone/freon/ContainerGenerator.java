@@ -50,6 +50,7 @@ import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.RocksDBConfiguration;
 import org.apache.hadoop.hdds.utils.db.Table;
+import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
@@ -66,6 +67,7 @@ import org.apache.hadoop.ozone.container.keyvalue.interfaces.BlockManager;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
 import org.apache.hadoop.ozone.om.OMStorage;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
+import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo.Builder;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
@@ -75,7 +77,12 @@ import com.codahale.metrics.Timer;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
+import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
+
+import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
+import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
@@ -149,6 +156,10 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   private DBStore scmDb;
 
+  private String volumeName = "vol1";
+
+  private String bucketName = "bucket1";
+
 
   public ContainerGenerator() {
 
@@ -191,6 +202,11 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       BlockManager blockManager = new BlockManagerImpl(ozoneConfiguration);
 
       chunkManager = ChunkManagerFactory.createChunkManager(ozoneConfiguration, blockManager);
+
+      if (writeOm) {
+        writeOmBucketVolume();
+      }
+
 
       timer = getMetrics().timer("chunk-generate");
 
@@ -285,6 +301,38 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   }
 
+  private void writeOmBucketVolume() throws IOException {
+    Table<String, OmVolumeArgs> volTable =
+        omDb.getTable(OmMetadataManagerImpl.VOLUME_TABLE, String.class,
+            OmVolumeArgs.class);
+
+    String admin = "weichiu";
+    String owner = "weichiu";
+
+    OmVolumeArgs omVolumeArgs = new OmVolumeArgs.Builder().setVolume(volumeName)
+        .setAdminName(admin).setCreationTime(Time.now()).setOwnerName(owner)
+        .setObjectID(1L).setUpdateID(1L).setQuotaInBytes(100L)
+        .addOzoneAcls(OzoneAcl.toProtobuf(
+            new OzoneAcl(IAccessAuthorizer.ACLIdentityType.WORLD, "",
+                IAccessAuthorizer.ACLType.ALL, ACCESS)))
+        .addOzoneAcls(OzoneAcl.toProtobuf(
+            new OzoneAcl(IAccessAuthorizer.ACLIdentityType.USER, "weichiu",
+                IAccessAuthorizer.ACLType.ALL, ACCESS))
+            ).build();
+
+    volTable.put("/" + volumeName, omVolumeArgs);
+
+    Table<String, OmBucketInfo> bucketTable =
+        omDb.getTable(OmMetadataManagerImpl.BUCKET_TABLE, String.class,
+            OmBucketInfo.class);
+
+    OmBucketInfo omBucketInfo = new OmBucketInfo.Builder()
+        .setBucketName(bucketName)
+        .setVolumeName(volumeName).build();
+    bucketTable.put("/" + volumeName + "/" + bucketName, omBucketInfo);
+
+  }
+
   private void writeOmData(long l, BlockID blockId) throws IOException {
     Table<String, OmKeyInfo> table =
         omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
@@ -318,8 +366,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     OmKeyLocationInfoGroup infoGroup = new OmKeyLocationInfoGroup(0, omkl);
 
     OmKeyInfo keyInfo = new Builder()
-        .setVolumeName("vol1")
-        .setBucketName("bucket1")
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
         .setKeyName("key" + l)
         .setDataSize(chunkSize)
         .setCreationTime(System.currentTimeMillis())
@@ -334,6 +382,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     table.put(
         "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key"
             + l, keyInfo);
+
+    // TODO: add to volume and bucket tables?
   }
 
   private void writeScmData(KeyValueContainer container, BlockID blockId,
