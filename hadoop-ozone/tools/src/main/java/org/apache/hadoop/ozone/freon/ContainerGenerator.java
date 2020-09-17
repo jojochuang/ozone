@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +47,7 @@ import org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline.PipelineState;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
+import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.DBStore;
 import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.RocksDBConfiguration;
@@ -135,6 +137,11 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       description = "Write chunk files.")
   private boolean writeDatanode;
 
+  @Option(names = {"--om-key-batch-size"},
+      description = "Size of the batch for OM key insertion",
+      defaultValue = "1000")
+  private int omKeyBatchSize;
+
   private boolean generateScm;
 
   private ChunkManager chunkManager;
@@ -160,6 +167,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   private String bucketName = "bucket1";
 
+  Table<String, OmKeyInfo> omKeyTable;
+  BatchOperation omKeyTableBatchOperation;
 
   public ContainerGenerator() {
 
@@ -203,10 +212,15 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       chunkManager = ChunkManagerFactory.createChunkManager(ozoneConfiguration, blockManager);
 
+      // initialization: create one bucket and volume in OM.
       if (writeOm) {
         writeOmBucketVolume();
       }
 
+      omKeyTable = omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
+          OmKeyInfo.class);
+      //omKeyTableBatchOperation = omDb.initBatchOperation();
+      //omKeyInfoMap = new HashMap<>();
 
       timer = getMetrics().timer("chunk-generate");
 
@@ -218,6 +232,9 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       }
 
     } finally {
+
+      //omDb.commitBatchOperation(omKeyTableBatchOperation);
+
       if (chunkManager != null) {
         chunkManager.shutdown();
       }
@@ -302,6 +319,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   }
 
   private void writeOmBucketVolume() throws IOException {
+    // TODO: multiple volumes and buckets
+
     Table<String, OmVolumeArgs> volTable =
         omDb.getTable(OmMetadataManagerImpl.VOLUME_TABLE, String.class,
             OmVolumeArgs.class);
@@ -334,10 +353,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   }
 
   private void writeOmData(long l, BlockID blockId) throws IOException {
-    Table<String, OmKeyInfo> table =
-        omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
-            OmKeyInfo.class);
-
     DatanodeDetails dn2 = DatanodeDetails.newBuilder()
         .setUuid(UUID.nameUUIDFromBytes(datanodeId.getBytes()))
         .setIpAddress("127.0.0.1")
@@ -365,10 +380,73 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     OmKeyLocationInfoGroup infoGroup = new OmKeyLocationInfoGroup(0, omkl);
 
+    long l4n = l % 1_000;
+    long l3n = l / 1_000 % 1_000;
+    long l2n = l / 1_000_000 % 1_000;
+    long l1n = l / 1_000_000_000 % 1_000;
+
+    String level3 = "L3-" + l3n;
+    String level2 = "L2-" + l2n;
+    String level1 = "L1-" + l1n;
+
+    if (l2n == 0 && l3n == 0 && l4n == 0) {
+      // create l1 directory
+      OmKeyInfo l1DirInfo = new Builder()
+          .setVolumeName(volumeName)
+          .setBucketName(bucketName)
+          .setKeyName(level1 + "/")
+          .setDataSize(0)
+          .setCreationTime(System.currentTimeMillis())
+          .setModificationTime(System.currentTimeMillis())
+          .setReplicationFactor(ReplicationFactor.ONE)
+          .setReplicationType(ReplicationType.RATIS)
+          .build();
+      String keyName = "/vol1/bucket1/" + level1 + "/";
+      omKeyTable.put(keyName, l1DirInfo);
+    }
+
+    if (l3n == 0 && l4n == 0) {
+      // create l2 directory
+      OmKeyInfo l2DirInfo = new Builder()
+          .setVolumeName(volumeName)
+          .setBucketName(bucketName)
+          .setKeyName(level1 + "/" + level2 + "/")
+          .setDataSize(0)
+          .setCreationTime(System.currentTimeMillis())
+          .setModificationTime(System.currentTimeMillis())
+          .setReplicationFactor(ReplicationFactor.ONE)
+          .setReplicationType(ReplicationType.RATIS)
+          .build();
+      String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/";
+      omKeyTable.put(keyName, l2DirInfo);
+    }
+
+    if (l4n == 0) {
+      // create l3 directory
+      String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/";
+
+      OmKeyInfo l3DirInfo = new Builder()
+          .setVolumeName(volumeName)
+          .setBucketName(bucketName)
+          .setKeyName(level1 + "/" + level2 + "/" + level3 + "/")
+          .setDataSize(0)
+          .setCreationTime(System.currentTimeMillis())
+          .setModificationTime(System.currentTimeMillis())
+          .setReplicationFactor(ReplicationFactor.ONE)
+          .setReplicationType(ReplicationType.RATIS)
+          .build();
+      omKeyTable.put(keyName, l3DirInfo);
+    }
+
+    // FIXME: multi-thread race condition
+    String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l;
+    //String keyName = "/vol1/bucket1/" + "key" + l;
+    //keyName = metadataManager.getOzoneDirKey(volumeName, bucketName,
+
     OmKeyInfo keyInfo = new Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
-        .setKeyName("key" + l)
+        .setKeyName(level1 + "/" + level2 + "/" + level3 + "/key" + l)
         .setDataSize(chunkSize)
         .setCreationTime(System.currentTimeMillis())
         .setModificationTime(System.currentTimeMillis())
@@ -376,14 +454,20 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .setReplicationType(ReplicationType.RATIS)
         .addOmKeyLocationInfoGroup(infoGroup)
         .build();
-    String level3 = "L3-" + l / 1_000 % 1_000;
-    String level2 = "L2-" + l / 1_000_000 % 1_000;
-    String level1 = "L1-" + l / 1_000_000_000 % 1_000;
-    table.put(
-        "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key"
-            + l, keyInfo);
+    omKeyTable.put(keyName, keyInfo);
 
-    // TODO: add to volume and bucket tables?
+    LOG.info("key nanme = {}", keyName);
+
+    /*omKeyTable.putWithBatch(omKeyTableBatchOperation,
+        "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l,
+        keyInfo);
+    if (l % omKeyBatchSize == (omKeyBatchSize-1)) {
+      //LOG.info("commit keys in OM table");
+      omDb.commitBatchOperation(omKeyTableBatchOperation);
+      omKeyTableBatchOperation = omDb.initBatchOperation();
+    }*/
+
+    // TODO: commit again at the very last key.
   }
 
   private void writeScmData(KeyValueContainer container, BlockID blockId,
