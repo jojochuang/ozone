@@ -120,6 +120,16 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       required = true)
   private String datanodeId;
 
+  @Option(names = {"--container-id-offset"},
+      description = "offset of the container ID",
+      defaultValue = "0")
+  private long containerIdOffset;
+
+  @Option(names = {"--container-id-increment"},
+      description = "increment of the container ID",
+      defaultValue = "1")
+  private long containerIdOIncrement;
+
   @Option(names = {"--scm-id"},
       description = "UUID of the SCM",
       required = true)
@@ -140,7 +150,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   @Option(names = {"--om-key-batch-size"},
       description = "Size of the batch for OM key insertion",
       defaultValue = "1000")
-  private int omKeyBatchSize;
+  private long omKeyBatchSize;
 
   private boolean generateScm;
 
@@ -168,7 +178,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   private String bucketName = "bucket1";
 
   Table<String, OmKeyInfo> omKeyTable;
-  BatchOperation omKeyTableBatchOperation;
+  ThreadLocal<BatchOperation> omKeyTableBatchOperation =
+      ThreadLocal.withInitial(() -> omDb.initBatchOperation());
 
   public ContainerGenerator() {
 
@@ -219,8 +230,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       omKeyTable = omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
           OmKeyInfo.class);
-      //omKeyTableBatchOperation = omDb.initBatchOperation();
-      //omKeyInfoMap = new HashMap<>();
 
       timer = getMetrics().timer("chunk-generate");
 
@@ -233,7 +242,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     } finally {
 
-      //omDb.commitBatchOperation(omKeyTableBatchOperation);
+      omDb.commitBatchOperation(omKeyTableBatchOperation.get());
+      omKeyTableBatchOperation.get().close();
 
       if (chunkManager != null) {
         chunkManager.shutdown();
@@ -245,41 +255,40 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     return null;
   }
 
+  private KeyValueContainer createContainer(long containerId)
+      throws IOException {
+    LOG.info("creating container {}", containerId);
+    ChunkLayOutVersion layoutVersion = ChunkLayOutVersion.getConfiguredVersion(ozoneConfiguration);
+    KeyValueContainerData keyValueContainerData =
+        new KeyValueContainerData(containerId, layoutVersion, 1_000_000L,
+            getPrefix(), datanodeId);
+
+    KeyValueContainer keyValueContainer = new KeyValueContainer(keyValueContainerData, ozoneConfiguration);
+
+    try {
+      keyValueContainer.create(volumeSet, new RoundRobinVolumeChoosingPolicy(), scmId);
+    } catch (StorageContainerException ex) {
+      ex.printStackTrace();
+    }
+    containers.put(containerId, keyValueContainer);
+
+    ContainerInfo containerInfo =
+        new ContainerInfo.Builder().setContainerID(containerId).setState(LifeCycleState.CLOSED)
+            .setReplicationFactor(ReplicationFactor.THREE).setReplicationType(ReplicationType.RATIS)
+            .setPipelineID(PipelineID.randomId()).setOwner("hadoop").build();
+
+    containerStore.put(new ContainerID(containerId), containerInfo);
+
+    return keyValueContainer;
+  }
+
   private KeyValueContainer getOrCreateContainer(long containerId)
       throws IOException {
 
-    if (!containers.containsKey(containerId)) {
-      ChunkLayOutVersion layoutVersion =
-          ChunkLayOutVersion.getConfiguredVersion(ozoneConfiguration);
-      KeyValueContainerData keyValueContainerData =
-          new KeyValueContainerData(containerId,
-              layoutVersion,
-              1_000_000L,
-              getPrefix(),
-              datanodeId);
-
-      KeyValueContainer keyValueContainer =
-          new KeyValueContainer(keyValueContainerData, ozoneConfiguration);
-
-      try {
-        keyValueContainer
-            .create(volumeSet, new RoundRobinVolumeChoosingPolicy(), scmId);
-      } catch (StorageContainerException ex) {
-        ex.printStackTrace();
+    synchronized (this) {
+      if (!containers.containsKey(containerId)) {
+        return createContainer(containerId);
       }
-      containers.put(containerId, keyValueContainer);
-
-      ContainerInfo containerInfo = new ContainerInfo.Builder()
-          .setContainerID(containerId)
-          .setState(LifeCycleState.CLOSED)
-          .setReplicationFactor(ReplicationFactor.THREE)
-          .setReplicationType(ReplicationType.RATIS)
-          .setPipelineID(PipelineID.randomId())
-          .setOwner("hadoop")
-          .build();
-
-      containerStore.put(new ContainerID(containerId), containerInfo);
-
     }
     return containers.get(containerId);
   }
@@ -288,6 +297,13 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     //based on the thread naming convention: pool-1-thread-n
 
     long containerId = l / blockPerContainer + 1;
+    if (containerId % containerIdOIncrement != containerIdOffset) {
+      // Used for generating DN storage.
+      // Skip writing key if the corresponding container does not exist
+      // for this particular DN.
+      return;
+    }
+
     KeyValueContainer container = getOrCreateContainer(containerId);
 
     BlockID blockId = new BlockID(containerId, l);
@@ -389,6 +405,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     String level2 = "L2-" + l2n;
     String level1 = "L1-" + l1n;
 
+    // TODO: use KeyManagerImpl#createDirectoryKey() instead
     if (l2n == 0 && l3n == 0 && l4n == 0) {
       // create l1 directory
       OmKeyInfo l1DirInfo = new Builder()
@@ -440,8 +457,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     // FIXME: multi-thread race condition
     String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l;
-    //String keyName = "/vol1/bucket1/" + "key" + l;
-    //keyName = metadataManager.getOzoneDirKey(volumeName, bucketName,
 
     OmKeyInfo keyInfo = new Builder()
         .setVolumeName(volumeName)
@@ -454,24 +469,23 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .setReplicationType(ReplicationType.RATIS)
         .addOmKeyLocationInfoGroup(infoGroup)
         .build();
-    omKeyTable.put(keyName, keyInfo);
 
-    LOG.info("key nanme = {}", keyName);
+    omKeyTable.putWithBatch(omKeyTableBatchOperation.get(), keyName, keyInfo);
 
-    /*omKeyTable.putWithBatch(omKeyTableBatchOperation,
-        "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l,
-        keyInfo);
     if (l % omKeyBatchSize == (omKeyBatchSize-1)) {
-      //LOG.info("commit keys in OM table");
-      omDb.commitBatchOperation(omKeyTableBatchOperation);
-      omKeyTableBatchOperation = omDb.initBatchOperation();
-    }*/
+      BatchOperation oldBatchOperation;
+      oldBatchOperation = omKeyTableBatchOperation.get();
 
-    // TODO: commit again at the very last key.
+      omDb.commitBatchOperation(oldBatchOperation);
+      omKeyTableBatchOperation.set(omDb.initBatchOperation());
+
+      oldBatchOperation.close();
+    }
   }
 
   private void writeScmData(KeyValueContainer container, BlockID blockId,
       ChunkInfo chunkInfo) throws IOException {
+    // FIXME: this is not SCM data. This is DN's rocksdb
     BlockData blockData = new BlockData(blockId);
     blockData.addChunk(ContainerProtos.ChunkInfo.newBuilder()
         .setChunkName(chunkInfo.getChunkName())

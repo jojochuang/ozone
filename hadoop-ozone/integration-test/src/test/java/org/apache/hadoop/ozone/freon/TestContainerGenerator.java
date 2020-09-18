@@ -24,11 +24,15 @@ public class TestContainerGenerator {
   private OzoneConfiguration conf = null;
 
   @Before
-  public void setup() {
+  public void setup() throws IOException {
+
     conf = new OzoneConfiguration();
 
     path = GenericTestUtils
         .getTempPath(TestContainerGenerator.class.getSimpleName());
+    // clean up before initialization
+    FileUtils.deleteDirectory(new File(path));
+
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     File baseDir = new File(path);
@@ -46,7 +50,6 @@ public class TestContainerGenerator {
    */
   @After
   public void shutdown() throws IOException {
-    //FileUtils.deleteDirectory(new File(path));
   }
 
   @Test
@@ -62,14 +65,14 @@ public class TestContainerGenerator {
         new String[]{"-conf", confPath, "cg",
             "--datanode-id", "b02c60b5-596a-463a-80c3-97ba395ae5e9",
             "--scm-id", "68551182-c2a1-4318-90e8-ad3d26555f9a",
-            "--block-per-container", "1000",
+            "--block-per-container", "1000000",
             "--size", "1024",
             "--om-key-batch-size", "1000",
             //"--write-datanode",
-            "--write-scm",
-            "--write-om",
-            "-t", "1",
-            "-n", "1000"
+            //"--write-scm",
+            //"--write-om",
+            "-t", "20",
+            "-n", "10000000"
             });
 
     // TODO load up OM, SCM and DNs
