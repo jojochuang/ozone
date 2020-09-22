@@ -106,7 +106,7 @@ public class BaseFreonGenerator {
           + " a prefix of the generated object names. If empty, a random name"
           + " will be generated",
       defaultValue = "")
-  private String prefix = "";
+  private static String prefix = "";
 
   private MetricRegistry metrics = new MetricRegistry();
 
@@ -455,7 +455,7 @@ public class BaseFreonGenerator {
     return dig.digest(stream);
   }
 
-  public String getPrefix() {
+  public static String getPrefix() {
     return prefix;
   }
 
