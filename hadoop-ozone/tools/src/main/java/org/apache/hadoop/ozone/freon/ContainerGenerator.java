@@ -22,20 +22,20 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumData;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumType;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
@@ -53,6 +53,9 @@ import org.apache.hadoop.hdds.utils.db.DBStoreBuilder;
 import org.apache.hadoop.hdds.utils.db.RocksDBConfiguration;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.common.Checksum;
+import org.apache.hadoop.ozone.common.ChecksumData;
+import org.apache.hadoop.ozone.common.OzoneChecksumException;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
@@ -80,6 +83,8 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT_BYTES;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
 
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
@@ -118,7 +123,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   @Option(names = {"--datanode-id"},
       description = "UUID of the datanode",
       required = true)
-  private String datanodeId;
+  private static String datanodeId;
 
   @Option(names = {"--container-id-offset"},
       description = "offset of the container ID",
@@ -133,129 +138,199 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   @Option(names = {"--scm-id"},
       description = "UUID of the SCM",
       required = true)
-  private String scmId;
+  private static String scmId;
 
-  @Option(names = {"--write-scm"},
-      description = "Write data to the SCM")
-  private boolean writeScm;
+  @Option(names = {"--write-container"},
+      description = "Write to DN container DB")
+  private boolean writeContainer;
 
   @Option(names = {"--write-om"},
       description = "Write data to the OM db")
   private boolean writeOm;
 
-  @Option(names = {"--write-datanode"},
+  @Option(names = {"--write-chunk"},
       description = "Write chunk files.")
-  private boolean writeDatanode;
+  private boolean writeChunk;
 
   @Option(names = {"--om-key-batch-size"},
       description = "Size of the batch for OM key insertion",
       defaultValue = "1000")
   private long omKeyBatchSize;
 
-  private boolean generateScm;
-
   private ChunkManager chunkManager;
 
   private byte[] data;
+  //ByteBuffer byteBuffer;
+  ChecksumData checksumData;
+  ContainerProtos.ChecksumData checksumDataProtoBuf;
 
-  private OzoneConfiguration ozoneConfiguration;
+  private static OzoneConfiguration ozoneConfiguration;
 
-  private Map<Long, KeyValueContainer> containers =
-      new ConcurrentHashMap<>();
+  // Keep 1000 containers open, expire after 1 minute.
+  private LoadingCache<Long, KeyValueContainer> containersCache =
+      CacheBuilder.newBuilder()
+      .expireAfterAccess(1, TimeUnit.MINUTES)
+            .maximumSize(1000)
+          .removalListener( x -> LOG.info("removing container {} from cache.", x.getKey()))
+          .build(new ContainerCreator());
 
   private Timer timer;
 
-  private VolumeSet volumeSet;
+  private static VolumeSet volumeSet;
 
-  private Table<ContainerID, ContainerInfo> containerStore;
+  private static Table<ContainerID, ContainerInfo> containerStore;
 
   private DBStore omDb;
 
   private DBStore scmDb;
 
-  private String volumeName = "vol1";
+  private static String volumeName = "vol1";
 
-  private String bucketName = "bucket1";
+  private static String bucketName = "bucket1";
 
   Table<String, OmKeyInfo> omKeyTable;
-  ThreadLocal<BatchOperation> omKeyTableBatchOperation =
-      ThreadLocal.withInitial(() -> omDb.initBatchOperation());
+  ThreadLocal<BatchOperation> omKeyTableBatchOperation;
 
   public ContainerGenerator() {
 
   }
 
+  public static String getVolumeName() {
+    return volumeName;
+  }
+
+  public static String getBucketName() {
+    return bucketName;
+  }
+
   @Override
   public Void call() throws Exception {
-
     try {
       init();
       ozoneConfiguration = createOzoneConfiguration();
 
-      // TODO: enable the configuration to make SCM learn about new containers
-      // added to DNs.
-      scmDb = DBStoreBuilder.createDBStore(ozoneConfiguration, new SCMDBDefinition());
-      containerStore = CONTAINERS.getTable(scmDb);
-
-      // TODO: the default DB profile uses cache size 256MB.
-      //  Consider lowering to 10MB to make it consistent with the old code.
-      File metaDir = OMStorage.getOmDbDir(ozoneConfiguration);
-
-      RocksDBConfiguration rocksDBConfiguration =
-          ozoneConfiguration.getObject(RocksDBConfiguration.class);
-
-      DBStoreBuilder dbStoreBuilder =
-          DBStoreBuilder.newBuilder(ozoneConfiguration,
-              rocksDBConfiguration).setName(OM_DB_NAME)
-              .setPath(Paths.get(metaDir.getPath()));
-
-      OmMetadataManagerImpl.addOMTablesAndCodecs(dbStoreBuilder);
-
-      omDb = dbStoreBuilder.build();
-
       volumeSet = new MutableVolumeSet(datanodeId, "clusterid",
           ozoneConfiguration);
 
-      data = RandomStringUtils.randomAscii(chunkSize)
-          .getBytes(StandardCharsets.UTF_8);
+      initializeSCM();
 
-      BlockManager blockManager = new BlockManagerImpl(ozoneConfiguration);
+      initializeDataNode();
 
-      chunkManager = ChunkManagerFactory.createChunkManager(ozoneConfiguration, blockManager);
-
-      // initialization: create one bucket and volume in OM.
-      if (writeOm) {
-        writeOmBucketVolume();
-      }
-
-      omKeyTable = omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
-          OmKeyInfo.class);
+      initializeOM();
 
       timer = getMetrics().timer("chunk-generate");
 
       runTests(this::writeKey);
 
-      // FIXME: too many open container isn't scalable.
-      for (KeyValueContainer container : containers.values()) {
-        container.close();
-      }
-
     } finally {
+      containersCache.invalidateAll();
 
-      omDb.commitBatchOperation(omKeyTableBatchOperation.get());
-      omKeyTableBatchOperation.get().close();
+      if (omDb == null) {
+        LOG.warn("OM DB object uninitialized. Skip clean up");
+      } else {
+        if (omKeyTableBatchOperation == null) {
+          LOG.warn("omKeyTableBatchOperation uninitialized. Skip commit & cleanup");
+        } else {
+          omDb.commitBatchOperation(omKeyTableBatchOperation.get());
+          omKeyTableBatchOperation.get().close();
+        }
+
+        omDb.close();
+      }
 
       if (chunkManager != null) {
         chunkManager.shutdown();
       }
-      if (this.containerStore != null) {
-        this.containerStore.close();
+      if (containerStore != null) {
+        containerStore.close();
+      }
+
+      if (scmDb != null) {
+        scmDb.close();
       }
     }
     return null;
   }
 
-  private KeyValueContainer createContainer(long containerId)
+  static private class ContainerCreator extends CacheLoader<Long, KeyValueContainer> {
+    @Override
+    public KeyValueContainer load(Long containerId) {
+      try {
+        return createContainer(containerId);
+      } catch (IOException e) {
+        LOG.warn("Unable to load container {} into cache.", containerId, e);
+        return null;
+      }
+    }
+  }
+
+  private void initializeDataNode() throws OzoneChecksumException {
+    initializeSharedChunkForDataNode();
+
+    BlockManager blockManager = new BlockManagerImpl(ozoneConfiguration);
+    chunkManager = ChunkManagerFactory.createChunkManager(ozoneConfiguration, blockManager);
+  }
+
+  private void initializeSharedChunkForDataNode() throws OzoneChecksumException {
+    data = RandomStringUtils.randomAscii(chunkSize)
+        .getBytes(StandardCharsets.UTF_8);
+    // FIXME: I'm not sure the byte buffer can't be shared. (fails to write if I share between threads)
+
+    ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+    // No checksum
+    //checksumData = new ChecksumData(ChecksumType.NONE, 0);
+    // Use CRC32, 1024x1024 bytes per checksum
+
+    Checksum checksum = new Checksum(ChecksumType.CRC32,
+        ozoneConfiguration.getInt(OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT, OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT_BYTES));
+    checksumData = checksum.computeChecksum(byteBuffer);
+    checksumDataProtoBuf = checksumData.getProtoBufMessage();
+  }
+
+  /**
+   * initialize data structures required for SCM.
+   * @throws IOException
+   */
+  private void initializeSCM() throws IOException {
+    // TODO: enable the configuration to make SCM learn about new containers
+    // added to DNs.
+    scmDb = DBStoreBuilder.createDBStore(ozoneConfiguration, new SCMDBDefinition());
+    containerStore = CONTAINERS.getTable(scmDb);
+  }
+
+  /**
+   * initialize data structures for OM.
+   * @throws IOException
+   */
+  private void initializeOM() throws IOException {
+    // TODO: the default DB profile uses cache size 256MB.
+    //  Consider lowering to 10MB to make it consistent with the old code.
+    File metaDir = OMStorage.getOmDbDir(ozoneConfiguration);
+
+    RocksDBConfiguration rocksDBConfiguration =
+        ozoneConfiguration.getObject(RocksDBConfiguration.class);
+
+    DBStoreBuilder dbStoreBuilder =
+        DBStoreBuilder.newBuilder(ozoneConfiguration,
+            rocksDBConfiguration).setName(OM_DB_NAME)
+            .setPath(Paths.get(metaDir.getPath()));
+
+    OmMetadataManagerImpl.addOMTablesAndCodecs(dbStoreBuilder);
+
+    omDb = dbStoreBuilder.build();
+
+    omKeyTableBatchOperation =
+        ThreadLocal.withInitial(() -> omDb.initBatchOperation());
+    // initialization: create one bucket and volume in OM.
+    if (writeOm) {
+      writeOmBucketVolume();
+    }
+
+    omKeyTable = omDb.getTable(OmMetadataManagerImpl.KEY_TABLE, String.class,
+        OmKeyInfo.class);
+  }
+
+  private static KeyValueContainer createContainer(long containerId)
       throws IOException {
     LOG.info("creating container {}", containerId);
     ChunkLayOutVersion layoutVersion = ChunkLayOutVersion.getConfiguredVersion(ozoneConfiguration);
@@ -270,8 +345,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     } catch (StorageContainerException ex) {
       ex.printStackTrace();
     }
-    containers.put(containerId, keyValueContainer);
 
+    // SCM
     ContainerInfo containerInfo =
         new ContainerInfo.Builder().setContainerID(containerId).setState(LifeCycleState.CLOSED)
             .setReplicationFactor(ReplicationFactor.THREE).setReplicationType(ReplicationType.RATIS)
@@ -280,17 +355,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     containerStore.put(new ContainerID(containerId), containerInfo);
 
     return keyValueContainer;
-  }
-
-  private KeyValueContainer getOrCreateContainer(long containerId)
-      throws IOException {
-
-    synchronized (this) {
-      if (!containers.containsKey(containerId)) {
-        return createContainer(containerId);
-      }
-    }
-    return containers.get(containerId);
   }
 
   private void writeKey(long l) throws Exception {
@@ -304,22 +368,23 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       return;
     }
 
-    KeyValueContainer container = getOrCreateContainer(containerId);
+    KeyValueContainer container = containersCache.get(containerId);
 
     BlockID blockId = new BlockID(containerId, l);
     String chunkName = "chunk" + l;
     ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
+
     ByteBuffer byteBuffer = ByteBuffer.wrap(data);
 
     timer.time(() -> {
       try {
 
-        if (writeDatanode) {
+        if (writeChunk) {
           writeChunk(l, container, blockId, chunkInfo, byteBuffer);
         }
 
-        if (writeScm) {
-          writeScmData(container, blockId, chunkInfo);
+        if (writeContainer) {
+          writeContainer(container, blockId, chunkInfo);
         }
 
         if (writeOm) {
@@ -365,7 +430,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .setBucketName(bucketName)
         .setVolumeName(volumeName).build();
     bucketTable.put("/" + volumeName + "/" + bucketName, omBucketInfo);
-
   }
 
   private void writeOmData(long l, BlockID blockId) throws IOException {
@@ -455,7 +519,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       omKeyTable.put(keyName, l3DirInfo);
     }
 
-    // FIXME: multi-thread race condition
     String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l;
 
     OmKeyInfo keyInfo = new Builder()
@@ -473,26 +536,30 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     omKeyTable.putWithBatch(omKeyTableBatchOperation.get(), keyName, keyInfo);
 
     if (l % omKeyBatchSize == (omKeyBatchSize-1)) {
-      BatchOperation oldBatchOperation;
-      oldBatchOperation = omKeyTableBatchOperation.get();
-
-      omDb.commitBatchOperation(oldBatchOperation);
-      omKeyTableBatchOperation.set(omDb.initBatchOperation());
-
-      oldBatchOperation.close();
+      commitAndResetOMKeyTableBatchOperation();
     }
   }
 
-  private void writeScmData(KeyValueContainer container, BlockID blockId,
+  private void commitAndResetOMKeyTableBatchOperation() throws IOException {
+    BatchOperation oldBatchOperation;
+    oldBatchOperation = omKeyTableBatchOperation.get();
+
+    omDb.commitBatchOperation(oldBatchOperation);
+    omKeyTableBatchOperation.set(omDb.initBatchOperation());
+
+    oldBatchOperation.close();
+  }
+
+  private void writeContainer(KeyValueContainer container, BlockID blockId,
       ChunkInfo chunkInfo) throws IOException {
     // FIXME: this is not SCM data. This is DN's rocksdb
     BlockData blockData = new BlockData(blockId);
+
     blockData.addChunk(ContainerProtos.ChunkInfo.newBuilder()
         .setChunkName(chunkInfo.getChunkName())
         .setLen(chunkInfo.getLen())
         .setOffset(chunkInfo.getOffset())
-        .setChecksumData(ChecksumData.newBuilder().setBytesPerChecksum(1)
-            .setType(ChecksumType.NONE).build())
+        .setChecksumData(checksumDataProtoBuf)
         .build());
 
     BlockManagerImpl
