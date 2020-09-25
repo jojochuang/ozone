@@ -52,8 +52,8 @@ public class TestContainerGenerator {
     File baseDir = new File(path);
     baseDir.mkdirs();
 
-    //conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, path);
-    //conf.set(HDDS_DATANODE_DIR_KEY, path);
+    conf.set(HddsConfigKeys.OZONE_METADATA_DIRS, path);
+    conf.set(HDDS_DATANODE_DIR_KEY, path);
 
     // default: file per block. Optionally file per chunk.
     //conf.setEnum(OZONE_SCM_CHUNK_LAYOUT_KEY, ChunkLayOutVersion.FILE_PER_CHUNK);
@@ -63,10 +63,13 @@ public class TestContainerGenerator {
         .setNumDatanodes(3)
         .setBlockSize(1024);
 
-    cluster = builder.build();
+    /*cluster = builder.build();
     cluster.waitForClusterToBeReady();
 
+
     cluster.stop();
+
+     */
     //cluster.shutdown();
     //LOG.info("cluster shutdown. Let's make sure rocksdb is closed");
     //cluster.getStorageContainerManager().
@@ -92,14 +95,17 @@ public class TestContainerGenerator {
     String confPath = new File(path, "conf").getAbsolutePath();
     new Freon().execute(
         new String[]{"-conf", confPath, "cg",
+            "--user-id", "weichiu",
+            "--cluster-id", "CID-376d737a-d05a-489d-880a-52814d047956",
             "--datanode-id", "b02c60b5-596a-463a-80c3-97ba395ae5e9",
             "--scm-id", "68551182-c2a1-4318-90e8-ad3d26555f9a",
             "--block-per-container", "10",
             "--size", "1024",
             "--om-key-batch-size", "10",
-            "--write-chunk",
-            "--write-container",
+            "--write-dn",
+            "--write-scm",
             "--write-om",
+            "--repl", "3",
             "-t", "2",
             "-n", "10"
             });
@@ -107,6 +113,7 @@ public class TestContainerGenerator {
     // TODO load up OM, SCM and DNs
 
 
+    /*
     cluster = builder.build();
     cluster.waitForClusterToBeReady();
 
@@ -126,6 +133,6 @@ public class TestContainerGenerator {
     assertNotNull("Unable to find file status of /L1-0!", fileStatus);
 
 
-    cluster.shutdown();
+    cluster.shutdown();*/
   }
 }
