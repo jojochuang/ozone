@@ -35,6 +35,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import static org.apache.hadoop.fs.FSInputChecker.LOG;
+
 /**
  * Base class for all the container report handlers.
  */
@@ -268,6 +270,7 @@ public class AbstractContainerReportHandler {
         .setBytesUsed(replicaProto.getUsed())
         .build();
 
+    LOG.info("update container replica: {}", replica, new IOException());
     if (replica.getState().equals(State.DELETED)) {
       containerManager.removeContainerReplica(containerId, replica);
     } else {

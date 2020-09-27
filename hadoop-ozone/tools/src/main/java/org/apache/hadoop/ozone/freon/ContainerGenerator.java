@@ -83,6 +83,7 @@ import com.codahale.metrics.Timer;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
+import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.PIPELINES;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT_BYTES;
@@ -192,10 +193,11 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   private static OzoneConfiguration ozoneConfiguration;
 
+  // FIXME: close it when the container is full, right away.
   // Keep 1000 containers open, expire after 1 minute.
   private LoadingCache<Long, KeyValueContainer> containersCache =
       CacheBuilder.newBuilder()
-      .expireAfterAccess(1, TimeUnit.MINUTES)
+      //.expireAfterAccess(1, TimeUnit.MINUTES)
           .maximumSize(1000)
           .removalListener( x -> LOG.info("removing container {} from cache.", x.getKey()))
           .build(new ContainerCreator());
@@ -205,6 +207,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   private static VolumeSet volumeSet;
 
   private static Table<ContainerID, ContainerInfo> containerStore;
+  private static Table<PipelineID, Pipeline> pipelinesStore;
 
   private DBStore omDb;
 
@@ -255,6 +258,18 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       runTests(this::writeKey);
 
     } finally {
+
+      containersCache.asMap().forEach( (k, v) -> {
+        try {
+          // TODO: lock?
+          if (!v.getContainerData().isClosed()) {
+            LOG.info("Close container {}.", v.getContainerData().getContainerID());
+            v.close();
+          }
+        } catch (StorageContainerException e) {
+          e.printStackTrace();
+        }
+      });
       containersCache.invalidateAll();
 
       if (omDb == null) {
@@ -383,6 +398,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     // added to DNs.
     scmDb = DBStoreBuilder.createDBStore(ozoneConfiguration, new SCMDBDefinition());
     containerStore = CONTAINERS.getTable(scmDb);
+    writeSCMPipeline();
   }
 
   /**
@@ -476,6 +492,15 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       return null;
     });
 
+  }
+
+  private void writeSCMPipeline() throws IOException {
+    // write pipelines to db only once at beginning.
+    pipelinesStore = PIPELINES.getTable(scmDb);
+
+    for (Pipeline pipeline : pipelines) {
+      pipelinesStore.put(pipeline.getId(), pipeline);
+    }
   }
 
   private void writeOmBucketVolume() throws IOException {
@@ -647,6 +672,13 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     BlockManagerImpl
         .persistPutBlock(container, blockData, ozoneConfiguration, true);
+
+    if (container.getContainerData().getKeyCount() == blockPerContainer) {
+      // the container is full. close it.
+      LOG.info("The container {} is full. Close it.",
+          container.getContainerData().getContainerID());
+      container.close();
+    }
   }
 
   private void writeChunk(long l, KeyValueContainer container, BlockID blockId,

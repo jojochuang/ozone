@@ -160,6 +160,7 @@ public final class ContainerReplica implements Comparable<ContainerReplica> {
   public String toString() {
     return "ContainerReplica{" +
         "containerID=" + containerID +
+        ", state=" + state +
         ", datanodeDetails=" + datanodeDetails +
         ", placeOfBirth=" + placeOfBirth +
         ", sequenceId=" + sequenceId +

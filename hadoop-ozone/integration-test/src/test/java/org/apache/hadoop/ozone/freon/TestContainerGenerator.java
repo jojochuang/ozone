@@ -105,9 +105,9 @@ public class TestContainerGenerator {
             "--write-dn",
             "--write-scm",
             "--write-om",
-            "--repl", "3",
+            "--repl", "1",
             "-t", "2",
-            "-n", "10"
+            "-n", "100"
             });
 
     // TODO load up OM, SCM and DNs
