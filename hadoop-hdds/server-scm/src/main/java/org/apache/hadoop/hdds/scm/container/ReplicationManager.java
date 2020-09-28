@@ -271,8 +271,8 @@ public class ReplicationManager
       final ContainerInfo container = containerManager.getContainer(id);
       final Set<ContainerReplica> replicas = containerManager
           .getContainerReplicas(container.containerID());
-      LOG.info("container {} {}", id, container);
-      replicas.forEach( v -> LOG.info("replica {}", v));
+      /*LOG.info("container {} {}", id, container);
+      replicas.forEach( v -> LOG.info("replica {}", v));*/
 
       final LifeCycleState state = container.getState();
 
@@ -948,8 +948,8 @@ public class ReplicationManager
                                 final DatanodeDetails datanode,
                                 final boolean force) {
 
-    LOG.info("Sending close container command for container {}" +
-            " to datanode {}.", container, datanode, new IOException());
+    //LOG.info("Sending close container command for container {}" +
+    //        " to datanode {}.", container, datanode, new IOException());
 
     CloseContainerCommand closeContainerCommand =
         new CloseContainerCommand(container.getContainerID(),

@@ -287,7 +287,7 @@ public class AbstractContainerReportHandler {
         .setBytesUsed(replicaProto.getUsed())
         .build();
 
-    LOG.info("update container replica: {}", replica, new IOException());
+    //LOG.info("update container replica: {}", replica, new IOException());
     if (replica.getState().equals(State.DELETED)) {
       containerManager.removeContainerReplica(containerId, replica);
     } else {
