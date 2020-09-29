@@ -60,6 +60,7 @@ import org.apache.hadoop.ozone.common.OzoneChecksumException;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.common.impl.ChunkLayOutVersion;
+import org.apache.hadoop.ozone.container.common.interfaces.VolumeChoosingPolicy;
 import org.apache.hadoop.ozone.container.common.transport.server.ratis.DispatcherContext;
 import org.apache.hadoop.ozone.container.common.transport.server.ratis.DispatcherContext.WriteChunkStage;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
@@ -220,6 +221,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   Table<String, OmKeyInfo> omKeyTable;
   ThreadLocal<BatchOperation> omKeyTableBatchOperation;
 
+  private static VolumeChoosingPolicy volumeChoosingPolicy;
+
   public ContainerGenerator() {
 
   }
@@ -369,6 +372,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     volumeSet = new MutableVolumeSet(datanodeId, clusterId,
         ozoneConfiguration);
+
+    volumeChoosingPolicy = new RoundRobinVolumeChoosingPolicy();
   }
 
   private void initializeSharedChunkForDataNode() throws OzoneChecksumException {
@@ -445,7 +450,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     KeyValueContainer keyValueContainer = new KeyValueContainer(keyValueContainerData, ozoneConfiguration);
 
     try {
-      keyValueContainer.create(volumeSet, new RoundRobinVolumeChoosingPolicy(), scmId);
+      keyValueContainer.create(volumeSet, volumeChoosingPolicy, scmId);
     } catch (StorageContainerException ex) {
       ex.printStackTrace();
     }
