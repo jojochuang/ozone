@@ -119,9 +119,9 @@ public class MetadataStoreBuilder {
     } else if (CONTAINER_DB_TYPE_ROCKSDB.equals(dbType)) {
       org.rocksdb.Options opts;
       // Used cached options if config object passed down is the same
-      if (CACHED_OPTS.containsKey(conf)) {
+      /*if (CACHED_OPTS.containsKey(conf)) {
         opts = CACHED_OPTS.get(conf);
-      } else {
+      } else {*/
         opts = new org.rocksdb.Options();
         if (cacheSize > 0) {
           BlockBasedTableConfig tableConfig = new BlockBasedTableConfig();
@@ -138,9 +138,9 @@ public class MetadataStoreBuilder {
           statistics.setStatsLevel(StatsLevel.valueOf(rocksDbStat));
           opts = opts.setStatistics(statistics);
         }
-      }
+      //}
       opts.setCreateIfMissing(createIfMissing);
-      CACHED_OPTS.put(conf, opts);
+      //CACHED_OPTS.put(conf, opts);
       return new RocksDBStore(dbFile, opts);
     }
     

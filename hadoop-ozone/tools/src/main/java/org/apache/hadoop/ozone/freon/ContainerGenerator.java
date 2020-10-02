@@ -19,13 +19,11 @@ package org.apache.hadoop.ozone.freon;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -81,7 +79,6 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 
 import com.codahale.metrics.Timer;
-import org.apache.commons.lang3.RandomStringUtils;
 
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.PIPELINES;
@@ -140,6 +137,11 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       required = true)
   private static String datanodeId;
 
+  @Option(names = {"--key-id-offset"},
+      description = "offset of the key ID",
+      defaultValue = "0")
+  private long keyIdOffset;
+
   @Option(names = {"--container-id-offset"},
       description = "offset of the container ID",
       defaultValue = "0")
@@ -193,14 +195,15 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   ContainerProtos.ChecksumData checksumDataProtoBuf;
 
   private static OzoneConfiguration ozoneConfiguration;
+  private static OzoneConfiguration ozoneConfigurationCreateDB;
 
   // FIXME: close it when the container is full, right away.
   // Keep 1000 containers open, expire after 1 minute.
   private LoadingCache<Long, KeyValueContainer> containersCache =
       CacheBuilder.newBuilder()
       //.expireAfterAccess(1, TimeUnit.MINUTES)
-          .maximumSize(1000)
-          .removalListener( x -> LOG.info("removing container {} from cache.", x.getKey()))
+          .maximumSize(100)
+          //.removalListener( x -> LOG.info("removing container {} from cache.", x.getKey()))
           .build(new ContainerCreator());
 
   private Timer timer;
@@ -242,7 +245,12 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       initPipelineList();
 
+      // this is use for operations that opens an existing RocksDB db, and which
+      // is not expected to create a new one.
       ozoneConfiguration = createOzoneConfiguration();
+
+      // this is use for operations that may create a new db.
+      ozoneConfigurationCreateDB = createOzoneConfiguration();
 
       if (writeScm) {
         initializeSCM();
@@ -258,7 +266,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
       timer = getMetrics().timer("chunk-generate");
 
-      runTests(this::writeKey);
+      runTests(this::writeContainer);
 
     } finally {
 
@@ -440,14 +448,14 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
   private static KeyValueContainer createContainer(long containerId)
       throws IOException {
-    LOG.info("creating container {}", containerId);
+    //LOG.info("creating container {}", containerId);
     // DN
     ChunkLayOutVersion layoutVersion = ChunkLayOutVersion.getConfiguredVersion(ozoneConfiguration);
     KeyValueContainerData keyValueContainerData =
         new KeyValueContainerData(containerId, layoutVersion, 1_000_000L,
             getPrefix(), datanodeId);
 
-    KeyValueContainer keyValueContainer = new KeyValueContainer(keyValueContainerData, ozoneConfiguration);
+    KeyValueContainer keyValueContainer = new KeyValueContainer(keyValueContainerData, ozoneConfigurationCreateDB);
 
     try {
       keyValueContainer.create(volumeSet, volumeChoosingPolicy, scmId);
@@ -458,10 +466,20 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     return keyValueContainer;
   }
 
-  private void writeKey(long l) throws Exception {
+  private void writeContainer(long l) throws Exception {
     //based on the thread naming convention: pool-1-thread-n
 
-    long containerId = l / blockPerContainer + 1;
+    //long keyId = l + keyIdOffset;
+
+    long containerId = (l + keyIdOffset / blockPerContainer) + 1;
+
+    /*if (writeDatanode) {
+      // if writing for DN, each writeKey() call actually write an entire container
+      // treat keyIdOffset as containerIdOffset
+      keyId = l + (keyIdOffset / blockPerContainer);
+      containerId = keyId;
+    }*/
+
     if (containerId % containerIdOIncrement != containerIdOffset) {
       // Used for generating DN storage.
       // Skip writing key if the corresponding container does not exist
@@ -469,26 +487,35 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       return;
     }
 
-    BlockID blockId = new BlockID(containerId, l);
-    String chunkName = "chunk" + l;
-    ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
-
-
     timer.time(() -> {
       try {
 
         if (writeDatanode) {
           KeyValueContainer container = containersCache.get(containerId);
-          writeChunk(l, container, blockId, chunkInfo);
-          writeContainer(container, blockId, chunkInfo);
+          for (long keyId = containerId * blockPerContainer ;
+               keyId< (containerId + 1) * blockPerContainer; keyId++) {
+            BlockID blockId = new BlockID(containerId, keyId);
+            String chunkName = "chunk" + keyId;
+            ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
+
+            writeChunk(keyId, container, blockId, chunkInfo);
+            writeContainer(container, blockId, chunkInfo);
+          }
         }
 
         if (writeScm) {
-          writeScmData(l, containerId);
+          writeScmData(containerId);
         }
 
         if (writeOm) {
-          writeOmData(l, blockId);
+          for (long keyId = containerId * blockPerContainer ;
+               keyId< (containerId + 1) * blockPerContainer; keyId++) {
+            BlockID blockId = new BlockID(containerId, keyId);
+            //String chunkName = "chunk" + keyId;
+            //ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
+
+            writeOmData(keyId, blockId);
+          }
         }
 
       } catch (StorageContainerException e) {
@@ -542,11 +569,11 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   }
 
 
-  private void writeScmData(long l, long containerId) throws IOException {
+  private void writeScmData(long containerId) throws IOException {
     // SCM
-    if (l % blockPerContainer != 0) {
+    /*if (l % blockPerContainer != 0) {
       return;
-    }
+    }*/
     ContainerInfo containerInfo =
         new ContainerInfo.Builder()
             .setContainerID(containerId)
@@ -562,17 +589,6 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   }
 
   private void writeOmData(long l, BlockID blockId) throws IOException {
-    /*DatanodeDetails dn2 = DatanodeDetails.newBuilder()
-        .setUuid(UUID.nameUUIDFromBytes(datanodeId.getBytes()))
-        .setIpAddress("127.0.0.1")
-        .setHostName("localhost")
-        //.addPort(DatanodeDetails.newPort(Name.RATIS, 9858))
-        .addPort(DatanodeDetails.newPort(Name.STANDALONE, 0))
-        .build();
-
-    List<DatanodeDetails> locations = new ArrayList<>();
-    locations.add(dn2);*/
-
     List<DatanodeDetails> dnDetails =
         getPipelineForContainer(blockId.getContainerID()).getNodes();
 
@@ -680,8 +696,9 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     if (container.getContainerData().getKeyCount() == blockPerContainer) {
       // the container is full. close it.
-      LOG.info("The container {} is full. Close it.",
-          container.getContainerData().getContainerID());
+      //LOG.info("The container {} is full. Close it.",
+      //    container.getContainerData().getContainerID());
+      containersCache.invalidate(container.getContainerData().getContainerID());
       container.close();
     }
   }
