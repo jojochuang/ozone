@@ -109,7 +109,7 @@ import picocli.CommandLine.Option;
 public class ContainerGenerator extends BaseFreonGenerator implements
     Callable<Void> {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(ContainerGenerator.class);
 
   @Option(names = {"-u", "--user-id"},
@@ -222,7 +222,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   private static String bucketName = "bucket1";
 
   Table<String, OmKeyInfo> omKeyTable;
-  ThreadLocal<BatchOperation> omKeyTableBatchOperation;
+  //ThreadLocal<BatchOperation> omKeyTableBatchOperation;
 
   private static VolumeChoosingPolicy volumeChoosingPolicy;
 
@@ -286,12 +286,14 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       if (omDb == null) {
         LOG.warn("OM DB object uninitialized. Skip clean up");
       } else {
-        if (omKeyTableBatchOperation == null) {
-          LOG.warn("omKeyTableBatchOperation uninitialized. Skip commit & cleanup");
-        } else {
-          omDb.commitBatchOperation(omKeyTableBatchOperation.get());
-          omKeyTableBatchOperation.get().close();
-        }
+        omKeyTable.close();
+        //if (omKeyTableBatchOperation == null) {
+        //  LOG.warn("omKeyTableBatchOperation uninitialized. Skip commit & cleanup");
+        //} else {
+          //omDb.commitBatchOperation(omKeyTableBatchOperation.get());
+          //omKeyTableBatchOperation.get().close();
+          //commitAndResetOMKeyTableBatchOperation();
+        //}
 
         omDb.close();
       }
@@ -435,8 +437,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     omDb = dbStoreBuilder.build();
 
-    omKeyTableBatchOperation =
-        ThreadLocal.withInitial(() -> omDb.initBatchOperation());
+    //omKeyTableBatchOperation =
+    //    ThreadLocal.withInitial(() -> omDb.initBatchOperation());
     // initialization: create one bucket and volume in OM.
     if (writeOm) {
       writeOmBucketVolume();
@@ -492,8 +494,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
         if (writeDatanode) {
           KeyValueContainer container = containersCache.get(containerId);
-          for (long keyId = containerId * blockPerContainer ;
-               keyId< (containerId + 1) * blockPerContainer; keyId++) {
+          for (long keyId = (containerId-1) * blockPerContainer ;
+               keyId< (containerId) * blockPerContainer; keyId++) {
             BlockID blockId = new BlockID(containerId, keyId);
             String chunkName = "chunk" + keyId;
             ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
@@ -508,14 +510,16 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         }
 
         if (writeOm) {
-          for (long keyId = containerId * blockPerContainer ;
-               keyId< (containerId + 1) * blockPerContainer; keyId++) {
+          BatchOperation omKeyTableBatchOperation = omDb.initBatchOperation();
+          for (long keyId = (containerId-1) * blockPerContainer ;
+               keyId< (containerId) * blockPerContainer ; keyId++) {
             BlockID blockId = new BlockID(containerId, keyId);
             //String chunkName = "chunk" + keyId;
             //ChunkInfo chunkInfo = new ChunkInfo(chunkName, 0, chunkSize);
 
-            writeOmData(keyId, blockId);
+            writeOmData(keyId, blockId, omKeyTableBatchOperation);
           }
+          commitAndResetOMKeyTableBatchOperation(omKeyTableBatchOperation);
         }
 
       } catch (StorageContainerException e) {
@@ -588,24 +592,17 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     containerStore.put(new ContainerID(containerId), containerInfo);
   }
 
-  private void writeOmData(long l, BlockID blockId) throws IOException {
+  private void writeOmData(long l, BlockID blockId, BatchOperation omKeyTableBatchOperation) throws IOException {
+    Pipeline pipeline = getPipelineForContainer(blockId.getContainerID());
     List<DatanodeDetails> dnDetails =
-        getPipelineForContainer(blockId.getContainerID()).getNodes();
+        pipeline.getNodes();
 
     List<OmKeyLocationInfo> omkl = new ArrayList<>();
     omkl.add(new OmKeyLocationInfo.Builder()
         .setBlockID(blockId)
         .setLength(chunkSize)
         .setOffset(0)
-        .setPipeline(Pipeline.newBuilder()
-            .setId(PipelineID.randomId())
-            //.setType(ReplicationType.RATIS)
-            .setType(ReplicationType.STAND_ALONE)
-            .setFactor(ReplicationFactor.valueOf(replicationFactor))
-            .setState(PipelineState.CLOSED)
-            .setLeaderId(dnDetails.get(0).getUuid())
-            .setNodes(dnDetails)
-            .build())
+        .setPipeline(pipeline)
         .build());
 
     OmKeyLocationInfoGroup infoGroup = new OmKeyLocationInfoGroup(0, omkl);
@@ -621,17 +618,17 @@ public class ContainerGenerator extends BaseFreonGenerator implements
 
     if (l2n == 0 && l3n == 0 && l4n == 0) {
       // create l1 directory
-      addDirectoryKey(level1 + "/");
+      addDirectoryKey(level1 + "/", omKeyTableBatchOperation);
     }
 
     if (l3n == 0 && l4n == 0) {
       // create l2 directory
-      addDirectoryKey(level1 + "/" + level2 + "/");
+      addDirectoryKey(level1 + "/" + level2 + "/", omKeyTableBatchOperation);
     }
 
     if (l4n == 0) {
       // create l3 directory
-      addDirectoryKey(level1 + "/" + level2 + "/" + level3 + "/");
+      addDirectoryKey(level1 + "/" + level2 + "/" + level3 + "/", omKeyTableBatchOperation);
     }
 
     String keyName = "/vol1/bucket1/" + level1 + "/" + level2 + "/" + level3 + "/key" + l;
@@ -649,14 +646,16 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .addOmKeyLocationInfoGroup(infoGroup)
         .build();
 
-    omKeyTable.putWithBatch(omKeyTableBatchOperation.get(), keyName, keyInfo);
+    omKeyTable.putWithBatch(omKeyTableBatchOperation, keyName, keyInfo);
+    //omKeyTable.put(keyName, keyInfo);
+    LOG.debug("Add {} to OM db", keyName);
 
-    if (l % omKeyBatchSize == (omKeyBatchSize-1)) {
+    /*if ((l-0) % omKeyBatchSize == (omKeyBatchSize-1)) {
       commitAndResetOMKeyTableBatchOperation();
-    }
+    }*/
   }
 
-  private void addDirectoryKey(String keyName) throws IOException {
+  private void addDirectoryKey(String keyName, BatchOperation omKeyTableBatchOperation) throws IOException {
     OmKeyInfo l3DirInfo = new Builder()
         .setVolumeName(volumeName)
         .setBucketName(bucketName)
@@ -667,17 +666,23 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         .setReplicationFactor(ReplicationFactor.ONE)
         .setReplicationType(ReplicationType.RATIS)
         .build();
-    omKeyTable.put("/" + volumeName + "/" + bucketName + "/" + keyName, l3DirInfo);
+    //omKeyTable.put("/" + volumeName + "/" + bucketName + "/" + keyName, l3DirInfo);
+    omKeyTable.putWithBatch(omKeyTableBatchOperation, "/" + volumeName + "/" + bucketName + "/" + keyName, l3DirInfo);
+
+    LOG.debug("add {} to {}:{}", keyName, volumeName, bucketName);
   }
 
-  private void commitAndResetOMKeyTableBatchOperation() throws IOException {
-    BatchOperation oldBatchOperation;
-    oldBatchOperation = omKeyTableBatchOperation.get();
+  private void commitAndResetOMKeyTableBatchOperation(BatchOperation omKeyTableBatchOperation) throws IOException {
+    //BatchOperation oldBatchOperation;
+    //oldBatchOperation = omKeyTableBatchOperation;
 
-    omDb.commitBatchOperation(oldBatchOperation);
-    omKeyTableBatchOperation.set(omDb.initBatchOperation());
+    LOG.debug("Commit to OM DB key table");
 
-    oldBatchOperation.close();
+    omDb.commitBatchOperation(omKeyTableBatchOperation);
+    omKeyTableBatchOperation.close();
+    //omKeyTableBatchOperation = omDb.initBatchOperation();
+
+    //oldBatchOperation.close();
   }
 
   private void writeContainer(KeyValueContainer container, BlockID blockId,
