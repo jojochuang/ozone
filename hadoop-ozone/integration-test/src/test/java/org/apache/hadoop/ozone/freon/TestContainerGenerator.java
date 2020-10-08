@@ -49,6 +49,8 @@ public class TestContainerGenerator {
 
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(ContainerGenerator.LOG, Level.DEBUG);
+
     File baseDir = new File(path);
     baseDir.mkdirs();
 
@@ -99,14 +101,14 @@ public class TestContainerGenerator {
             "--cluster-id", "CID-376d737a-d05a-489d-880a-52814d047956",
             "--datanode-id", "b02c60b5-596a-463a-80c3-97ba395ae5e9",
             "--scm-id", "68551182-c2a1-4318-90e8-ad3d26555f9a",
-            "--block-per-container", "10",
+            "--block-per-container", "1000",
             "--size", "1024",
-            "--om-key-batch-size", "10",
+            "--om-key-batch-size", "1000",
             "--write-dn",
             "--write-scm",
             "--write-om",
             "--repl", "1",
-            "-t", "2",
+            "-t", "1",
             "-n", "100"
             });
 
