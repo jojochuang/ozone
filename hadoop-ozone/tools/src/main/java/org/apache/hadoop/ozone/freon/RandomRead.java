@@ -5,6 +5,9 @@ import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.rpc.RpcClient;
+import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
+import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -45,10 +48,24 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
       defaultValue = "bucket1")
   private static String bucketName;
 
+  @CommandLine.Option(names = {"--randomize" },
+      description = "Randomize read or sequential")
+  private static boolean randomize;
+
+  @CommandLine.Option(names = {"--size" },
+      description = "Number of bytes to read in each key. Default: -1 means read till the end of file",
+      defaultValue = "-1")
+  private static int readSize;
+
+  @CommandLine.Option(names = {"--op" },
+      description = "operations to run: read, getfilestatus, lookup, getacl",
+      defaultValue = "read")
+  private static String operation;
+
   static final Random RANDOM = new Random();
 
-
-  private OzoneClient rpcClient;
+  private OzoneClient ozoneClient;
+  private RpcClient rpcClient;
   private Timer timer;
 
   private OzoneBucket bucket;
@@ -57,21 +74,34 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
     init();
     OzoneConfiguration ozoneConfiguration = createOzoneConfiguration();
 
-    rpcClient = createOzoneClient(omServiceID, ozoneConfiguration);
+    try {
+      RpcClient rpcClient = new RpcClient(ozoneConfiguration, omServiceID);
 
-    timer = getMetrics().timer("random-read");
+      ozoneClient = createOzoneClient(omServiceID, ozoneConfiguration);
+      bucket = ozoneClient.getObjectStore().getVolume(volumeName).getBucket(bucketName);
+      timer = getMetrics().timer("random-read");
 
-    bucket = rpcClient.getObjectStore().getVolume(volumeName)
-        .getBucket(bucketName);
+      runTests(this::writeContainer);
 
-    runTests(this::writeContainer);
+    } finally{
+      if (ozoneClient != null) {
+        ozoneClient.close();
+      }
+
+      if (rpcClient != null) {
+        rpcClient.close();
+      }
+
+    }
 
     return null;
   }
 
   private void writeContainer(long n) throws Exception {
-    long l = (RANDOM.nextLong() & 0x0F_FF_FF_FF_FF_FF_FF_FFL) % fileIdRange;
-    long l4n = l % 1_000;
+    // if randomize == true, use a random number, convert to a non-negative
+    // number. Otherwise use n.
+    long l = (randomize?(RANDOM.nextLong() & 0x0F_FF_FF_FF_FF_FF_FF_FFL):(n)) %
+        fileIdRange;
     long l3n = l / 1_000 % 1_000;
     long l2n = l / 1_000_000 % 1_000;
     long l1n = l / 1_000_000_000 % 1_000;
@@ -85,7 +115,19 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
 
     timer.time(() -> {
       try {
-        readKey(keyName);
+        switch (operation) {
+        case "getfilestatus":
+          getFileStatus(keyName);
+          break;
+        case "lookup":
+          lookupFile(keyName);
+        case "getacl":
+          getAcl(keyName);
+        case "read":
+          readKey(keyName);
+          break;
+        }
+
       } catch (Exception e) {
         // ignore whatever errors
         e.printStackTrace();
@@ -93,11 +135,42 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
     });
   }
 
+  private void getFileStatus(String keyName)
+      throws IOException {
+    bucket.getFileStatus(keyName);
+  }
+
+  private void getAcl(String keyName)
+      throws IOException {
+    //bucket.getAcls();
+  }
+
+  private void lookupFile(String keyName)
+      throws IOException {
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setKeyName(keyName)
+        .setSortDatanodesInPipeline(true)
+        .build();
+    OmKeyInfo keyInfo = ozoneManagerClient.lookupFile(keyArgs);
+  }
+
   private void readKey(String keyName)
       throws IOException {
     try (InputStream in = bucket.readKey(keyName)) {
       byte[] bytes = new byte[1048576];
-      while (in.read(bytes) != -1) {}
+      if (readSize == -1) {
+        while (in.read(bytes) != -1) {
+        }
+      } else {
+        int bytesToRead = readSize;
+        while (bytesToRead > 1048576) {
+          in.read(bytes, 0, 1048576);
+          bytesToRead -= 1048576;
+        }
+        in.read(bytes, 0, bytesToRead);
+      }
     }
   }
 }
