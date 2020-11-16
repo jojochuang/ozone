@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -194,6 +195,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   private static OzoneConfiguration ozoneConfiguration;
   private static OzoneConfiguration ozoneConfigurationCreateDB;
 
+
   // FIXME: close it when the container is full, right away.
   // Keep 1000 containers open, expire after 1 minute.
   private LoadingCache<Long, KeyValueContainer> containersCache =
@@ -221,6 +223,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
   Table<String, OmKeyInfo> omKeyTable;
 
   private static VolumeChoosingPolicy volumeChoosingPolicy;
+
+  private static long MAX_CONTAINER_SIZE = 1_000_000L;
 
   public ContainerGenerator() {
 
@@ -373,6 +377,13 @@ public class ContainerGenerator extends BaseFreonGenerator implements
         ozoneConfiguration);
 
     volumeChoosingPolicy = new RoundRobinVolumeChoosingPolicy();
+
+    Random RANDOM = new Random();
+    int randInt = RANDOM.nextInt(volumeSet.getVolumesList().size());
+    for (int i = 0; i < randInt; i++) {
+      volumeChoosingPolicy.chooseVolume(volumeSet.getVolumesList(),
+          MAX_CONTAINER_SIZE);
+    }
   }
 
   private void initializeSharedChunkForDataNode() throws OzoneChecksumException {
@@ -439,7 +450,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     // DN
     ChunkLayOutVersion layoutVersion = ChunkLayOutVersion.getConfiguredVersion(ozoneConfiguration);
     KeyValueContainerData keyValueContainerData =
-        new KeyValueContainerData(containerId, layoutVersion, 1_000_000L,
+        new KeyValueContainerData(containerId, layoutVersion,
+            MAX_CONTAINER_SIZE,
             getPrefix(), datanodeId);
 
     KeyValueContainer keyValueContainer = new KeyValueContainer(keyValueContainerData, ozoneConfigurationCreateDB);

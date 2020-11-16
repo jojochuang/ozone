@@ -8,6 +8,8 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.rpc.RpcClient;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.ozone.security.acl.OzoneObjInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -75,7 +77,7 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
     OzoneConfiguration ozoneConfiguration = createOzoneConfiguration();
 
     try {
-      RpcClient rpcClient = new RpcClient(ozoneConfiguration, omServiceID);
+      rpcClient = new RpcClient(ozoneConfiguration, omServiceID);
 
       ozoneClient = createOzoneClient(omServiceID, ozoneConfiguration);
       bucket = ozoneClient.getObjectStore().getVolume(volumeName).getBucket(bucketName);
@@ -119,10 +121,19 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
         case "getfilestatus":
           getFileStatus(keyName);
           break;
+        case "liststatus":
+          String dirName = level1 + "/" + level2 + "/" + level3;
+          getListStatus(dirName);
+          break;
         case "lookup":
           lookupFile(keyName);
+          break;
+        case "lookupkey":
+          lookupKey(keyName);
+          break;
         case "getacl":
           getAcl(keyName);
+          break;
         case "read":
           readKey(keyName);
           break;
@@ -135,6 +146,27 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
     });
   }
 
+  // lookupKey
+  // listAllVolumes
+  // listVolumeByUser
+  // listStatus
+  // listKeys
+  // listBuckets
+  // getVolumeInfo
+  // checkVolumeAccess
+
+  // TODO: openKey
+
+  private void getListStatus(String dirName) throws IOException {
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setKeyName(dirName)
+        .setSortDatanodesInPipeline(true)
+        .build();
+    rpcClient.getOzoneManagerClient().listStatus(keyArgs, true, "", 1000);
+  }
+
   private void getFileStatus(String keyName)
       throws IOException {
     bucket.getFileStatus(keyName);
@@ -143,6 +175,13 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
   private void getAcl(String keyName)
       throws IOException {
     //bucket.getAcls();
+    OzoneObj ozoneObj = OzoneObjInfo.Builder.newBuilder()
+        .setResType(OzoneObj.ResourceType.KEY)
+        .setStoreType(OzoneObj.StoreType.OZONE)
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setKeyName(keyName).build();
+    rpcClient.getOzoneManagerClient().getAcl(ozoneObj);
   }
 
   private void lookupFile(String keyName)
@@ -153,7 +192,18 @@ public class RandomRead  extends BaseFreonGenerator implements Callable<Void> {
         .setKeyName(keyName)
         .setSortDatanodesInPipeline(true)
         .build();
-    OmKeyInfo keyInfo = ozoneManagerClient.lookupFile(keyArgs);
+    OmKeyInfo keyInfo = rpcClient.getOzoneManagerClient().lookupFile(keyArgs);
+  }
+
+  private void lookupKey(String keyName)
+      throws IOException {
+    OmKeyArgs keyArgs = new OmKeyArgs.Builder()
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setKeyName(keyName)
+        .setSortDatanodesInPipeline(true)
+        .build();
+    OmKeyInfo keyInfo = rpcClient.getOzoneManagerClient().lookupKey(keyArgs);
   }
 
   private void readKey(String keyName)
