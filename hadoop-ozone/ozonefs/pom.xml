@@ -19,12 +19,12 @@
   <parent>
     <groupId>org.apache.hadoop</groupId>
     <artifactId>hadoop-ozone</artifactId>
-    <version>1.0.0.7.1.5.0-258</version>
+    <version>1.0.0.7.1.6.0-SNAPSHOT</version>
   </parent>
   <artifactId>hadoop-ozone-filesystem</artifactId>
   <name>Apache Hadoop Ozone FileSystem</name>
   <packaging>jar</packaging>
-  <version>1.0.0.7.1.5.0-258</version>
+  <version>1.0.0.7.1.6.0-SNAPSHOT</version>
   <properties>
     <file.encoding>UTF-8</file.encoding>
     <downloadSources>true</downloadSources>
