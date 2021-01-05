@@ -605,10 +605,18 @@ public final class XceiverServerRatis implements XceiverServerSpi {
   private RaftClientRequest createRaftClientRequest(
       ContainerCommandRequestProto request, HddsProtos.PipelineID pipelineID,
       RaftClientRequest.Type type) {
-    return new RaftClientRequest(clientId, server.getId(),
-        RaftGroupId.valueOf(PipelineID.getFromProtobuf(pipelineID).getId()),
-        nextCallId(), ContainerCommandRequestMessage.toMessage(request, null),
-        type, null);
+    RaftClientRequest.Builder builder = RaftClientRequest.newBuilder();
+
+    return builder
+        .setClientId(clientId)
+        .setServerId(server.getId())
+        .setGroupId(RaftGroupId.valueOf(PipelineID.getFromProtobuf(pipelineID).getId()))
+        .setCallId(nextCallId())
+        .setMessage(ContainerCommandRequestMessage.toMessage(request, null))
+        .setType(type)
+        .setSlidingWindowEntry(null).build();
+        /*.setRoutingTable()
+        .setTimeoutMs()*/
   }
 
   private GroupInfoRequest createGroupInfoRequest(

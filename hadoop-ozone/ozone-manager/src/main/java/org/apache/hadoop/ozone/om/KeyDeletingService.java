@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,6 +29,7 @@ import com.google.protobuf.ServiceException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocol;
+import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.common.DeleteBlockGroupResult;
 import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
@@ -282,11 +284,16 @@ public class KeyDeletingService extends BackgroundService {
 
   private RaftClientRequest createRaftClientRequestForPurge(
       OMRequest omRequest) {
-    return new RaftClientRequest(clientId,
-        ozoneManager.getOmRatisServer().getRaftPeerId(),
-        ozoneManager.getOmRatisServer().getRaftGroupId(), runCount.get(),
-        Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)),
-        RaftClientRequest.writeRequestType(), null);
+    RaftClientRequest.Builder builder = RaftClientRequest.newBuilder();
+
+    return builder
+        .setClientId(clientId)
+        .setServerId(ozoneManager.getOmRatisServer().getRaftPeerId())
+        .setGroupId(ozoneManager.getOmRatisServer().getRaftGroupId())
+        .setCallId(runCount.get())
+        .setMessage(Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)))
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(null).build();
   }
 
   /**

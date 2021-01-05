@@ -148,11 +148,16 @@ public final class OzoneManagerRatisServer {
   private RaftClientRequest createWriteRaftClientRequest(OMRequest omRequest) {
     Preconditions.checkArgument(Server.getClientId() != DUMMY_CLIENT_ID);
     Preconditions.checkArgument(Server.getCallId() != INVALID_CALL_ID);
-    return new RaftClientRequest(
-        ClientId.valueOf(UUID.nameUUIDFromBytes(Server.getClientId())),
-        server.getId(), raftGroupId, Server.getCallId(),
-        Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)),
-        RaftClientRequest.writeRequestType(), null);
+    RaftClientRequest.Builder builder = RaftClientRequest.newBuilder();
+
+    return builder
+        .setClientId(ClientId.valueOf(UUID.nameUUIDFromBytes(Server.getClientId())))
+        .setServerId(server.getId())
+        .setGroupId(raftGroupId)
+        .setCallId(Server.getCallId())
+        .setMessage(Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)))
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(null).build();
   }
 
   /**

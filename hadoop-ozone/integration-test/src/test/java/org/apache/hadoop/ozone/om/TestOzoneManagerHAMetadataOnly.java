@@ -65,7 +65,7 @@ import java.util.UUID;
 import static org.apache.hadoop.ozone.MiniOzoneHAClusterImpl.NODE_FAILURE_TIMEOUT;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_WAIT_BETWEEN_RETRIES_MILLIS_DEFAULT;
 
-import static org.apache.ratis.server.metrics.RaftLogMetrics.RATIS_APPLICATION_NAME_METRICS;
+import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 import static org.junit.Assert.fail;
 
 /**
@@ -394,12 +394,19 @@ public class TestOzoneManagerHAMetadataOnly extends TestOzoneManagerHA {
                 .build()).setClientId(UUID.randomUUID().toString())
             .setCmdType(OzoneManagerProtocolProtos.Type.CreateVolume).build();
 
+    RaftClientRequest.Builder builder = RaftClientRequest.newBuilder();
+
+    RaftClientRequest raftClientRequest = builder
+        .setClientId(clientId)
+        .setServerId(raftServer.getId())
+        .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+        .setCallId(callId)
+        .setMessage(Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)))
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(null).build();
+
     RaftClientReply raftClientReply =
-        raftServer.submitClientRequest(new RaftClientRequest(clientId,
-         raftServer.getId(), ozoneManagerRatisServer.getRaftGroup()
-         .getGroupId(), callId,
-        Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)),
-        RaftClientRequest.writeRequestType(), null));
+        raftServer.submitClientRequest(raftClientRequest);
 
     Assert.assertTrue(raftClientReply.isSuccess());
 
@@ -408,12 +415,20 @@ public class TestOzoneManagerHAMetadataOnly extends TestOzoneManagerHA {
 
     logCapturer.clearOutput();
 
+
+    builder = RaftClientRequest.newBuilder();
+
+    raftClientRequest = builder
+        .setClientId(clientId)
+        .setServerId(raftServer.getId())
+        .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+        .setCallId(callId)
+        .setMessage(Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)))
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(null).build();
+
     raftClientReply =
-        raftServer.submitClientRequest(new RaftClientRequest(clientId,
-            raftServer.getId(), ozoneManagerRatisServer.getRaftGroup()
-            .getGroupId(), callId, Message.valueOf(
-                OMRatisHelper.convertRequestToByteString(omRequest)),
-            RaftClientRequest.writeRequestType(), null));
+        raftServer.submitClientRequest(raftClientRequest);
 
     Assert.assertTrue(raftClientReply.isSuccess());
 
@@ -427,12 +442,19 @@ public class TestOzoneManagerHAMetadataOnly extends TestOzoneManagerHA {
     //Sleep for little above retry cache duration to get cache clear.
     Thread.sleep(getRetryCacheDuration().toMillis() + 5000);
 
+    builder = RaftClientRequest.newBuilder();
+
+    raftClientRequest = builder
+        .setClientId(clientId)
+        .setServerId(raftServer.getId())
+        .setGroupId(ozoneManagerRatisServer.getRaftGroup().getGroupId())
+        .setCallId(callId)
+        .setMessage(Message.valueOf(OMRatisHelper.convertRequestToByteString(omRequest)))
+        .setType(RaftClientRequest.writeRequestType())
+        .setSlidingWindowEntry(null).build();
+
     raftClientReply =
-        raftServer.submitClientRequest(new RaftClientRequest(clientId,
-            raftServer.getId(), ozoneManagerRatisServer.getRaftGroup()
-            .getGroupId(), callId, Message.valueOf(
-            OMRatisHelper.convertRequestToByteString(omRequest)),
-            RaftClientRequest.writeRequestType(), null));
+        raftServer.submitClientRequest(raftClientRequest);
 
     Assert.assertTrue(raftClientReply.isSuccess());
 
