@@ -9,7 +9,6 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.junit.After;
 import org.junit.Before;
@@ -48,7 +47,7 @@ public class TestContainerGenerator {
     FileUtils.deleteDirectory(new File(path));
 
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     //GenericTestUtils.setLogLevel(ContainerGenerator.LOG, Level.DEBUG);
 
     File baseDir = new File(path);

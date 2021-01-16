@@ -40,6 +40,7 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChecksumTy
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
@@ -84,8 +85,6 @@ import com.codahale.metrics.Timer;
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.CONTAINERS;
 import static org.apache.hadoop.hdds.scm.metadata.SCMDBDefinition.PIPELINES;
 import static org.apache.hadoop.ozone.OzoneAcl.AclScope.ACCESS;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT;
-import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT_BYTES;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
 
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
@@ -184,6 +183,8 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       defaultValue = "3")
   private int replicationFactor;
 
+  private OzoneClientConfig config;
+
   private ChunkManager chunkManager;
 
   private static List<Pipeline> pipelines;
@@ -248,6 +249,9 @@ public class ContainerGenerator extends BaseFreonGenerator implements
       // this is use for operations that opens an existing RocksDB db, and which
       // is not expected to create a new one.
       ozoneConfiguration = createOzoneConfiguration();
+
+      config = new OzoneClientConfig();
+
 
       // this is use for operations that may create a new db.
       ozoneConfigurationCreateDB = createOzoneConfiguration();
@@ -396,8 +400,7 @@ public class ContainerGenerator extends BaseFreonGenerator implements
     // Use CRC32, 1024x1024 bytes per checksum
 
     Checksum checksum = new Checksum(ChecksumType.CRC32,
-        ozoneConfiguration.getInt(OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT,
-            OZONE_CLIENT_BYTES_PER_CHECKSUM_DEFAULT_BYTES));
+            config.getBytesPerChecksum());
     checksumData = checksum.computeChecksum(byteBuffer);
     checksumDataProtoBuf = checksumData.getProtoBufMessage();
   }
