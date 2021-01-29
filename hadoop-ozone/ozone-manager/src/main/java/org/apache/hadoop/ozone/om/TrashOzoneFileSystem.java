@@ -35,6 +35,8 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
+import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
+import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.om.helpers.OMRatisHelper;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -68,15 +70,15 @@ public class TrashOzoneFileSystem extends FileSystem {
 
   private static final int OZONE_FS_ITERATE_BATCH_SIZE = 100;
 
-  private OzoneManager ozoneManager;
+  private final OzoneManager ozoneManager;
 
-  private String userName;
+  private final String userName;
 
   private String ofsPathPrefix;
 
   private final AtomicLong runCount;
 
-  private static ClientId clientId = ClientId.randomId();
+  private final static ClientId CLIENT_ID = ClientId.randomId();
 
   private static final Logger LOG =
       LoggerFactory.getLogger(TrashOzoneFileSystem.class);
@@ -90,7 +92,7 @@ public class TrashOzoneFileSystem extends FileSystem {
 
   private RaftClientRequest getRatisRequest(
       OzoneManagerProtocolProtos.OMRequest omRequest) {
-    return new RaftClientRequest(clientId,
+    return new RaftClientRequest(CLIENT_ID,
         ozoneManager.getOmRatisServer().getRaftPeerId(),
         ozoneManager.getOmRatisServer().getRaftGroupId(),
         runCount.getAndIncrement(),
@@ -101,6 +103,9 @@ public class TrashOzoneFileSystem extends FileSystem {
   private void submitRequest(OzoneManagerProtocolProtos.OMRequest omRequest)
       throws Exception {
     if (ozoneManager.isRatisEnabled()) {
+      OMClientRequest omClientRequest =
+          OzoneManagerRatisUtils.createClientRequest(omRequest);
+      omRequest = omClientRequest.preExecute(ozoneManager);
       RaftClientRequest req = getRatisRequest(omRequest);
       ozoneManager.getOmRatisServer().submitRequest(omRequest, req);
     } else {
@@ -411,7 +416,7 @@ public class TrashOzoneFileSystem extends FileSystem {
               .build();
       OzoneManagerProtocolProtos.OMRequest omRequest =
           OzoneManagerProtocolProtos.OMRequest.newBuilder()
-              .setClientId(clientId.toString())
+              .setClientId(CLIENT_ID.toString())
               .setRenameKeyRequest(renameKeyRequest)
               .setCmdType(OzoneManagerProtocolProtos.Type.RenameKey)
               .build();
@@ -421,12 +426,14 @@ public class TrashOzoneFileSystem extends FileSystem {
 
   private class DeleteIterator extends OzoneListingIterator {
     final private boolean recursive;
+    private List<String> keysList;
 
 
     DeleteIterator(Path f, boolean recursive)
         throws IOException {
       super(f);
       this.recursive = recursive;
+      keysList = new ArrayList<>();
       if (getStatus().isDirectory()
           && !this.recursive
           && listStatus(f).length != 0) {
@@ -456,22 +463,23 @@ public class TrashOzoneFileSystem extends FileSystem {
       String volumeName = keyPath.getVolumeName();
       String bucketName = keyPath.getBucketName();
       String keyName = keyPath.getKeyName();
-
-      OzoneManagerProtocolProtos.KeyArgs keyArgs =
-          OzoneManagerProtocolProtos.KeyArgs.newBuilder()
-              .setKeyName(keyName)
-              .setVolumeName(volumeName)
+      keysList.clear();
+      // Keys List will have only 1 entry.
+      keysList.add(keyName);
+      OzoneManagerProtocolProtos.DeleteKeyArgs.Builder deleteKeyArgs =
+          OzoneManagerProtocolProtos.DeleteKeyArgs.newBuilder()
               .setBucketName(bucketName)
-              .build();
-      OzoneManagerProtocolProtos.DeleteKeyRequest deleteKeyRequest =
-          OzoneManagerProtocolProtos.DeleteKeyRequest.newBuilder()
-              .setKeyArgs(keyArgs)
+              .setVolumeName(volumeName);
+      deleteKeyArgs.addAllKeys(keysList);
+      OzoneManagerProtocolProtos.DeleteKeysRequest deleteKeysRequest =
+          OzoneManagerProtocolProtos.DeleteKeysRequest.newBuilder()
+              .setDeleteKeys(deleteKeyArgs)
               .build();
       OzoneManagerProtocolProtos.OMRequest omRequest =
           OzoneManagerProtocolProtos.OMRequest.newBuilder()
-              .setClientId(clientId.toString())
-              .setDeleteKeyRequest(deleteKeyRequest)
-              .setCmdType(OzoneManagerProtocolProtos.Type.DeleteKey)
+              .setClientId(CLIENT_ID.toString())
+              .setDeleteKeysRequest(deleteKeysRequest)
+              .setCmdType(OzoneManagerProtocolProtos.Type.DeleteKeys)
               .build();
       return omRequest;
     }
