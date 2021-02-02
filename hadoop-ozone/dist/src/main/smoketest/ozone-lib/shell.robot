@@ -31,7 +31,7 @@ Compare Key With Local File
     [arguments]    ${key}    ${file}
     ${postfix} =   Generate Random String  5  [NUMBERS]
     ${tmpfile} =   Set Variable    /tmp/tempkey-${postfix}
-    Execute        ozone sh key get -f ${key} ${tmpfile}
+    Execute        ozone sh key get ${key} ${tmpfile}
     ${rc} =        Run And Return Rc    diff -q ${file} ${tmpfile}
     Execute        rm -f ${tmpfile}
     ${result} =    Set Variable If    ${rc} == 0    ${TRUE}   ${FALSE}
@@ -51,3 +51,9 @@ Create Random Volume
     ${random} =    Generate Random String  5  [LOWER]
     Execute        ozone sh volume create o3://${OM_SERVICE_ID}/vol-${random}
     [return]       vol-${random}
+
+Create Key
+    [arguments]    ${key}    ${file}
+    ${output} =    Execute          ozone sh key put ${key} ${file}
+                   Should not contain  ${output}       Failed
+    Log            Uploaded ${file} to ${key}
