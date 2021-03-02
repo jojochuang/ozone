@@ -45,10 +45,14 @@ import com.google.common.base.Preconditions;
 import io.opentracing.Scope;
 import io.opentracing.Span;
 import io.opentracing.util.GlobalTracer;
+import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
+import org.apache.ratis.thirdparty.io.grpc.BindableService;
 import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.EpollEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,6 +110,17 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
         LOG.error("Unable to setup TLS for secure datanode GRPC endpoint.", ex);
       }
     }
+
+    final int numberOfDisks =
+        MutableVolumeSet.getDatanodeStorageDirs(conf).size();
+
+    final int readerThreadPoolSize =
+        conf.getInt(OzoneConfigKeys.DFS_CONTAINER_READER_THREADPOOL_SIZE,
+            numberOfDisks);
+    EventLoopGroup workerEventLoopGroup =
+        new EpollEventLoopGroup(readerThreadPoolSize);
+    nettyServerBuilder.workerEventLoopGroup(workerEventLoopGroup);
+
     server = nettyServerBuilder.build();
     storageContainer = dispatcher;
   }

@@ -77,6 +77,9 @@ public final class OzoneConfigKeys {
       "dfs.container.ratis.server.port";
   public static final int DFS_CONTAINER_RATIS_SERVER_PORT_DEFAULT = 9856;
 
+  public static final String DFS_CONTAINER_READER_THREADPOOL_SIZE =
+      "dfs.container.reader.threadpool.size";
+
   /**
    * When set to true, allocate a random free port for ozone container, so that
    * a mini cluster is able to launch multiple containers on a node.
