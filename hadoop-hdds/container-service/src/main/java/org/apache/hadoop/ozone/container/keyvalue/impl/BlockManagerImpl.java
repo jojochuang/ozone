@@ -308,6 +308,7 @@ public class BlockManagerImpl implements BlockManager {
             container.getContainerData().getContainerID());
         for (Table.KeyValue<String, BlockData> entry: range) {
           BlockData data = new BlockData(entry.getValue().getBlockID());
+          data.setChunks(entry.getValue().getChunks());
           result.add(data);
         }
         return result;

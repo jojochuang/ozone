@@ -30,18 +30,21 @@ import org.apache.hadoop.ozone.container.common.helpers.ChunkInfoList;
 import org.apache.hadoop.ozone.container.common.interfaces.BlockIterator;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
+import org.rocksdb.Cache;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.LRUCache;
 import org.rocksdb.RocksDB;
 import org.rocksdb.Statistics;
 import org.rocksdb.StatsLevel;
+import org.rocksdb.WriteBufferManager;
 import org.rocksdb.util.SizeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -121,6 +124,15 @@ public abstract class AbstractDatanodeStore implements DatanodeStore {
         options.setStatistics(statistics);
       }
 
+      /*// Set write buffer size to 256 MB.
+      final long writeBufferCacheSize =
+          BigDecimal.valueOf(
+              org.apache.hadoop.conf.StorageUnit.MB.toBytes(256.00)).longValue();
+
+      Cache cache = new LRUCache(writeBufferCacheSize);
+      WriteBufferManager writeBufferManager = new WriteBufferManager(0, cache);
+      options.setDbWriteBufferSize()*/
+      // TODO: options.setMaxWriteBufferNumber()?
       this.store = DBStoreBuilder.newBuilder(config, dbDef)
               .setDBOptions(options)
               .setDefaultCFOptions(cfOptions)

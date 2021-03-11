@@ -42,6 +42,7 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.concurrent.Callable;
 
 /**
@@ -86,70 +87,91 @@ public class ListBlock  extends BaseFreonGenerator
 
   private XceiverClientSpi xceiverClientSpi;
 
+  private OzoneConfiguration ozoneConf;
+
+  private List<ContainerInfo> containers;
+
+  private ListIterator<ContainerInfo> containerInfoListIterator;
+
+  private StorageContainerLocationProtocol scmLocationClient;
+
+  private XceiverClientManager xceiverClientManager;
 
   @Override
   public Void call() throws Exception {
 
     init();
 
-    OzoneConfiguration ozoneConf = createOzoneConfiguration();
+    ozoneConf = createOzoneConfiguration();
     if (OzoneSecurityUtil.isSecurityEnabled(ozoneConf)) {
       throw new IllegalArgumentException(
-          "Block listing is not supported in secure environment"
-      );
+          "Block listing is not supported in secure environment");
     }
 
     if (Strings.isNullOrEmpty(datanodeId)) {
       throw new IOException("DatanodeID is not provided");
     }
 
-    int containersListed = 0;
-    int containersPerCall = 10000;
-    while (containersListed < numContainers) {
-      try (
-          StorageContainerLocationProtocol scmLocationClient = createStorageContainerLocationClient(
-              ozoneConf)) {
-        List<ContainerInfo> containers =
-            scmLocationClient.listContainer(startContainerId, startContainerId + containersPerCall);
-        LOG.info("{}", String.format("Received %d containers from SCM", containers.size()));
-        System.out.println(String.format("Received %d containers from SCM", containers.size()));
-        if (containers.isEmpty()) {
-          LOG.info("No more containers found, totally listed " + containersListed);
-          System.out.println("No more containers found, totally listed " + containersListed);
-          break;
-        }
-        for (ContainerInfo containerInfo : containers) {
-          ContainerWithPipeline containerWithPipeline = scmLocationClient
-              .getContainerWithPipeline(containerInfo.getContainerID());
-          LOG.info("{}", String
-              .format("Received pipeline info %s for container %s",
-                  containerWithPipeline, containerInfo));
-          System.out.println(String
-              .format("Received pipeline info %s for container %s",
-                  containerWithPipeline, containerInfo));
-          for (DatanodeDetails datanodeDetails : containerWithPipeline
-              .getPipeline().getNodes()) {
-            if (datanodeId.equals(datanodeDetails.getUuid().toString())) {
-              containersListed++;
-              listBlocks(containerWithPipeline, datanodeDetails, ozoneConf);
-              break;
-            }
-          }
-          if (containersListed == numContainers) {
-            break;
-          }
-        }
-        startContainerId += containersPerCall;
-      }
+    getContainerList();
+
+    runTests(this::listContainerBlocks);
+
+    scmLocationClient.close();
+    xceiverClientManager.close();
+
+    return null;
+  }
+
+  private synchronized ContainerInfo getNextContainer() {
+    if (containerInfoListIterator.hasNext()) {
+      return containerInfoListIterator.next();
     }
     return null;
   }
 
+  private void getContainerList() throws IOException {
+      scmLocationClient =
+        createStorageContainerLocationClient(ozoneConf);
+      containers =
+          scmLocationClient.listContainer(startContainerId, numContainers);
+      containerInfoListIterator = containers.listIterator();
+      LOG.info("{}", String.format("Received %d containers from SCM", containers.size()));
+      //System.out.println(String.format("Received %d containers from SCM", containers.size()));
+      if (containers.isEmpty()) {
+        LOG.info("No containers found");
+        return;
+      }
+
+    xceiverClientManager = new XceiverClientManager(ozoneConf);
+  }
+
+  private void listContainerBlocks(long counter) throws IOException {
+    // each of this call looks at a container
+    ContainerInfo containerInfo = getNextContainer();
+    if (containerInfo == null) {
+      //LOG.info("no more containers. Exit");
+      return;
+    }
+    ContainerWithPipeline containerWithPipeline = scmLocationClient
+        .getContainerWithPipeline(containerInfo.getContainerID());
+    LOG.info("{}", String
+        .format("Received pipeline info %s for container %s",
+            containerWithPipeline, containerInfo));
+        /*System.out.println(String
+            .format("Received pipeline info %s for container %s",
+                containerWithPipeline, containerInfo));*/
+    for (DatanodeDetails datanodeDetails : containerWithPipeline
+        .getPipeline().getNodes()) {
+      if (datanodeId.equals(datanodeDetails.getUuid().toString())) {
+        listBlocks(containerWithPipeline, datanodeDetails);
+        break;
+      }
+    }
+  }
+
   // list blocks of a given DN
   private void listBlocks(ContainerWithPipeline containerWithPipeline,
-      DatanodeDetails datanodeDetails, OzoneConfiguration ozoneConf) throws IOException {
-    try (XceiverClientManager xceiverClientManager = new XceiverClientManager(
-        ozoneConf)) {
+      DatanodeDetails datanodeDetails) throws IOException {
       Pipeline pipeine = Pipeline.newBuilder(containerWithPipeline.getPipeline())
           .setNodes(Collections.singletonList(datanodeDetails))
           .setId(PipelineID.randomId())
@@ -173,25 +195,25 @@ public class ListBlock  extends BaseFreonGenerator
       ContainerProtos.ListBlockResponseProto listBlockResponseProto =
           xceiverClientSpi.sendCommand(ccrp).getListBlock();
 
-      BlockReader reader = new BlockReader(pipeine, verifyChecksum);
+      xceiverClientManager.releaseClientForReadData(xceiverClientSpi, false);
+
+      BlockReader reader = new BlockReader(pipeine, verifyChecksum, xceiverClientManager);
       for (ContainerProtos.BlockData blockData : listBlockResponseProto.getBlockDataList()) {
         reader.readBlock(blockData);
       }
-    } finally {
-      if (xceiverClientSpi != null) {
-        xceiverClientSpi.close();
-      }
-    }
   }
 
   static private class BlockReader {
     private Pipeline pipeline;
     private boolean verifyChecksum;
     private byte[] buf;
+    private XceiverClientManager xceiverClientManager;
 
-    public BlockReader(Pipeline pipeline, boolean verifyChecksum) {
+    public BlockReader(Pipeline pipeline, boolean verifyChecksum, XceiverClientManager xceiverClientManager) {
       this.pipeline = pipeline;
       this.verifyChecksum = verifyChecksum;
+      this.xceiverClientManager = xceiverClientManager;
+
       buf = new byte[1024*1024];
     }
     private void readBlock(ContainerProtos.BlockData blockData)
@@ -201,17 +223,14 @@ public class ListBlock  extends BaseFreonGenerator
           datanodeBlockID.getContainerID(),
           datanodeBlockID.getLocalID());
 
-      LOG.info("{}", String.format("Block %s:%s chunksCount:%s",
+      LOG.info("Block {}:{} chunksCount:{}",
           blockID.getContainerID(),
-          blockID.getLocalID(), blockData.getChunksCount()));
-      //System.out.println(String.format("Block %s:%s chunksCount:%s",
-      //    blockID.getContainerID(),
-      //    blockID.getLocalID(), blockData.getChunksCount()));
+          blockID.getLocalID(), blockData.getChunksCount());
 
       List<ContainerProtos.ChunkInfo> chunks = blockData.getChunksList();
       if (chunks != null && !chunks.isEmpty()) {
         for (ContainerProtos.ChunkInfo chunkInfo : chunks) {
-          this.readChunk(chunkInfo, blockID);
+          readChunk(chunkInfo, blockID);
         }
       }
     }
@@ -219,7 +238,8 @@ public class ListBlock  extends BaseFreonGenerator
     private void readChunk(ContainerProtos.ChunkInfo chunkInfo,
         BlockID blockID) throws IOException {
       // read chunks sequentially
-      try (ChunkInputStream is = new ChunkInputStream(chunkInfo, blockID, null,
+      LOG.info("reading {} bytes of chunk {} of block {}", chunkInfo.getLen(), chunkInfo.getChunkName(), blockID);
+      try (ChunkInputStream is = new ChunkInputStream(chunkInfo, blockID, xceiverClientManager,
           () -> pipeline, verifyChecksum, null)) {
 
         while (is.read(buf) != -1) {
