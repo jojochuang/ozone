@@ -20,6 +20,8 @@ package org.apache.hadoop.ozone.freon;
 
 import com.google.common.base.Strings;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
+import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -31,6 +33,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.protocol.StorageContainerLocationProtocol;
+import org.apache.hadoop.hdds.scm.storage.ChunkInputStream;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +78,11 @@ public class ListBlock  extends BaseFreonGenerator
       description = "ContainerId to list from",
       defaultValue = "0")
   private int startContainerId;
+
+  @CommandLine.Option(names = {"-v", "--verifyChecksum"},
+      description = "whether to verify checksum when reading or not",
+      defaultValue = "false")
+  private boolean verifyChecksum;
 
   private XceiverClientSpi xceiverClientSpi;
 
@@ -137,17 +145,18 @@ public class ListBlock  extends BaseFreonGenerator
     return null;
   }
 
+  // list blocks of a given DN
   private void listBlocks(ContainerWithPipeline containerWithPipeline,
       DatanodeDetails datanodeDetails, OzoneConfiguration ozoneConf) throws IOException {
     try (XceiverClientManager xceiverClientManager = new XceiverClientManager(
         ozoneConf)) {
-      xceiverClientSpi = xceiverClientManager.acquireClientForReadData(
-          Pipeline.newBuilder(containerWithPipeline.getPipeline())
-              .setNodes(Collections.singletonList(datanodeDetails))
-              .setId(PipelineID.randomId())
-              .setFactor(HddsProtos.ReplicationFactor.ONE)
-              .setType(HddsProtos.ReplicationType.STAND_ALONE)
-              .build());
+      Pipeline pipeine = Pipeline.newBuilder(containerWithPipeline.getPipeline())
+          .setNodes(Collections.singletonList(datanodeDetails))
+          .setId(PipelineID.randomId())
+          .setFactor(HddsProtos.ReplicationFactor.ONE)
+          .setType(HddsProtos.ReplicationType.STAND_ALONE)
+          .build();
+      xceiverClientSpi = xceiverClientManager.acquireClientForReadData(pipeine);
       ContainerProtos.ListBlockRequestProto lbrp =
           ContainerProtos.ListBlockRequestProto.newBuilder()
               .setStartLocalID(0)
@@ -163,13 +172,10 @@ public class ListBlock  extends BaseFreonGenerator
               .build();
       ContainerProtos.ListBlockResponseProto listBlockResponseProto =
           xceiverClientSpi.sendCommand(ccrp).getListBlock();
+
+      BlockReader reader = new BlockReader(pipeine, verifyChecksum);
       for (ContainerProtos.BlockData blockData : listBlockResponseProto.getBlockDataList()) {
-        LOG.info("{}", String.format("Block %s:%s chunksCount:%s",
-            blockData.getBlockID().getContainerID(),
-            blockData.getBlockID().getLocalID(), blockData.getChunksCount()));
-        System.out.println(String.format("Block %s:%s chunksCount:%s",
-            blockData.getBlockID().getContainerID(),
-            blockData.getBlockID().getLocalID(), blockData.getChunksCount()));
+        reader.readBlock(blockData);
       }
     } finally {
       if (xceiverClientSpi != null) {
@@ -177,5 +183,52 @@ public class ListBlock  extends BaseFreonGenerator
       }
     }
   }
+
+  static private class BlockReader {
+    private Pipeline pipeline;
+    private boolean verifyChecksum;
+    private byte[] buf;
+
+    public BlockReader(Pipeline pipeline, boolean verifyChecksum) {
+      this.pipeline = pipeline;
+      this.verifyChecksum = verifyChecksum;
+      buf = new byte[1024*1024];
+    }
+    private void readBlock(ContainerProtos.BlockData blockData)
+        throws IOException {
+      ContainerProtos.DatanodeBlockID datanodeBlockID = blockData.getBlockID();
+      BlockID blockID = new BlockID(
+          datanodeBlockID.getContainerID(),
+          datanodeBlockID.getLocalID());
+
+      LOG.info("{}", String.format("Block %s:%s chunksCount:%s",
+          blockID.getContainerID(),
+          blockID.getLocalID(), blockData.getChunksCount()));
+      //System.out.println(String.format("Block %s:%s chunksCount:%s",
+      //    blockID.getContainerID(),
+      //    blockID.getLocalID(), blockData.getChunksCount()));
+
+      List<ContainerProtos.ChunkInfo> chunks = blockData.getChunksList();
+      if (chunks != null && !chunks.isEmpty()) {
+        for (ContainerProtos.ChunkInfo chunkInfo : chunks) {
+          this.readChunk(chunkInfo, blockID);
+        }
+      }
+    }
+
+    private void readChunk(ContainerProtos.ChunkInfo chunkInfo,
+        BlockID blockID) throws IOException {
+      // read chunks sequentially
+      try (ChunkInputStream is = new ChunkInputStream(chunkInfo, blockID, null,
+          () -> pipeline, verifyChecksum, null)) {
+
+        while (is.read(buf) != -1) {
+          ; // read till end
+        }
+      }
+    }
+  }
+
+
 
 }

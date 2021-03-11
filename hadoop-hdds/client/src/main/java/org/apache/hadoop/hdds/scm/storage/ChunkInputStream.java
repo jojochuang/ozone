@@ -84,7 +84,7 @@ public class ChunkInputStream extends InputStream
 
   private static final int EOF = -1;
 
-  ChunkInputStream(ChunkInfo chunkInfo, BlockID blockId,
+  public ChunkInputStream(ChunkInfo chunkInfo, BlockID blockId,
       XceiverClientFactory xceiverClientFactory,
       Supplier<Pipeline> pipelineSupplier,
       boolean verifyChecksum, Token<? extends TokenIdentifier> token) {
