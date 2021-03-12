@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
@@ -145,8 +146,8 @@ public class FilePerBlockStrategy implements ChunkManager {
 
     long len = info.getLen();
     long offset = info.getOffset();
-    ByteBuffer data = ByteBuffer.allocate((int) len);
-    ChunkUtils.readData(chunkFile, data, offset, len, volumeIOStats);
+    //ByteBuffer data = ByteBuffer.allocate((int) len);
+    MappedByteBuffer data = ChunkUtils.readData(chunkFile, null, offset, len, volumeIOStats);
 
     return ChunkBuffer.wrap(data);
   }

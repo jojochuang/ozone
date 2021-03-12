@@ -126,7 +126,8 @@ public class ListBlock  extends BaseFreonGenerator
     if (containerInfoListIterator.hasNext()) {
       return containerInfoListIterator.next();
     }
-    return null;
+    containerInfoListIterator = containers.listIterator(); // return to the beginning
+    return containerInfoListIterator.next();
   }
 
   private void getContainerList() throws IOException {
@@ -230,7 +231,11 @@ public class ListBlock  extends BaseFreonGenerator
       List<ContainerProtos.ChunkInfo> chunks = blockData.getChunksList();
       if (chunks != null && !chunks.isEmpty()) {
         for (ContainerProtos.ChunkInfo chunkInfo : chunks) {
-          readChunk(chunkInfo, blockID);
+          try {
+            readChunk(chunkInfo, blockID);
+          } catch (IOException ioe) {
+            LOG.warn("Failed to read chunk {}", chunkInfo.getChunkName(), ioe);
+          }
         }
       }
     }
@@ -238,7 +243,7 @@ public class ListBlock  extends BaseFreonGenerator
     private void readChunk(ContainerProtos.ChunkInfo chunkInfo,
         BlockID blockID) throws IOException {
       // read chunks sequentially
-      LOG.info("reading {} bytes of chunk {} of block {}", chunkInfo.getLen(), chunkInfo.getChunkName(), blockID);
+      //LOG.info("reading {} bytes of chunk {} of block {}", chunkInfo.getLen(), chunkInfo.getChunkName(), blockID);
       try (ChunkInputStream is = new ChunkInputStream(chunkInfo, blockID, xceiverClientManager,
           () -> pipeline, verifyChecksum, null)) {
 
