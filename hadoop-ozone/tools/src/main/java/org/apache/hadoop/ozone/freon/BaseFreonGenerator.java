@@ -483,6 +483,10 @@ public class BaseFreonGenerator {
     return threadNo;
   }
 
+  public void setThreadNo(int threadNo) {
+    this.threadNo = threadNo;
+  }
+
   protected OzoneClient createOzoneClient(String omServiceID,
       OzoneConfiguration conf) throws Exception {
     if (omServiceID != null) {
@@ -490,5 +494,13 @@ public class BaseFreonGenerator {
     } else {
       return OzoneClientFactory.getRpcClient(conf);
     }
+  }
+
+  public void setTestNo(long testNo) {
+    this.testNo = testNo;
+  }
+
+  public long getTestNo() {
+    return testNo;
   }
 }
