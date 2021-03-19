@@ -23,7 +23,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.NoSuchFileException;
@@ -172,21 +171,20 @@ public final class ChunkUtils {
    *
    * @param file file where data lives
    */
-  public static MappedByteBuffer readData(File file, ByteBuffer buf,
+  public static void readData(File file, ByteBuffer buf,
       long offset, long len, VolumeIOStats volumeIOStats)
       throws StorageContainerException {
 
     final Path path = file.toPath();
     final long startTime = Time.monotonicNow();
+    final long bytesRead;
 
-    MappedByteBuffer buffer;
     try {
-      /*bytesRead = */buffer = processFileExclusively(path, () -> {
+      bytesRead = processFileExclusively(path, () -> {
         try (FileChannel channel = open(path, READ_OPTIONS, NO_ATTRIBUTES);
              FileLock ignored = channel.lock(offset, len, true)) {
 
-          //return channel.read(buf, offset);
-          return channel.map(FileChannel.MapMode.READ_ONLY, offset, len);
+          return channel.read(buf, offset);
         } catch (IOException e) {
           throw new UncheckedIOException(e);
         }
@@ -194,8 +192,6 @@ public final class ChunkUtils {
     } catch (UncheckedIOException e) {
       throw wrapInStorageContainerException(e.getCause());
     }
-
-    final long bytesRead = buffer.limit();
 
     // Increment volumeIO stats here.
     long endTime = Time.monotonicNow();
@@ -208,9 +204,7 @@ public final class ChunkUtils {
 
     validateReadSize(len, bytesRead);
 
-    //buf.flip();
-    //buffer.flip();
-    return buffer;
+    buf.flip();
   }
 
   /**

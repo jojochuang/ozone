@@ -75,6 +75,7 @@ public class GrpcXceiverService extends
           LOG.debug("ContainerCommand send completed");
           responseObserver.onCompleted();
         }
+        // TODO: return the off-heap buffer back.
       }
     };
   }

@@ -101,4 +101,6 @@ public interface ChunkManager {
       BlockData blockData) throws IOException {
     // no-op
   }
+
+  ByteBuffer take
 }

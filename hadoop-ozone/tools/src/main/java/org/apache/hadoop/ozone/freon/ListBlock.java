@@ -244,11 +244,24 @@ public class ListBlock  extends BaseFreonGenerator
         BlockID blockID) throws IOException {
       // read chunks sequentially
       //LOG.info("reading {} bytes of chunk {} of block {}", chunkInfo.getLen(), chunkInfo.getChunkName(), blockID);
+      long completed = 0;
       try (ChunkInputStream is = new ChunkInputStream(chunkInfo, blockID, xceiverClientManager,
           () -> pipeline, verifyChecksum, null)) {
 
-        while (is.read(buf) != -1) {
+        long readBytes = 0;
+        long toRead = buf.length;
+        if (chunkInfo.getLen() - completed < toRead) {
+          toRead = chunkInfo.getLen() - completed;
+        }
+        while (toRead > 0 && (readBytes = is.read(buf, 0, (int)toRead)) != -1) {
           ; // read till end
+          completed += readBytes;
+          if (chunkInfo.getLen() - completed > buf.length) {
+            toRead = buf.length;
+          } else {
+            toRead = chunkInfo.getLen() - completed;
+          }
+          //LOG.info("completed={}, toRead={}, readBytes={}", completed, toRead, readBytes);
         }
       }
     }

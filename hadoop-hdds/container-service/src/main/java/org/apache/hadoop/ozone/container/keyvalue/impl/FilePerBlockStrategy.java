@@ -38,6 +38,9 @@ import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
 
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
+import org.apache.ratis.thirdparty.io.netty.buffer.UnpooledDirectByteBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +50,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
@@ -68,6 +70,10 @@ public class FilePerBlockStrategy implements ChunkManager {
 
   private final boolean doSyncWrite;
   private final OpenFiles files = new OpenFiles();
+
+  private ThreadLocal<ByteBuffer> byteBufferThreadLocal = ThreadLocal.withInitial(
+      () -> ByteBuffer.allocateDirect(5 * 1024 * 1024)
+  );
 
   public FilePerBlockStrategy(boolean sync) {
     doSyncWrite = sync;
@@ -147,7 +153,14 @@ public class FilePerBlockStrategy implements ChunkManager {
     long len = info.getLen();
     long offset = info.getOffset();
     //ByteBuffer data = ByteBuffer.allocate((int) len);
-    MappedByteBuffer data = ChunkUtils.readData(chunkFile, null, offset, len, volumeIOStats);
+
+    //ByteBuf data = Unpooled.directBuffer((int) len);
+    ByteBuffer data = byteBufferThreadLocal.get();
+    // reset pointers
+    data.clear();
+    data.limit((int)len);
+
+    ChunkUtils.readData(chunkFile, data, offset, len, volumeIOStats);
 
     return ChunkBuffer.wrap(data);
   }
