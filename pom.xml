@@ -1791,7 +1791,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
         <plugin>
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-maven-plugins</artifactId>
-          <version>${hadoop.version}</version>
+          <version>3.3.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -1868,7 +1868,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
           <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-build-tools</artifactId>
-            <version>${hadoop.version}</version>
+            <version>3.3.0</version>
           </dependency>
         </dependencies>
         <executions>
