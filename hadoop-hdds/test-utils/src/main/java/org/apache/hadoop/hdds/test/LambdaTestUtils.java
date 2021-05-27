@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.test;
+package org.apache.hadoop.hdds.test;
 
 import java.util.Optional;
 import java.util.concurrent.Callable;

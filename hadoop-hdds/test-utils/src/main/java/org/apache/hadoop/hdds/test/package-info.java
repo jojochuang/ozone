@@ -19,4 +19,4 @@
 /**
  * Utilities for tests.
  */
-package org.apache.hadoop.test;
+package org.apache.hadoop.hdds.test;

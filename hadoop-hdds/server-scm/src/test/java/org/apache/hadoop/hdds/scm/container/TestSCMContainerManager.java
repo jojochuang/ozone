@@ -52,7 +52,7 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineManagerV2Impl;
 import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
-import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.hadoop.hdds.test.GenericTestUtils;
 
 import org.junit.AfterClass;
 import org.junit.Assert;
