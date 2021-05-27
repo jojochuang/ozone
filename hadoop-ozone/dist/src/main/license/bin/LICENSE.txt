@@ -321,6 +321,8 @@ Apache License
    log4j:log4j
    net.minidev:accessors-smart
    net.minidev:json-smart
+   org.apache.hadoop.thirdparty:hadoop-shaded-guava
+   org.apache.hadoop.thirdparty:hadoop-shaded-protobuf_3_7
    org.bouncycastle:bcpkix-jdk15on
    org.bouncycastle:bcprov-jdk15on
    org.codehaus.jackson:jackson-core-asl

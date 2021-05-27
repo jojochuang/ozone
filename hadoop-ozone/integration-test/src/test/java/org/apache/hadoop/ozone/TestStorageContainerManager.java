@@ -89,6 +89,7 @@ import org.apache.hadoop.hdds.scm.server.SCMStorageConfig;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
 import org.apache.hadoop.hdds.server.events.EventPublisher;
 import org.apache.hadoop.hdds.utils.HddsVersionInfo;
+import org.apache.hadoop.metrics2.MetricsInfo;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.net.StaticMapping;
@@ -821,7 +822,7 @@ public class TestStorageContainerManager {
 
   @SuppressWarnings("visibilitymodifier")
   static class CloseContainerCommandMatcher
-      extends ArgumentMatcher<CommandForDatanode> {
+      implements ArgumentMatcher<CommandForDatanode> {
 
     private final CommandForDatanode cmd;
     private final UUID uuid;
@@ -832,7 +833,7 @@ public class TestStorageContainerManager {
     }
 
     @Override
-    public boolean matches(Object argument) {
+    public boolean matches(CommandForDatanode argument) {
       CommandForDatanode cmdRight = (CommandForDatanode) argument;
       CloseContainerCommand left = (CloseContainerCommand) cmd.getCommand();
       CloseContainerCommand right =

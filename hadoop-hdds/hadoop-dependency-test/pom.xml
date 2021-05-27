@@ -54,5 +54,9 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+    </dependency>
   </dependencies>
 </project>
