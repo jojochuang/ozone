@@ -1191,7 +1191,7 @@ public class TestReplicationManager {
     }
   }
 
-  static class ListOfNElements extends ArgumentMatcher<List> {
+  static class ListOfNElements implements ArgumentMatcher<List> {
 
     private int expected;
 
@@ -1200,12 +1200,12 @@ public class TestReplicationManager {
     }
 
     @Override
-    public boolean matches(Object argument) {
+    public boolean matches(List argument) {
       return ((List)argument).size() == expected;
     }
   }
 
-  static class FunctionMatcher extends ArgumentMatcher<List> {
+  static class FunctionMatcher implements ArgumentMatcher<List> {
 
     private Function<Object, Boolean> function;
 
@@ -1214,7 +1214,7 @@ public class TestReplicationManager {
     }
 
     @Override
-    public boolean matches(Object argument) {
+    public boolean matches(List argument) {
       return function.apply(argument);
     }
   }
