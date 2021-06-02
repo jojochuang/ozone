@@ -15,7 +15,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.hadoop</groupId>
   <artifactId>hadoop-main-ozone</artifactId>
-  <version>1.0.0.7.1.6.0-SNAPSHOT</version>
+  <version>1.0.0.7.1.6.0-297</version>
   <description>Apache Hadoop Ozone Main</description>
   <name>Apache Hadoop Ozone Main</name>
   <packaging>pom</packaging>
@@ -66,20 +66,20 @@
   </organization>
 
   <properties>
-    <hadoop.version>3.1.1.7.1.6.0-SNAPSHOT</hadoop.version>
+    <hadoop.version>3.1.1.7.1.6.0-297</hadoop.version>
 
     <!-- version for hdds/ozone components -->
     <hdds.version>${ozone.version}</hdds.version>
-    <ozone.version>1.0.0.7.1.6.0-SNAPSHOT</ozone.version>
+    <ozone.version>1.0.0.7.1.6.0-297</ozone.version>
     <ozone.release>Denali</ozone.release>
     <declared.hdds.version>${hdds.version}</declared.hdds.version>
     <declared.ozone.version>${ozone.version}</declared.ozone.version>
 
     <!-- Apache Ratis version -->
-    <ratis.version>1.0.0.7.1.6.0-SNAPSHOT</ratis.version>
+    <ratis.version>1.0.0.7.1.6.0-297</ratis.version>
 
     <!-- Apache Ratis thirdparty version -->
-    <ratis.thirdparty.version>0.4.0.7.1.6.0-SNAPSHOT</ratis.thirdparty.version>
+    <ratis.thirdparty.version>0.4.0.7.1.6.0-297</ratis.thirdparty.version>
 
     <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
     <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
