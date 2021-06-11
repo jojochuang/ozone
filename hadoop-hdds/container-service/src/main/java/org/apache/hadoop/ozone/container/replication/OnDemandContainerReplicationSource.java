@@ -20,7 +20,12 @@ package org.apache.hadoop.ozone.container.replication;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.hadoop.metrics2.MetricsSystem;
+import org.apache.hadoop.metrics2.annotation.Metric;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
+import org.apache.hadoop.ozone.container.common.volume.VolumeIOStats;
 import org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker;
 
 import com.google.common.base.Preconditions;
@@ -35,12 +40,19 @@ public class OnDemandContainerReplicationSource
 
   private final ContainerController controller;
 
+  private String metricsSourceName = OnDemandContainerReplicationSource.class.getSimpleName();
+
   private final TarContainerPacker packer = new TarContainerPacker();
+
+  private @Metric MutableCounterLong replicationCount;
 
   public OnDemandContainerReplicationSource(
       ContainerController controller) {
     this.controller = controller;
+    MetricsSystem ms = DefaultMetricsSystem.instance();
+    ms.register(metricsSourceName, "container re-replication", this);
   }
+
 
   @Override
   public void prepare(long containerId) {
@@ -58,6 +70,8 @@ public class OnDemandContainerReplicationSource
 
     controller.exportContainer(
         container.getContainerType(), containerId, destination, packer);
+
+    replicationCount.incr();
 
   }
 }

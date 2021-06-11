@@ -25,18 +25,28 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.hadoop.metrics2.MetricsCollector;
+import org.apache.hadoop.metrics2.MetricsSource;
+import org.apache.hadoop.metrics2.MetricsSystem;
+import org.apache.hadoop.metrics2.annotation.Metric;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.metrics2.lib.Interns;
+import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.replication.ReplicationTask.Status;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState.OPEN;
 
 /**
  * Single point to schedule the downloading tasks based on priorities.
  */
-public class ReplicationSupervisor {
+public class ReplicationSupervisor implements MetricsSource  {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(ReplicationSupervisor.class);
@@ -47,6 +57,13 @@ public class ReplicationSupervisor {
   private final AtomicLong requestCounter = new AtomicLong();
   private final AtomicLong successCounter = new AtomicLong();
   private final AtomicLong failureCounter = new AtomicLong();
+
+  private @Metric
+  MutableCounterLong replicationRequestCount;
+  private @Metric
+  MutableCounterLong replicationDuration;
+
+  private static final String metricsSourceName = ReplicationSupervisor.class.getSimpleName();
 
   /**
    * A set of container IDs that are currently being downloaded
@@ -64,6 +81,8 @@ public class ReplicationSupervisor {
     this.replicator = replicator;
     this.containersInFlight = ConcurrentHashMap.newKeySet();
     this.executor = executor;
+    MetricsSystem ms = DefaultMetricsSystem.instance();
+    ms.register(metricsSourceName, "container re-replication", this);
   }
 
   public ReplicationSupervisor(
@@ -99,6 +118,7 @@ public class ReplicationSupervisor {
       if (!executor.awaitTermination(3, TimeUnit.SECONDS)) {
         executor.shutdownNow();
       }
+      DefaultMetricsSystem.instance().unregisterSource(metricsSourceName);
     } catch (InterruptedException ie) {
       // Ignore, we don't really care about the failure.
       Thread.currentThread().interrupt();
@@ -128,6 +148,7 @@ public class ReplicationSupervisor {
       final Long containerId = task.getContainerId();
       try {
         requestCounter.incrementAndGet();
+        replicationRequestCount.incr();
 
         if (containerSet.getContainer(task.getContainerId()) != null) {
           LOG.debug("Container {} has already been downloaded.", containerId);
@@ -135,7 +156,12 @@ public class ReplicationSupervisor {
         }
 
         task.setStatus(Status.DOWNLOADING);
+        long start = Time.monotonicNow();
         replicator.replicate(task);
+        long end = Time.monotonicNow();
+        replicationDuration.incr(end - start);
+        LOG.info("replication of container {} took {}ms", containerId, end - start);
+
 
         if (task.getStatus() == Status.FAILED) {
           LOG.error(
@@ -167,5 +193,17 @@ public class ReplicationSupervisor {
 
   public long getReplicationFailureCount() {
     return failureCounter.get();
+  }
+
+  @Override
+  public void getMetrics(MetricsCollector collector, boolean all) {
+    collector.addRecord(metricsSourceName)
+        .addGauge(Interns.info("ReplicationRequestCounter",
+            "Number of replication requests"),
+            replicationRequestCount.value())
+        .addGauge(Interns.info("ReplicationDuration",
+            "Duration of replication in milliseconds"),
+            replicationDuration.value())
+        .endRecord();
   }
 }
