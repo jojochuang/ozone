@@ -21,6 +21,7 @@ package org.apache.hadoop.hdds.scm.node;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
@@ -55,8 +56,14 @@ public class StaleNodeHandler implements EventHandler<DatanodeDetails> {
       EventPublisher publisher) {
     Set<PipelineID> pipelineIds =
         nodeManager.getPipelines(datanodeDetails);
-    LOG.info("Datanode {} moved to stale state. Finalizing its pipelines {}",
-        datanodeDetails, pipelineIds);
+
+    try {
+      LOG.info("Datanode {} moved to stale state. Finalizing its pipelines {}. The node has {} containers",
+          datanodeDetails, pipelineIds,
+          nodeManager.getContainers(datanodeDetails).size());
+    } catch (NodeNotFoundException e) {
+      e.printStackTrace();
+    }
     for (PipelineID pipelineID : pipelineIds) {
       try {
         Pipeline pipeline = pipelineManager.getPipeline(pipelineID);

@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -124,6 +125,8 @@ public class ReplicationManager
    * by ReplicationManager and not yet complete.
    */
   private final Map<ContainerID, List<InflightAction>> inflightDeletion;
+
+  private final AtomicInteger replicationCounter = new AtomicInteger();
 
   /**
    * ReplicationManager specific configuration.
@@ -977,6 +980,7 @@ public class ReplicationManager
     inflightReplication.computeIfAbsent(id, k -> new ArrayList<>());
     sendAndTrackDatanodeCommand(datanode, replicateCommand,
         action -> inflightReplication.get(id).add(action));
+    replicationCounter.incrementAndGet();
   }
 
   /**
@@ -1085,6 +1089,8 @@ public class ReplicationManager
             inflightReplication.size())
         .addGauge(ReplicationManagerMetrics.INFLIGHT_DELETION,
             inflightDeletion.size())
+        .addGauge(ReplicationManagerMetrics.TOTAL_REPLICATION,
+            replicationCounter.get())
         .endRecord();
   }
 
@@ -1188,7 +1194,8 @@ public class ReplicationManager
   public enum ReplicationManagerMetrics implements MetricsInfo {
 
     INFLIGHT_REPLICATION("Tracked inflight container replication requests."),
-    INFLIGHT_DELETION("Tracked inflight container deletion requests.");
+    INFLIGHT_DELETION("Tracked inflight container deletion requests."),
+    TOTAL_REPLICATION("Container replication requests.");
 
     private final String desc;
 
