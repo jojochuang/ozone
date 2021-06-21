@@ -28,8 +28,12 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Ratis helper methods for OM Ratis server and client.
@@ -47,24 +51,30 @@ public final class OMRatisHelper {
 
   public static ByteString convertRequestToByteString(OMRequest request) {
     byte[] requestBytes = request.toByteArray();
-    return ByteString.copyFrom(requestBytes);
+    // TODO: if this doesn't work, use the reflection hack (ref: HBASE-23833)
+    return UnsafeByteOperations.unsafeWrap(requestBytes);
+    //return ByteString.copyFrom(requestBytes);
   }
 
   public static OMRequest convertByteStringToOMRequest(ByteString byteString)
-      throws InvalidProtocolBufferException {
-    byte[] bytes = byteString.toByteArray();
-    return OMRequest.parseFrom(bytes);
+      throws InvalidProtocolBufferException, IOException {
+    //byte[] bytes = byteString.toByteArray();
+    //return OMRequest.parseFrom(bytes);
+    return OMRequest.parseFrom(byteString.newInput());
   }
 
   public static Message convertResponseToMessage(OMResponse response) {
     byte[] requestBytes = response.toByteArray();
-    return Message.valueOf(ByteString.copyFrom(requestBytes));
+    //return Message.valueOf(ByteString.copyFrom(requestBytes));
+    return Message.valueOf(UnsafeByteOperations.unsafeWrap(requestBytes));
   }
 
   public static OMResponse getOMResponseFromRaftClientReply(
-      RaftClientReply reply) throws InvalidProtocolBufferException {
-    byte[] bytes = reply.getMessage().getContent().toByteArray();
-    return OMResponse.newBuilder(OMResponse.parseFrom(bytes))
+      RaftClientReply reply) throws InvalidProtocolBufferException, IOException {
+    //byte[] bytes = reply.getMessage().getContent().toByteArray();
+    InputStream inputStream = reply.getMessage().getContent().newInput();
+    //return OMResponse.newBuilder(OMResponse.parseFrom(bytes))
+    return OMResponse.newBuilder(OMResponse.parseFrom(inputStream))
         .setLeaderOMNodeId(reply.getReplierId())
         .build();
   }

@@ -231,6 +231,12 @@ public final class OzoneManagerRatisServer {
       } else {
         throw new ServiceException(ex);
       }
+    } catch (IOException ex) {
+      if (ex.getMessage() != null) {
+        throw new ServiceException(ex.getMessage(), ex);
+      } else {
+        throw new ServiceException(ex);
+      }
     }
 
     // TODO: Still need to handle RaftRetry failure exception and
