@@ -339,7 +339,7 @@ public final class OMConfigKeys {
       OmConfig.Keys.ENABLE_FILESYSTEM_PATHS;
   @Deprecated
   public static final boolean OZONE_OM_ENABLE_FILESYSTEM_PATHS_DEFAULT =
-      OmConfig.Defaults.ENABLE_FILESYSTEM_PATHS;
+      true;
 
   public static final String OZONE_SERVER_DEFAULT_REPLICATION_KEY =
       "ozone.server.default.replication";
