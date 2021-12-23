@@ -115,7 +115,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-tools</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
       </dependency>
 
       <dependency>
@@ -127,13 +127,13 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-server-scm</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
       </dependency>
 
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
       </dependency>
 
       <dependency>
@@ -166,7 +166,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
@@ -175,7 +175,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-server-scm</artifactId>
         <type>test-jar</type>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
         <scope>test</scope>
       </dependency>
 
