@@ -133,7 +133,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
       </dependency>
 
       <dependency>
@@ -166,7 +166,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.1</version>
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
