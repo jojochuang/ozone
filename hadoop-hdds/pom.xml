@@ -72,7 +72,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-hadoop-dependency-client</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.0</version>
       </dependency>
 
       <dependency>
