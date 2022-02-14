@@ -105,7 +105,7 @@
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>ozone-filesystem</artifactId>
-        <version>${ozone.version}</version>
+        <version>1.2.1</version>
       </dependency>
       <dependency>
         <groupId>org.apache.ozone</groupId>
