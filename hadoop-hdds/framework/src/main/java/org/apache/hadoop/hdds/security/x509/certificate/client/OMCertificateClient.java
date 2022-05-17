@@ -35,18 +35,18 @@ public class OMCertificateClient extends CommonCertificateClient {
   public static final String COMPONENT_NAME = "om";
 
   public OMCertificateClient(SecurityConfig securityConfig,
-      String certSerialId, String localCrlId) {
+      String certSerialId, String localCrlId) throws Exception {
     super(securityConfig, LOG, certSerialId, COMPONENT_NAME);
     this.setLocalCrlId(localCrlId != null ?
         Long.parseLong(localCrlId) : 0);
   }
 
   public OMCertificateClient(SecurityConfig securityConfig,
-      String certSerialId) {
+      String certSerialId) throws Exception {
     this(securityConfig, certSerialId, null);
   }
 
-  public OMCertificateClient(SecurityConfig securityConfig) {
+  public OMCertificateClient(SecurityConfig securityConfig) throws Exception {
     this(securityConfig, null, null);
   }
 

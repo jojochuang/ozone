@@ -31,7 +31,7 @@ public class ReconCertificateClient  extends CommonCertificateClient {
   public static final String COMPONENT_NAME = "recon";
 
   public ReconCertificateClient(SecurityConfig securityConfig,
-      String certSerialId) {
+      String certSerialId) throws Exception {
     super(securityConfig, LOG, certSerialId, COMPONENT_NAME);
   }
 

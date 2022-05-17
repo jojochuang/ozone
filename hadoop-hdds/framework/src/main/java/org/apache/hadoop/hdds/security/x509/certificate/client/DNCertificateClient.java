@@ -37,11 +37,11 @@ public class DNCertificateClient extends DefaultCertificateClient {
   public static final String COMPONENT_NAME = "dn";
 
   public DNCertificateClient(SecurityConfig securityConfig,
-      String certSerialId) {
+      String certSerialId) throws Exception {
     super(securityConfig, LOG, certSerialId, COMPONENT_NAME);
   }
 
-  public DNCertificateClient(SecurityConfig securityConfig) {
+  public DNCertificateClient(SecurityConfig securityConfig) throws Exception {
     super(securityConfig, LOG, null, COMPONENT_NAME);
   }
 

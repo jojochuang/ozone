@@ -106,9 +106,10 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   private String component;
   private List<String> pemEncodedCACerts = null;
   private final Lock lock;
+  private SignaturePool signPool;
 
   DefaultCertificateClient(SecurityConfig securityConfig, Logger log,
-      String certSerialId, String component) {
+      String certSerialId, String component) throws Exception {
     Objects.requireNonNull(securityConfig);
     this.securityConfig = securityConfig;
     keyCodec = new KeyCodec(securityConfig, component);
@@ -118,7 +119,18 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     this.component = component;
     lock = new ReentrantLock();
 
+    initSignaturePool();
+
     loadAllCertificates();
+  }
+
+  private void initSignaturePool() throws Exception {
+    signPool = new SignaturePool(null,
+        getSignatureAlgorithm(), getSecurityProvider());
+
+    for (int i = 0; i < 10; i++) {
+      signPool.addObject();
+    }
   }
 
   /**
@@ -367,9 +379,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   @Override
   public byte[] signDataStream(InputStream stream)
       throws CertificateException {
+    Signature sign = null;
     try {
-      Signature sign = Signature.getInstance(getSignatureAlgorithm(),
-          getSecurityProvider());
+      sign = signPool.borrowObject();
       sign.initSign(getPrivateKey());
       byte[] buffer = new byte[1024 * 4];
 
@@ -378,11 +390,16 @@ public abstract class DefaultCertificateClient implements CertificateClient {
         sign.update(buffer, 0, len);
       }
       return sign.sign();
-    } catch (NoSuchAlgorithmException | NoSuchProviderException
-        | InvalidKeyException | SignatureException | IOException e) {
+    } catch (SignatureException | InvalidKeyException | IOException e) {
       getLogger().error("Error while signing the stream", e);
       throw new CertificateException("Error while signing the stream", e,
           CRYPTO_SIGN_ERROR);
+    } catch (Exception e) {
+      getLogger().error("Unable to acquire a signature", e);
+      throw new CertificateException("Error while signing the stream", e,
+          CRYPTO_SIGN_ERROR);
+    } finally {
+      signPool.returnObject(sign);
     }
   }
 
@@ -399,9 +416,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    */
   @Override
   public byte[] signData(byte[] data) throws CertificateException {
+    Signature sign = null;
     try {
-      Signature sign = Signature.getInstance(getSignatureAlgorithm(),
-          getSecurityProvider());
+      sign = signPool.borrowObject();
 
       sign.initSign(getPrivateKey());
       sign.update(data);
@@ -412,6 +429,12 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       getLogger().error("Error while signing the stream", e);
       throw new CertificateException("Error while signing the stream", e,
           CRYPTO_SIGN_ERROR);
+    } catch (Exception e) {
+      getLogger().error("Unable to acquire a signature", e);
+      throw new CertificateException("Error while signing the stream", e,
+          CRYPTO_SIGN_ERROR);
+    } finally {
+      signPool.returnObject(sign);
     }
   }
 
@@ -432,9 +455,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   @Override
   public boolean verifySignature(InputStream stream, byte[] signature,
       X509Certificate cert) throws CertificateException {
+    Signature sign = null;
     try {
-      Signature sign = Signature.getInstance(getSignatureAlgorithm(),
-          getSecurityProvider());
+      sign = signPool.borrowObject();
       sign.initVerify(cert);
       byte[] buffer = new byte[1024 * 4];
 
@@ -448,6 +471,12 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       getLogger().error("Error while signing the stream", e);
       throw new CertificateException("Error while signing the stream", e,
           CRYPTO_SIGNATURE_VERIFICATION_ERROR);
+    } catch (Exception e) {
+      getLogger().error("Unable to acquire a signature", e);
+      throw new CertificateException("Error while signing the stream", e,
+          CRYPTO_SIGN_ERROR);
+    } finally {
+      signPool.returnObject(sign);
     }
   }
 
@@ -463,9 +492,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   @Override
   public boolean verifySignature(byte[] data, byte[] signature,
       X509Certificate cert) throws CertificateException {
+    Signature sign = null;
     try {
-      Signature sign = Signature.getInstance(getSignatureAlgorithm(),
-          getSecurityProvider());
+      sign = signPool.borrowObject();
       sign.initVerify(cert);
       sign.update(data);
       return sign.verify(signature);
@@ -474,6 +503,12 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       getLogger().error("Error while signing the stream", e);
       throw new CertificateException("Error while signing the stream", e,
           CRYPTO_SIGNATURE_VERIFICATION_ERROR);
+    } catch (Exception e) {
+      getLogger().error("Unable to acquire a signature", e);
+      throw new CertificateException("Error while signing the stream", e,
+          CRYPTO_SIGN_ERROR);
+    } finally {
+      signPool.returnObject(sign);
     }
   }
 
@@ -488,9 +523,9 @@ public abstract class DefaultCertificateClient implements CertificateClient {
    */
   private boolean verifySignature(byte[] data, byte[] signature,
       PublicKey pubKey) throws CertificateException {
+    Signature sign = null;
     try {
-      Signature sign = Signature.getInstance(getSignatureAlgorithm(),
-          getSecurityProvider());
+      sign = signPool.borrowObject();
       sign.initVerify(pubKey);
       sign.update(data);
       return sign.verify(signature);
@@ -499,6 +534,12 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       getLogger().error("Error while signing the stream", e);
       throw new CertificateException("Error while signing the stream", e,
           CRYPTO_SIGNATURE_VERIFICATION_ERROR);
+    } catch (Exception e) {
+      getLogger().error("Unable to acquire a signature", e);
+      throw new CertificateException("Error while signing the stream", e,
+          CRYPTO_SIGN_ERROR);
+    } finally {
+      signPool.returnObject(sign);
     }
   }
 
