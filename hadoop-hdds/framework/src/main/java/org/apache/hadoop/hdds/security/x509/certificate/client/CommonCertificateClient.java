@@ -35,7 +35,7 @@ public class CommonCertificateClient extends DefaultCertificateClient {
   private final Logger log;
 
   public CommonCertificateClient(SecurityConfig securityConfig, Logger log,
-      String certSerialId, String component) throws Exception {
+      String certSerialId, String component) {
     super(securityConfig, log, certSerialId, component);
     this.log = log;
   }

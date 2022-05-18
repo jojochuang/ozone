@@ -109,7 +109,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   private SignaturePool signPool;
 
   DefaultCertificateClient(SecurityConfig securityConfig, Logger log,
-      String certSerialId, String component) throws Exception {
+      String certSerialId, String component) {
     Objects.requireNonNull(securityConfig);
     this.securityConfig = securityConfig;
     keyCodec = new KeyCodec(securityConfig, component);
@@ -124,12 +124,16 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     loadAllCertificates();
   }
 
-  private void initSignaturePool() throws Exception {
-    signPool = new SignaturePool(null,
+  private void initSignaturePool() {
+    signPool = SignaturePool.newInstance(
         getSignatureAlgorithm(), getSecurityProvider());
 
     for (int i = 0; i < 10; i++) {
-      signPool.addObject();
+      try {
+        signPool.addObject();
+      } catch (Exception e) {
+        getLogger().warn("Unable to create a signature object");
+      }
     }
   }
 

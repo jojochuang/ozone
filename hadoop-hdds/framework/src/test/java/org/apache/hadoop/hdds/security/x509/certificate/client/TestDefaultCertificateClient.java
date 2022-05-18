@@ -110,7 +110,7 @@ public class TestDefaultCertificateClient {
     getCertClient();
   }
 
-  private void getCertClient() throws Exception {
+  private void getCertClient() {
     omCertClient = new OMCertificateClient(omSecurityConfig, certSerialId);
     dnCertClient = new DNCertificateClient(dnSecurityConfig, certSerialId);
   }

@@ -47,16 +47,16 @@ public class SCMCertificateClient extends DefaultCertificateClient {
           OzoneConsts.SCM_SUB_CA_PATH).toString();
 
   public SCMCertificateClient(SecurityConfig securityConfig,
-      String certSerialId) throws Exception {
+      String certSerialId) {
     super(securityConfig, LOG, certSerialId, COMPONENT_NAME);
   }
 
-  public SCMCertificateClient(SecurityConfig securityConfig) throws Exception {
+  public SCMCertificateClient(SecurityConfig securityConfig) {
     super(securityConfig, LOG, null, COMPONENT_NAME);
   }
 
   public SCMCertificateClient(SecurityConfig securityConfig,
-      String certSerialId, String component) throws Exception {
+      String certSerialId, String component) {
     super(securityConfig, LOG, certSerialId, component);
   }
 
