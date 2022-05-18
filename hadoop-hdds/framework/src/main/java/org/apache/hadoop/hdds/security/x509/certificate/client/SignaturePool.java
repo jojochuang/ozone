@@ -22,27 +22,32 @@ public class SignaturePool extends GenericObjectPool<Signature> {
       this.provider = securityProvider;
     }
 
-    @Override public PooledObject<Signature> makeObject() throws Exception {
+    @Override
+    public PooledObject<Signature> makeObject() throws Exception {
       Signature sign = Signature.getInstance(algorithm, provider);
       return new DefaultPooledObject<>(sign);
     }
 
-    @Override public void destroyObject(PooledObject<Signature> pooledObject)
+    @Override
+    public void destroyObject(PooledObject<Signature> pooledObject)
         throws Exception {
       // do nothing
     }
 
-    @Override public boolean validateObject(
+    @Override
+    public boolean validateObject(
         PooledObject<Signature> pooledObject) {
       return false;
     }
 
-    @Override public void activateObject(PooledObject<Signature> pooledObject)
+    @Override
+    public void activateObject(PooledObject<Signature> pooledObject)
         throws Exception {
 
     }
 
-    @Override public void passivateObject(PooledObject<Signature> pooledObject)
+    @Override
+    public void passivateObject(PooledObject<Signature> pooledObject)
         throws Exception {
 
     }
@@ -62,6 +67,6 @@ public class SignaturePool extends GenericObjectPool<Signature> {
 
     SignatureFactory factory = new SignatureFactory(algorithm, provider);
 
-    SignaturePool pool = new SignaturePool(factory, config);
+    return new SignaturePool(factory, config);
   }
 }

@@ -124,15 +124,21 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     loadAllCertificates();
   }
 
+  /**
+   * Pre-allocate a few Signature objects to be used later.
+   */
   private void initSignaturePool() {
-    signPool = SignaturePool.newInstance(
-        getSignatureAlgorithm(), getSecurityProvider());
+    String algo = getSignatureAlgorithm();
+    String provider = getSecurityProvider();
+    signPool = SignaturePool.newInstance(algo, provider);
 
     for (int i = 0; i < 10; i++) {
       try {
         signPool.addObject();
       } catch (Exception e) {
-        getLogger().warn("Unable to create a signature object");
+        getLogger().warn("Unable to create a signature object using " +
+                "algorithm {} and security provider {}",
+            algo, provider, e);
       }
     }
   }
