@@ -47,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.SCMSecurityProtocol;
 import org.apache.hadoop.hdds.security.x509.crl.CRLInfo;
@@ -127,7 +128,8 @@ public abstract class DefaultCertificateClient implements CertificateClient {
   /**
    * Pre-allocate a few Signature objects to be used later.
    */
-  private void initSignaturePool() {
+  @VisibleForTesting
+  public void initSignaturePool() {
     String algo = getSignatureAlgorithm();
     String provider = getSecurityProvider();
     signPool = SignaturePool.newInstance(algo, provider);
@@ -490,6 +492,14 @@ public abstract class DefaultCertificateClient implements CertificateClient {
     }
   }
 
+  @VisibleForTesting
+  public Signature getSignature() throws Exception {
+    if (signPool == null) {
+      initSignaturePool();
+    }
+    return signPool.borrowObject();
+  }
+
   /**
    * Verifies a digital Signature, given the signature and the certificate of
    * the signer.
@@ -504,7 +514,7 @@ public abstract class DefaultCertificateClient implements CertificateClient {
       X509Certificate cert) throws CertificateException {
     Signature sign = null;
     try {
-      sign = signPool.borrowObject();
+      sign = getSignature();
       sign.initVerify(cert);
       sign.update(data);
       return sign.verify(signature);

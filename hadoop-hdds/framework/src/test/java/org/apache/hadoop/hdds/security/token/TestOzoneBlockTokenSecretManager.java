@@ -25,6 +25,8 @@ import static org.apache.hadoop.ozone.container.ContainerTestHelper.getWriteChun
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import org.apache.hadoop.hdds.HddsConfigKeys;
@@ -106,18 +108,29 @@ public class TestOzoneBlockTokenSecretManager {
     omCertSerialId = x509Certificate.getSerialNumber().toString();
     secretManager = new OzoneBlockTokenSecretManager(securityConfig,
         TimeUnit.HOURS.toMillis(1), omCertSerialId);
-    client = Mockito.mock(OMCertificateClient.class);
+
+    CertificateClient realClient = new OMCertificateClient(securityConfig);
+    client = spy(realClient);
+
+    //client = Mockito.mock(OMCertificateClient.class);
     when(client.getCertificate()).thenReturn(x509Certificate);
     when(client.getCertificate(anyString())).
         thenReturn(x509Certificate);
     when(client.getPublicKey()).thenReturn(keyPair.getPublic());
     when(client.getPrivateKey()).thenReturn(keyPair.getPrivate());
+
+    doReturn(keyPair.getPrivate()).when(client).getPrivateKey();
+    doReturn(keyPair.getPublic()).when(client).getPublicKey();
+
     when(client.getSignatureAlgorithm()).thenReturn(
         securityConfig.getSignatureAlgo());
     when(client.getSecurityProvider()).thenReturn(
         securityConfig.getProvider());
-    when(client.verifySignature((byte[]) Mockito.any(),
-        Mockito.any(), Mockito.any())).thenCallRealMethod();
+    /*when(client.verifySignature((byte[]) Mockito.any(),
+        Mockito.any(), Mockito.any())).thenCallRealMethod();*/
+    Signature sign = Signature.getInstance(
+        securityConfig.getSignatureAlgo(), securityConfig.getProvider());
+   when(client.getSignature()).thenReturn(sign);
 
     secretManager.start(client);
     tokenVerifier = new BlockTokenVerifier(securityConfig, client);
