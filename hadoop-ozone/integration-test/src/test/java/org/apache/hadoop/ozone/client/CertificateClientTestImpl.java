@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
 import java.security.cert.CertStore;
 import java.security.cert.X509Certificate;
 import java.time.LocalDate;
@@ -237,6 +238,11 @@ public class CertificateClientTestImpl implements CertificateClient {
   @Override
   public boolean processCrl(CRLInfo crl) {
     return false;
+  }
+
+  @Override
+  public Signature getSignature() throws Exception {
+    return null;
   }
 
 }

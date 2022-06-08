@@ -112,25 +112,29 @@ public class TestOzoneBlockTokenSecretManager {
     CertificateClient realClient = new OMCertificateClient(securityConfig);
     client = spy(realClient);
 
-    //client = Mockito.mock(OMCertificateClient.class);
-    when(client.getCertificate()).thenReturn(x509Certificate);
-    when(client.getCertificate(anyString())).
-        thenReturn(x509Certificate);
-    when(client.getPublicKey()).thenReturn(keyPair.getPublic());
-    when(client.getPrivateKey()).thenReturn(keyPair.getPrivate());
+    //when(client.getCertificate()).thenReturn(x509Certificate);
+    doReturn(x509Certificate).when(client).getCertificate();
+    //when(client.getCertificate(anyString())).
+    //    thenReturn(x509Certificate);
+    doReturn(x509Certificate).when(client).getCertificate(anyString());
+    //when(client.getPublicKey()).thenReturn(keyPair.getPublic());
+    doReturn(keyPair.getPublic()).when(client).getPublicKey();
+    //when(client.getPrivateKey()).thenReturn(keyPair.getPrivate());
+    doReturn(keyPair.getPrivate()).when(client).getPrivateKey();
 
     doReturn(keyPair.getPrivate()).when(client).getPrivateKey();
     doReturn(keyPair.getPublic()).when(client).getPublicKey();
 
-    when(client.getSignatureAlgorithm()).thenReturn(
-        securityConfig.getSignatureAlgo());
-    when(client.getSecurityProvider()).thenReturn(
-        securityConfig.getProvider());
-    /*when(client.verifySignature((byte[]) Mockito.any(),
-        Mockito.any(), Mockito.any())).thenCallRealMethod();*/
+    //when(client.getSignatureAlgorithm()).thenReturn(
+    //    securityConfig.getSignatureAlgo());
+    doReturn(securityConfig.getSignatureAlgo()).when(client).getSignatureAlgorithm();
+    //when(client.getSecurityProvider()).thenReturn(
+    //    securityConfig.getProvider());
+    doReturn(securityConfig.getProvider()).when(client).getSecurityProvider();
     Signature sign = Signature.getInstance(
         securityConfig.getSignatureAlgo(), securityConfig.getProvider());
-   when(client.getSignature()).thenReturn(sign);
+    //when(client.getSignature()).thenReturn(sign);
+    doReturn(sign).when(client).getSignature();
 
     secretManager.start(client);
     tokenVerifier = new BlockTokenVerifier(securityConfig, client);
