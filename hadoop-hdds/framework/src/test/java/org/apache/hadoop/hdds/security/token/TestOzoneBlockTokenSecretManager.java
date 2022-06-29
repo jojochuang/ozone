@@ -119,9 +119,9 @@ public class TestOzoneBlockTokenSecretManager {
     doReturn(keyPair.getPrivate()).when(client).getPrivateKey();
     doReturn(keyPair.getPublic()).when(client).getPublicKey();
 
-    doReturn(securityConfig.getSignatureAlgo()).when(client)
-        .getSignatureAlgorithm();
-    doReturn(securityConfig.getProvider()).when(client).getSecurityProvider();
+    //doReturn(securityConfig.getSignatureAlgo()).when(client)
+    //    .getSignatureAlgorithm();
+    //doReturn(securityConfig.getProvider()).when(client).getSecurityProvider();
 
     secretManager.start(client);
     tokenVerifier = new BlockTokenVerifier(securityConfig, client);

@@ -109,7 +109,7 @@ public class SignaturePool extends GenericObjectPool<Signature> {
    * the objects in the pool.
    */
   @Override
-  public void finalize() {
+  protected void finalize() {
     this.close();
   }
 }
