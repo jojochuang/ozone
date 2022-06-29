@@ -39,13 +39,13 @@ import java.security.Signature;
  */
 public class SignaturePool extends GenericObjectPool<Signature> {
 
-  public static class SignatureFactory
+  private static class SignatureFactory
       implements PooledObjectFactory<Signature> {
 
     private String algorithm;
     private String provider;
 
-    public SignatureFactory(String signatureAlgorithm,
+    SignatureFactory(String signatureAlgorithm,
         String securityProvider) {
       this.algorithm = signatureAlgorithm;
       this.provider = securityProvider;
@@ -87,10 +87,15 @@ public class SignaturePool extends GenericObjectPool<Signature> {
     super(factory, config);
   }
 
+  /**
+   * Create a new instance of SignaturePool. Each SignaturePool can have
+   * up to 10 Signature objects, and is blocked if none is available.
+   * @param algorithm algorithm name of the signatures.
+   * @param provider provider name of the signatures.
+   * @return
+   */
   public static SignaturePool newInstance(String algorithm, String provider) {
-
     GenericObjectPoolConfig<Signature> config = new GenericObjectPoolConfig<>();
-    //config.setTestOnBorrow(true);
     config.setBlockWhenExhausted(true);
     config.setMaxTotal(10);
 

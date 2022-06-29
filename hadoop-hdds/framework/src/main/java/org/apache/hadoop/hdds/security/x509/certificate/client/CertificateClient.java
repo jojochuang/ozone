@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.Signature;
 import java.security.cert.CertStore;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -313,7 +312,5 @@ public interface CertificateClient {
    * false otherwise;
    */
   boolean processCrl(CRLInfo crl);
-
-  Signature getSignature() throws Exception;
 
 }
