@@ -53,6 +53,7 @@ import org.apache.ozone.test.GenericTestUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -734,6 +735,37 @@ public class TestContainerBalancer {
 
   }
 
+  @Test
+  public void checkIterationResultTimeoutFromReplicationManager()
+      throws NodeNotFoundException, IOException,
+      IllegalContainerBalancerStateException,
+      InvalidContainerBalancerConfigurationException {
+    CompletableFuture<MoveResult> future
+        = CompletableFuture.supplyAsync(() ->
+        MoveResult.REPLICATION_FAIL_TIME_OUT);
+    CompletableFuture<MoveResult> future2
+        = CompletableFuture.supplyAsync(() ->
+        MoveResult.DELETION_FAIL_TIME_OUT);
+    Mockito.when(replicationManager.move(Mockito.any(ContainerID.class),
+            Mockito.any(DatanodeDetails.class),
+            Mockito.any(DatanodeDetails.class)))
+        .thenReturn(future, future2);
+
+    balancerConfiguration.setThreshold(10);
+    balancerConfiguration.setIterations(1);
+    balancerConfiguration.setMaxSizeEnteringTarget(10 * OzoneConsts.GB);
+    balancerConfiguration.setMaxSizeToMovePerIteration(100 * OzoneConsts.GB);
+    balancerConfiguration.setMaxDatanodesPercentageToInvolvePerIteration(100);
+    balancerConfiguration.setMoveTimeout(Duration.ofMillis(1000));
+
+    startBalancer(balancerConfiguration);
+    sleepWhileBalancing(2000);
+
+    Assertions.assertTrue(containerBalancer.getMetrics()
+        .getNumContainerMovesTimeoutInLatestIteration() > 0);
+    stopBalancer();
+  }
+  
   @Test
   public void testStartAndImmediateStopForDeadlock()
       throws IllegalContainerBalancerStateException, IOException,
