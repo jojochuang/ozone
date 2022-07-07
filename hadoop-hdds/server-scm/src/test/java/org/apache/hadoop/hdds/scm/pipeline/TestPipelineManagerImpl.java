@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_DATANODE_PIPELINE_LIMIT;
@@ -739,7 +740,7 @@ public class TestPipelineManagerImpl {
   }
 
   @Test
-  public void testPipelineCloseFlow() throws IOException {
+  public void testPipelineCloseFlow() throws IOException, TimeoutException {
     GenericTestUtils.LogCapturer logCapturer = GenericTestUtils.LogCapturer
             .captureLogs(LoggerFactory.getLogger(PipelineManagerImpl.class));
     PipelineManagerImpl pipelineManager = createPipelineManager(true);

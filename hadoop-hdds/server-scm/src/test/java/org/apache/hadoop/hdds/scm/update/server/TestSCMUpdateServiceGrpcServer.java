@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Tests for SCM update Service.
@@ -206,13 +207,14 @@ public class TestSCMUpdateServiceGrpcServer {
   }
 
   private Long revokeCert(BigInteger certId, Instant revokeTime)
-      throws IOException {
+      throws IOException, TimeoutException {
     Optional<Long> crlId =
         mockCRLStore.revokeCert(Arrays.asList(certId), revokeTime);
     return crlId.get();
   }
 
-  private Long revokeCertNow(BigInteger certId) throws IOException {
+  private Long revokeCertNow(BigInteger certId)
+      throws IOException, TimeoutException {
     Optional<Long> crlId =
         mockCRLStore.revokeCert(Arrays.asList(certId), Instant.now());
     return crlId.get();

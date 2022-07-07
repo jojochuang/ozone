@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.fs.FileUtil;
@@ -270,7 +271,7 @@ public class TestPipelinePlacementPolicy {
   }
 
   @Test
-  public void testPickLowestLoadAnchor() throws IOException {
+  public void testPickLowestLoadAnchor() throws IOException, TimeoutException {
     List<DatanodeDetails> healthyNodes = nodeManager
         .getNodes(NodeStatus.inServiceHealthy());
 
@@ -431,7 +432,7 @@ public class TestPipelinePlacementPolicy {
 
   @Test
   public void testHeavyNodeShouldBeExcludedWithMinorityHeavy()
-      throws IOException {
+      throws IOException, TimeoutException {
     List<DatanodeDetails> healthyNodes =
         nodeManager.getNodes(NodeStatus.inServiceHealthy());
     int nodesRequired = HddsProtos.ReplicationFactor.THREE.getNumber();
@@ -469,7 +470,7 @@ public class TestPipelinePlacementPolicy {
 
   @Test
   public void testHeavyNodeShouldBeExcludedWithMajorityHeavy()
-      throws IOException {
+      throws IOException, TimeoutException {
     List<DatanodeDetails> healthyNodes =
         nodeManager.getNodes(NodeStatus.inServiceHealthy());
     int nodesRequired = HddsProtos.ReplicationFactor.THREE.getNumber();
@@ -658,7 +659,8 @@ public class TestPipelinePlacementPolicy {
   }
 
   private void insertHeavyNodesIntoNodeManager(
-      List<DatanodeDetails> nodes, int heavyNodeCount) throws IOException {
+      List<DatanodeDetails> nodes, int heavyNodeCount)
+      throws IOException, TimeoutException {
     if (nodes == null) {
       throw new SCMException("",
           SCMException.ResultCodes.FAILED_TO_FIND_SUITABLE_NODE);
@@ -701,7 +703,7 @@ public class TestPipelinePlacementPolicy {
 
   @Test
   public void testCurrentRatisThreePipelineCount()
-      throws IOException {
+      throws IOException, TimeoutException {
     List<DatanodeDetails> healthyNodes = nodeManager
         .getNodes(NodeStatus.inServiceHealthy());
     int pipelineCount;
@@ -763,7 +765,7 @@ public class TestPipelinePlacementPolicy {
                                                        replicationType,
                                                    ReplicationFactor
                                                        replicationFactor)
-      throws IOException {
+      throws IOException, TimeoutException {
     Pipeline pipeline = Pipeline.newBuilder()
         .setId(PipelineID.randomId())
         .setState(Pipeline.PipelineState.OPEN)
