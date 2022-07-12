@@ -310,4 +310,9 @@ public class MockPipelineManager implements PipelineManager {
   public void releaseWriteLock() {
 
   }
+
+  @Override
+  public boolean isPipelineCreationFrozen() {
+    return false;
+  }
 }
