@@ -25,12 +25,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.function.SupplierWithIOException;
@@ -425,9 +427,15 @@ public class XceiverClientGrpc extends XceiverClientSpi {
       reply.setResponse(CompletableFuture.completedFuture(responseProto));
       return reply;
     } else {
-      Preconditions.checkNotNull(ioException);
-      LOG.error("Failed to execute command {} on the pipeline {}.",
-          processForDebug(request), pipeline);
+      Objects.requireNonNull(ioException);
+      String message = "Failed to execute command {}";
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(message + " on the pipeline {}.",
+                processForDebug(request), pipeline);
+      } else {
+        LOG.error(message + " on the pipeline {}.",
+                request.getCmdType(), pipeline);
+      }
       throw ioException;
     }
   }
