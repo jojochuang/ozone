@@ -303,7 +303,7 @@ public class KeyDeletingService extends BackgroundService {
     // Parse volume and bucket name
     String[] split = objectKey.split(OM_KEY_PREFIX);
     Preconditions.assertTrue(split.length > 3, "Volume and/or Bucket Name " +
-        "missing from Key Name.");
+        "missing from Key Name.(" + objectKey + ")");
     Pair<String, String> volumeBucketPair = Pair.of(split[1], split[2]);
     if (!map.containsKey(volumeBucketPair)) {
       map.put(volumeBucketPair, new ArrayList<>());
