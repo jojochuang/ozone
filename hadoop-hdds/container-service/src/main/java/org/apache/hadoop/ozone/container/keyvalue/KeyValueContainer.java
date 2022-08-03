@@ -44,6 +44,7 @@ import org.apache.hadoop.hdfs.util.Canceler;
 import org.apache.hadoop.hdfs.util.DataTransferThrottler;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.helpers.ContainerUtils;
 import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -575,7 +576,9 @@ public class KeyValueContainer implements Container<KeyValueContainerData> {
 
   @Override
   public void exportContainerData(OutputStream destination,
-      ContainerPacker<KeyValueContainerData> packer) throws IOException {
+      ContainerPacker<KeyValueContainerData> packer,
+      ContainerMetrics metrics) throws IOException {
+    metrics.incContainerExportRequests();
     writeLock();
     try {
       // Closed/ Quasi closed containers are considered for replication by
@@ -602,7 +605,10 @@ public class KeyValueContainer implements Container<KeyValueContainerData> {
         writeUnlock();
       }
 
-      packContainerToDestination(destination, packer);
+      packContainerToDestination(destination, packer, metrics);
+    } catch (IOException ioe) {
+      metrics.incContainerExportFailures();
+      throw ioe;
     } finally {
       if (lock.isWriteLockedByCurrentThread()) {
         writeUnlock();
@@ -865,7 +871,8 @@ public class KeyValueContainer implements Container<KeyValueContainerData> {
   }
 
   private void packContainerToDestination(OutputStream destination,
-      ContainerPacker<KeyValueContainerData> packer)
+      ContainerPacker<KeyValueContainerData> packer,
+      ContainerMetrics metrics)
       throws IOException {
     if (containerData.getSchemaVersion().equals(OzoneConsts.SCHEMA_V3)) {
       // Synchronize the dump and pack operation,

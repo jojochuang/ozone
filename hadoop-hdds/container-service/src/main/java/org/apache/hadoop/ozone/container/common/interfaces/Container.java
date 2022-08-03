@@ -34,6 +34,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers
 import org.apache.hadoop.hdfs.util.Canceler;
 import org.apache.hadoop.hdfs.util.DataTransferThrottler;
 import org.apache.hadoop.hdfs.util.RwLock;
+import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.impl.ContainerData;
 import org.apache.hadoop.ozone.container.common.volume.VolumeSet;
 
@@ -138,7 +139,8 @@ public interface Container<CONTAINERDATA extends ContainerData> extends RwLock {
    *
    */
   void exportContainerData(OutputStream stream,
-      ContainerPacker<CONTAINERDATA> packer) throws IOException;
+      ContainerPacker<CONTAINERDATA> packer,
+      ContainerMetrics metrics) throws IOException;
 
   /**
    * Returns containerReport for the container.

@@ -53,6 +53,8 @@ public class ContainerMetrics {
   private MutableCounterLong[] opsBytesArray;
   private MutableRate[] opsLatency;
   private MutableQuantiles[][] opsLatQuantiles;
+  private MutableCounterLong numContainerExportRequests;
+  private MutableCounterLong numContainerExportFailures;
   private MetricsRegistry registry = null;
 
   public ContainerMetrics(int[] intervals) {
@@ -84,6 +86,12 @@ public class ContainerMetrics {
             "latency of Container ops", "ops", "latency", interval);
       }
     }
+    this.numContainerExportRequests =
+        registry.newCounter("numContainerExportRequests",
+            "number of container export requests", 0L);
+    this.numContainerExportRequests =
+        registry.newCounter("numContainerExportFailures",
+            "number of failed container export requests", 0L);
   }
 
   public static ContainerMetrics create(ConfigurationSource conf) {
@@ -124,5 +132,13 @@ public class ContainerMetrics {
 
   public long getContainerBytesMetrics(ContainerProtos.Type type) {
     return opsBytesArray[type.ordinal()].value();
+  }
+
+  public void incContainerExportRequests() {
+    numContainerExportRequests.incr();
+  }
+
+  public void incContainerExportFailures() {
+    numContainerExportFailures.incr();
   }
 }

@@ -983,7 +983,7 @@ public class KeyValueHandler extends Handler {
       final TarContainerPacker packer)
       throws IOException {
     final KeyValueContainer kvc = (KeyValueContainer) container;
-    kvc.exportContainerData(outputStream, packer);
+    kvc.exportContainerData(outputStream, packer, metrics);
   }
 
   @Override
