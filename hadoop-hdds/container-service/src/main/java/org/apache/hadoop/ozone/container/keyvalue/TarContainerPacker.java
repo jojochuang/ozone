@@ -262,13 +262,13 @@ public class TarContainerPacker
   private static InputStream decompress(InputStream input)
       throws CompressorException {
     return new CompressorStreamFactory()
-        .createCompressorInputStream(CompressorStreamFactory.ZSTANDARD, input);
+        .createCompressorInputStream(CompressorStreamFactory.GZIP, input);
   }
 
   private static OutputStream compress(OutputStream output)
       throws CompressorException {
     return new CompressorStreamFactory()
-        .createCompressorOutputStream(CompressorStreamFactory.ZSTANDARD, output);
+        .createCompressorOutputStream(CompressorStreamFactory.GZIP, output);
   }
 
 }

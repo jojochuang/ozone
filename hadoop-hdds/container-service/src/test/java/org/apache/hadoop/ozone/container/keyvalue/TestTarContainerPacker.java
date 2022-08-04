@@ -55,7 +55,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.commons.compress.compressors.CompressorStreamFactory.ZSTANDARD;
+import static org.apache.commons.compress.compressors.CompressorStreamFactory.GZIP;
 
 /**
  * Test the tar/untar for a given container.
@@ -175,7 +175,7 @@ public class TestTarContainerPacker {
     TarArchiveInputStream tarStream = null;
     try (FileInputStream input = new FileInputStream(targetFile.toFile())) {
       CompressorInputStream uncompressed = new CompressorStreamFactory()
-          .createCompressorInputStream(ZSTANDARD, input);
+          .createCompressorInputStream(GZIP, input);
       tarStream = new TarArchiveInputStream(uncompressed);
 
       TarArchiveEntry entry;
@@ -354,7 +354,7 @@ public class TestTarContainerPacker {
     File targetFile = TEMP_DIR.resolve("container.tar.gz").toFile();
     try (FileOutputStream output = new FileOutputStream(targetFile);
          CompressorOutputStream gzipped = new CompressorStreamFactory()
-             .createCompressorOutputStream(ZSTANDARD, output);
+             .createCompressorOutputStream(GZIP, output);
          ArchiveOutputStream archive = new TarArchiveOutputStream(gzipped)) {
       TarContainerPacker.includeFile(file, entryName, archive);
     }
