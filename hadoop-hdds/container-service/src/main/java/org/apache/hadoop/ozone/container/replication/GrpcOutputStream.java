@@ -63,6 +63,8 @@ class GrpcOutputStream extends OutputStream {
         flushBuffer(false);
       }
     } catch (Exception ex) {
+      LOG.warn("failed to write " + b + " bytes for container " + containerId,
+          ex);
       responseObserver.onError(ex);
     }
   }
@@ -94,6 +96,8 @@ class GrpcOutputStream extends OutputStream {
         len = Math.min(bufferSize, remaining);
       }
     } catch (Exception ex) {
+      LOG.warn("failed to write " + b + " bytes for container " + containerId,
+          ex);
       responseObserver.onError(ex);
     }
   }
