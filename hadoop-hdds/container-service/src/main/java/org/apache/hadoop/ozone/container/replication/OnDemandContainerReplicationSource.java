@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.container.replication;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.ozone.container.common.interfaces.Container;
@@ -37,11 +38,16 @@ public class OnDemandContainerReplicationSource
 
   private final ContainerController controller;
 
-  private final TarContainerPacker packer = new TarContainerPacker();
+  private Map<String, TarContainerPacker> packer;
 
   public OnDemandContainerReplicationSource(
       ContainerController controller) {
     this.controller = controller;
+    this.packer.put("NO_COMPRESSION", new TarContainerPacker("no_compression"));
+    this.packer.put("GZIP", new TarContainerPacker("gz"));
+    this.packer.put("LZ4", new TarContainerPacker("lz4"));
+    this.packer.put("SNAPPY", new TarContainerPacker("snappy-framed"));
+    this.packer.put("ZSTD", new TarContainerPacker("zstd"));
   }
 
   @Override
@@ -50,7 +56,8 @@ public class OnDemandContainerReplicationSource
   }
 
   @Override
-  public void copyData(long containerId, OutputStream destination)
+  public void copyData(long containerId, OutputStream destination,
+      String compression)
       throws IOException {
 
     Container container = controller.getContainer(containerId);
@@ -61,7 +68,8 @@ public class OnDemandContainerReplicationSource
     }
 
     controller.exportContainer(
-        container.getContainerType(), containerId, destination, packer);
+        container.getContainerType(), containerId, destination,
+        packer.get(compression));
 
   }
 }
