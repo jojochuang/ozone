@@ -2060,6 +2060,14 @@
     <description>X509 signature certificate.</description>
   </property>
   <property>
+    <name>hhdds.container.replication.compression</name>
+    <value>GZIP</value>
+    <tag>OZONE, HDDS, DATANODE</tag>
+    <description>Compression algorithm used for closed container replication.
+      Possible chooices include NO_COMPRESSION, GZIP, SNAPPY, LZ4, ZSTD
+    </description>
+  </property>
+  <property>
     <name>ozone.scm.security.handler.count.key</name>
     <value>2</value>
     <tag>OZONE, HDDS, SECURITY</tag>

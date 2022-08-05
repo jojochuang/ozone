@@ -184,6 +184,11 @@ public final class HddsConfigKeys {
   // Default Certificate duration to one year.
   public static final String HDDS_X509_DEFAULT_DURATION_DEFAULT = "P365D";
 
+  public static final String HDDS_CONTAINER_REPLICATION_COMPRESSION =
+      "hdds.container.replication.compression";
+  public static final String HDDS_CONTAINER_REPLICATION_COMPRESSION_DEFAULT =
+      "GZIP";
+
   /**
    * Do not instantiate.
    */

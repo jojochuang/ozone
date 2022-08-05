@@ -41,9 +41,10 @@ public interface ContainerReplicationSource {
    *
    * @param containerId Container to replicate
    * @param destination   The destination stream to copy all the container data.
+   * @param compression Compression algorithm.
    * @throws IOException
    */
-  void copyData(long containerId, OutputStream destination)
+  void copyData(long containerId, OutputStream destination, String compression)
       throws IOException;
 
 }

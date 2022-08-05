@@ -211,7 +211,21 @@ public class TestKeyValueContainer {
   }
 
   @Test
-  public void testContainerImportExport() throws Exception {
+  public void testContainerImportExportUncompressed() throws Exception {
+    testContainerImportExport("no_compression");
+  }
+
+  @Test
+  public void testContainerImportExportGzip() throws Exception {
+    testContainerImportExport("gz");
+  }
+
+  @Test
+  public void testContainerImportExportZstd() throws Exception {
+    testContainerImportExport("zstd");
+  }
+
+  private void testContainerImportExport(String compression) throws Exception {
     long containerId = keyValueContainer.getContainerData().getContainerID();
     createContainer();
     long numberOfKeysToWrite = 12;
@@ -221,7 +235,7 @@ public class TestKeyValueContainer {
     //destination path
     File folderToExport = folder.newFile("exported.tar.gz");
 
-    TarContainerPacker packer = new TarContainerPacker();
+    TarContainerPacker packer = new TarContainerPacker(compression);
 
     //export the container
     try (FileOutputStream fos = new FileOutputStream(folderToExport)) {

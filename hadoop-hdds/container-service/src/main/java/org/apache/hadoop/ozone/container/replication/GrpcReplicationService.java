@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.container.replication;
 
 import java.io.IOException;
 
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.CopyContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.CopyContainerResponseProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.IntraDatanodeProtocolServiceGrpc;
@@ -49,11 +50,14 @@ public class GrpcReplicationService extends
   public void download(CopyContainerRequestProto request,
       StreamObserver<CopyContainerResponseProto> responseObserver) {
     long containerID = request.getContainerID();
-    LOG.info("Streaming container data ({}) to other datanode", containerID);
+    ContainerProtos.CopyContainerCompressProto compression =
+        request.getCompression();
+    LOG.info("Streaming container data ({}) to other datanode" +
+        " with compression {}", containerID, compression);
     try {
       GrpcOutputStream outputStream =
           new GrpcOutputStream(responseObserver, containerID, BUFFER_SIZE);
-      source.copyData(containerID, outputStream);
+      source.copyData(containerID, outputStream, compression.toString());
     } catch (IOException e) {
       LOG.error("Error streaming container {}", containerID, e);
       responseObserver.onError(e);
