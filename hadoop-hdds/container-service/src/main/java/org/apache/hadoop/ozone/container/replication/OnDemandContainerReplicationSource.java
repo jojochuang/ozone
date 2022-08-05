@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.container.replication;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
@@ -43,6 +44,7 @@ public class OnDemandContainerReplicationSource
   public OnDemandContainerReplicationSource(
       ContainerController controller) {
     this.controller = controller;
+    this.packer = new HashMap<>();
     this.packer.put("NO_COMPRESSION", new TarContainerPacker("no_compression"));
     this.packer.put("GZIP", new TarContainerPacker("gz"));
     this.packer.put("LZ4", new TarContainerPacker("lz4"));
