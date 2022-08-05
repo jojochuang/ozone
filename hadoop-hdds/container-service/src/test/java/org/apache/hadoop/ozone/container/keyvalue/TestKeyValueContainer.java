@@ -32,6 +32,7 @@ import org.apache.hadoop.hdds.utils.db.RocksDatabase.ColumnFamily;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
+import org.apache.hadoop.ozone.container.common.helpers.ContainerMetrics;
 import org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion;
 import org.apache.hadoop.ozone.container.common.impl.ContainerDataYaml;
 import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
@@ -49,6 +50,7 @@ import org.apache.hadoop.ozone.container.metadata.DatanodeStore;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.hadoop.util.DiskChecker;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -106,6 +108,7 @@ public class TestKeyValueContainer {
 
   private final ContainerLayoutVersion layout;
   private String schemaVersion;
+  private ContainerMetrics metrics;
 
   // Use one configuration object across parameterized runs of tests.
   // This preserves the column family options in the container options
@@ -142,6 +145,14 @@ public class TestKeyValueContainer {
         datanodeId.toString());
 
     keyValueContainer = new KeyValueContainer(keyValueContainerData, CONF);
+
+    ConfigurationSource conf = new OzoneConfiguration();
+    metrics = ContainerMetrics.create(conf);
+  }
+
+  @After
+  public void cleanup() {
+    ContainerMetrics.remove();
   }
 
   @Test
@@ -196,7 +207,7 @@ public class TestKeyValueContainer {
     TarContainerPacker packer = new TarContainerPacker();
     //export the container
     try (FileOutputStream fos = new FileOutputStream(exportTar)) {
-      keyValueContainer.exportContainerData(fos, packer);
+      keyValueContainer.exportContainerData(fos, packer, metrics);
     }
 
     keyValueContainer.delete();
@@ -226,7 +237,7 @@ public class TestKeyValueContainer {
     //export the container
     try (FileOutputStream fos = new FileOutputStream(folderToExport)) {
       keyValueContainer
-          .exportContainerData(fos, packer);
+          .exportContainerData(fos, packer, metrics);
     }
 
     //delete the original one
@@ -367,7 +378,7 @@ public class TestKeyValueContainer {
           try {
             File file = folder.newFile("concurrent" + i + ".tar.gz");
             try (OutputStream out = new FileOutputStream(file)) {
-              keyValueContainer.exportContainerData(out, packer);
+              keyValueContainer.exportContainerData(out, packer, metrics);
             }
           } catch (Exception e) {
             failed.compareAndSet(null, e.getMessage());
