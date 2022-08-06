@@ -19,6 +19,10 @@ package org.apache.hadoop.ozone.container.replication;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -67,18 +71,19 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
 
   public void importContainer(long containerID, Path tarFilePath)
       throws IOException {
+    RandomAccessFile raf = null;
     try {
       ContainerData originalContainerData;
-      try (FileInputStream tempContainerTarStream = new FileInputStream(
-          tarFilePath.toFile())) {
+      raf = new RandomAccessFile(tarFilePath.toFile(), "r");
+      FileChannel fc = raf.getChannel();
+      try (InputStream tempContainerTarStream = Channels.newInputStream(fc)) {
         byte[] containerDescriptorYaml =
             packer.unpackContainerDescriptor(tempContainerTarStream);
         originalContainerData = ContainerDataYaml.readContainer(
             containerDescriptorYaml);
       }
 
-      try (FileInputStream tempContainerTarStream = new FileInputStream(
-          tarFilePath.toFile())) {
+      try (InputStream tempContainerTarStream = Channels.newInputStream(fc)) {
 
         Container container = controller.importContainer(
             originalContainerData, tempContainerTarStream, packer);
@@ -87,6 +92,9 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
       }
 
     } finally {
+      if (raf != null) {
+        raf.close();
+      }
       try {
         Files.delete(tarFilePath);
       } catch (Exception ex) {

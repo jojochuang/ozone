@@ -21,7 +21,9 @@ package org.apache.hadoop.ozone.container.replication;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
@@ -137,7 +139,7 @@ public class GrpcReplicationClient implements AutoCloseable {
 
     private final CompletableFuture<Path> response;
     private final long containerId;
-    private final OutputStream stream;
+    private final RandomAccessFile raf;
     private final Path outputPath;
 
     public StreamDownloader(long containerId, CompletableFuture<Path> response,
@@ -149,7 +151,7 @@ public class GrpcReplicationClient implements AutoCloseable {
         Preconditions.checkNotNull(outputPath, "Output path cannot be null");
         Path parentPath = Preconditions.checkNotNull(outputPath.getParent());
         Files.createDirectories(parentPath);
-        stream = new FileOutputStream(outputPath.toFile());
+        raf = new RandomAccessFile(outputPath.toFile(), "w");
       } catch (IOException e) {
         throw new UncheckedIOException(
             "Output path can't be used: " + outputPath, e);
@@ -159,12 +161,13 @@ public class GrpcReplicationClient implements AutoCloseable {
     @Override
     public void onNext(CopyContainerResponseProto chunk) {
       try {
-        chunk.getData().writeTo(stream);
+        FileChannel fc = raf.getChannel();
+        fc.write(chunk.getData().asReadOnlyByteBuffer());
       } catch (IOException e) {
         LOG.error("Failed to write the stream buffer to {} for container {}",
             outputPath, containerId, e);
         try {
-          stream.close();
+          raf.close();
         } catch (IOException ex) {
           LOG.error("Failed to close OutputStream {}", outputPath, e);
         } finally {
@@ -179,7 +182,7 @@ public class GrpcReplicationClient implements AutoCloseable {
       try {
         LOG.error("Download of container {} was unsuccessful",
             containerId, throwable);
-        stream.close();
+        raf.close();
         deleteOutputOnFailure();
         response.completeExceptionally(throwable);
       } catch (IOException e) {
@@ -193,7 +196,7 @@ public class GrpcReplicationClient implements AutoCloseable {
     @Override
     public void onCompleted() {
       try {
-        stream.close();
+        raf.close();
         LOG.info("Container {} is downloaded to {}", containerId, outputPath);
         response.complete(outputPath);
       } catch (IOException e) {
