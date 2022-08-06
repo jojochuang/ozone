@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -50,21 +51,26 @@ public class SimpleContainerDownloader implements ContainerDownloader {
   private static final Logger LOG =
       LoggerFactory.getLogger(SimpleContainerDownloader.class);
 
-  private final Path workingDirectory;
+  private final List<Path> workingDirectory;
   private final SecurityConfig securityConfig;
   private final CertificateClient certClient;
+
+  private AtomicLong tempDirIndex = new AtomicLong();
 
   public SimpleContainerDownloader(
       ConfigurationSource conf, CertificateClient certClient) {
 
-    String workDirString =
-        conf.get(OzoneConfigKeys.OZONE_CONTAINER_COPY_WORKDIR);
+    String[] workDirString =
+        conf.getTrimmedStrings(OzoneConfigKeys.OZONE_CONTAINER_COPY_WORKDIR);
 
-    if (workDirString == null) {
-      workingDirectory = Paths.get(System.getProperty("java.io.tmpdir"))
-          .resolve("container-copy");
+    workingDirectory = new ArrayList<>();
+    if (workDirString.length == 0) {
+      workingDirectory.add(Paths.get(System.getProperty("java.io.tmpdir"))
+          .resolve("container-copy"));
     } else {
-      workingDirectory = Paths.get(workDirString);
+      for (int i = 0; i< workDirString.length; i++) {
+        workingDirectory.add(Paths.get(workDirString[i]));
+      }
     }
     securityConfig = new SecurityConfig(conf);
     this.certClient = certClient;
@@ -118,7 +124,9 @@ public class SimpleContainerDownloader implements ContainerDownloader {
     GrpcReplicationClient grpcReplicationClient =
         new GrpcReplicationClient(datanode.getIpAddress(),
             datanode.getPort(Name.REPLICATION).getValue(),
-            workingDirectory, securityConfig, certClient);
+            workingDirectory.get(
+                (int)(tempDirIndex.getAndIncrement() % workingDirectory.size())),
+            securityConfig, certClient);
     result = grpcReplicationClient.download(containerId)
         .whenComplete((r, ex) -> {
           try {
