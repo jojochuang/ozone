@@ -28,6 +28,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import org.apache.hadoop.hdds.HddsUtils;
@@ -59,6 +62,13 @@ public class TarContainerPacker
   static final String DB_DIR_NAME = "db";
 
   private static final String CONTAINER_FILE_NAME = "container.yaml";
+
+
+  public static final AtomicLong unpackBytes = new AtomicLong();
+
+  public static long getUnpackBytes() {
+    return unpackBytes.get();
+  }
 
   /**
    * Given an input stream (tar file) extract the data to the specified
@@ -103,6 +113,8 @@ public class TarContainerPacker
         }
         entry = archiveInput.getNextEntry();
       }
+      unpackBytes.addAndGet(archiveInput.getBytesRead());
+
       return descriptorFileContent;
 
     } catch (CompressorException e) {

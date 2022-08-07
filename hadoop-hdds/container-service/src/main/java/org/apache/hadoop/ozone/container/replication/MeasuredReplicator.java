@@ -25,6 +25,7 @@ import org.apache.hadoop.metrics2.annotation.Metrics;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MutableGaugeLong;
+import org.apache.hadoop.ozone.container.keyvalue.TarContainerPacker;
 import org.apache.hadoop.ozone.container.replication.ReplicationTask.Status;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -125,6 +126,11 @@ public class MeasuredReplicator implements ContainerReplicator, AutoCloseable {
   @VisibleForTesting
   public MutableGaugeLong getFailureBytes() {
     return failureBytes;
+  }
+
+  @Metric("Metric to get unpacked bytes")
+  public long getUnpackedBytes() {
+    return TarContainerPacker.getUnpackBytes();
   }
 
 }
