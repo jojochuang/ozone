@@ -151,7 +151,7 @@ public class GrpcReplicationClient implements AutoCloseable {
         Preconditions.checkNotNull(outputPath, "Output path cannot be null");
         Path parentPath = Preconditions.checkNotNull(outputPath.getParent());
         Files.createDirectories(parentPath);
-        raf = new RandomAccessFile(outputPath.toFile(), "w");
+        raf = new RandomAccessFile(outputPath.toFile(), "rw");
       } catch (IOException e) {
         throw new UncheckedIOException(
             "Output path can't be used: " + outputPath, e);
