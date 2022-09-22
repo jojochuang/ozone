@@ -1,0 +1,6 @@
+docker_images:
+  ozone-filesystem-hadoop3-image: ozone-filesystem-hadoop3-image
+
+registry: __REGISTRY__
+docker_image_tag:
+  build_tag: REPLACE_TAG
