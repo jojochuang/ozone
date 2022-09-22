@@ -83,6 +83,13 @@ class CopyAndModifyData(object):
             logging.info("Exception in _parcel_ozone_cli {}".format(traceback.format_exc()))
             sys.exit(1)
 
+    def _copy_notice(self):
+        try:
+            shutil.copy(os.path.join(self._in_dir, "NOTICE.txt"),self._scratch_dir)
+        except Exception:
+            logging.info("Exception in _copy_notice {}".format(traceback.format_exc()))
+            sys.exit(1)
+
     def _copy_jars(self):
         os.makedirs(self._share_lib)
         try:
@@ -229,7 +236,7 @@ class CopyAndModifyData(object):
         try:
             dest_path_share_ozone_lib = self._docker_dir + "/share/ozone/lib"
             os.makedirs(dest_path_share_ozone_lib)
-
+            shutil.copy(os.path.join(self._in_dir, "NOTICE.txt"), self._docker_dir)
             self._docker_image_copy_files_util(dest_path_share_ozone_lib, "ozone-tools")
 
             dest_path_share_ozone_classpath = self._docker_dir + "/share/ozone/classpath"
@@ -294,6 +301,7 @@ class CopyAndModifyData(object):
         self._parcel_ozone_wrapper()
         self._parcel_ozone_cli()
         self._copy_jars()
+        self._copy_notice()
         self._copy_classpaths()
         self._update_libexec()
         self._docker_image_copy_files()
