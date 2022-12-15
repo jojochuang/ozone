@@ -108,13 +108,30 @@ class CopyAndModifyData(object):
 
             # copy additional_jars
             if self._configs['additional_jars']:
-                for files in self._configs['additional_jars']:
-                    for file in glob.glob(os.path.join(self._in_dir, f"hadoop-ozone/dist/target/ozone-*/share/ozone/lib/{files}")):
+                additional_jars_list, exclude_jars_list = self._copy_jars_util(self._configs['additional_jars'], self._configs['exclude_jars'])
+                for file in [jar for jar in additional_jars_list if jar not in exclude_jars_list]:
                         logging.info(f"Copying {file} to {self._share_lib}")
                         shutil.copy(file, self._share_lib)
         
         except Exception:
             logging.info("Exception in _copy_jars {}".format(traceback.format_exc()))
+            sys.exit(1)
+
+    def _copy_jars_util(self, additional_jars, exclude_jars):
+        try:
+            additional_jars_list, exclude_jars_list = [], []
+            for files in additional_jars:
+                for file in glob.glob(os.path.join(self._in_dir, f"hadoop-ozone/dist/target/ozone-*/share/ozone/lib/{files}")):
+                    additional_jars_list.append(file)
+        
+            for files in exclude_jars:
+                for file in glob.glob(os.path.join(self._in_dir, f"hadoop-ozone/dist/target/ozone-*/share/ozone/lib/{files}")):
+                    exclude_jars_list.append(file)
+        
+            return additional_jars_list, exclude_jars_list
+
+        except Exception:
+            logging.info("Exception in _copy_jars_util {}".format(traceback.format_exc()))
             sys.exit(1)
 
     def _copy_classpaths(self):
@@ -133,8 +150,10 @@ class CopyAndModifyData(object):
             for jar in jars:
                 if f"{env_var}{jar}:" in contents:
                     contents = contents.replace(f"{env_var}{jar}:","")
-                else:
+                elif f":{env_var}{jar}" in contents:
                     contents = contents.replace(f":{env_var}{jar}","")
+                elif f"={env_var}{jar}" in contents:
+                    contents = contents.replace(f"={env_var}{jar}","=")
             return contents
         
         except Exception:
@@ -152,9 +171,9 @@ class CopyAndModifyData(object):
                 # if additional_jars are specified under configs/parcel_config.yaml
                 jars_strip = []
                 if self._configs['additional_jars']:
-                    for jars in self._configs['additional_jars']:
-                        for jar in glob.glob(os.path.join(self._in_dir, f"hadoop-ozone/dist/target/ozone-*/share/ozone/lib/{jars}")):
-                            jars_strip.append(jar[jar.rindex("/")+1:] if '/' in jar else jar)
+                    additional_jars_list, exclude_jars_list = self._copy_jars_util(self._configs['additional_jars'], self._configs['exclude_jars'])
+                    for jar in [jar for jar in additional_jars_list if jar not in exclude_jars_list]:
+                        jars_strip.append(jar[jar.rindex("/")+1:] if '/' in jar else jar)
                 
                 jars_strip = [jar for jar in jars_strip if jar in contents]
                 contents = self._modify_classpaths_util(contents, matches+jars_strip)
