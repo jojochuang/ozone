@@ -70,7 +70,7 @@
     <declared.ozone.version>${ozone.version}</declared.ozone.version>
 
     <!-- Apache Ratis version -->
-    <ratis.version>2.4.2.8b8bdda.7.2.17.0-SNAPSHOT</ratis.version>
+    <ratis.version>2.4.2.7.2.17.0-SNAPSHOT</ratis.version>
 
     <!-- Apache Ratis thirdparty version -->
     <ratis.thirdparty.version>1.0.3.7.2.17.0-SNAPSHOT</ratis.thirdparty.version>
