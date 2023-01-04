@@ -737,8 +737,20 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         .getAllocateBlockResponse();
     return OmKeyLocationInfo.getFromProtobuf(resp.getKeyLocation());
   }
+
+  @Override
+  public void hflushKey(OmKeyArgs args, long clientId)
+          throws IOException {
+    updateKey(args, clientId, false);
+  }
+
   @Override
   public void commitKey(OmKeyArgs args, long clientId)
+          throws IOException {
+    updateKey(args, clientId, true);
+  }
+
+  private void updateKey(OmKeyArgs args, long clientId, boolean finalUpdate)
       throws IOException {
     CommitKeyRequest.Builder req = CommitKeyRequest.newBuilder();
     List<OmKeyLocationInfo> locationInfoList = args.getLocationInfoList();
@@ -766,6 +778,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
 
     req.setKeyArgs(keyArgsBuilder.build());
     req.setClientID(clientId);
+    req.setFinalUpdate(finalUpdate);
 
 
     OMRequest omRequest = createOMRequest(Type.CommitKey)
