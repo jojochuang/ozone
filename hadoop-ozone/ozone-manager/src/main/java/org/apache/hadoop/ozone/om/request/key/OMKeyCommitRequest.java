@@ -259,7 +259,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       // Add to cache of open key table and key table.
       if (!commitKeyRequest.hasFinalUpdate() ||
               (commitKeyRequest.hasFinalUpdate() &&
-              commitKeyRequest.finalUpdate() == true)) {
+              commitKeyRequest.getFinalUpdate() == true)) {
         omMetadataManager.getOpenKeyTable(getBucketLayout()).addCacheEntry(
             new CacheKey<>(dbOpenKey),
             new CacheValue<>(Optional.absent(), trxnLogIndex));

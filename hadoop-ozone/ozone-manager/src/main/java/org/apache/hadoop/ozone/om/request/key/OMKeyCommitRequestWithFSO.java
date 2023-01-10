@@ -197,7 +197,7 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
       // Add to cache of open key table and key table.
       if (!commitKeyRequest.hasFinalUpdate() ||
               (commitKeyRequest.hasFinalUpdate() &&
-                      commitKeyRequest.finalUpdate() == true)) {
+                      commitKeyRequest.getFinalUpdate() == true)) {
         OMFileRequest.addOpenFileTableCacheEntry(omMetadataManager, dbOpenFileKey,
                 null, fileName, trxnLogIndex);
       }
