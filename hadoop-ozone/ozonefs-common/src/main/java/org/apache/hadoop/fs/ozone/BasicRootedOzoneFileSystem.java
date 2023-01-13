@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -259,8 +260,14 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
       return new FSDataOutputStream(adapter.createStreamFile(key,
           replication, overwrite, recursive), statistics);
     }
-    return new FSDataOutputStream(adapter.createFile(key,
-        replication, overwrite, recursive), statistics);
+    return new FSDataOutputStream(createFSOutputStream(
+            adapter.createFile(key,
+        replication, overwrite, recursive)), statistics);
+  }
+
+  protected OutputStream createFSOutputStream(
+      OzoneFSOutputStream outputStream) {
+    return outputStream;
   }
 
   @Override
@@ -283,7 +290,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
       this.dstPath = pathToKey(dstPath);
       LOG.trace("rename from:{} to:{}", this.srcPath, this.dstPath);
       // Initialize bucket here to reduce number of RPC calls
-      OFSPath ofsPath = new OFSPath(srcPath);
+      OFSPath ofsPath = new OFSPath(srcPath,
+          OzoneConfiguration.of(getConfSource()));
       // TODO: Refactor later.
       adapterImpl = (BasicRootedOzoneClientAdapterImpl) adapter;
       this.bucket = adapterImpl.getBucket(ofsPath, false);
@@ -328,8 +336,10 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
     }
 
     // src and dst should be in the same bucket
-    OFSPath ofsSrc = new OFSPath(src);
-    OFSPath ofsDst = new OFSPath(dst);
+    OFSPath ofsSrc = new OFSPath(src,
+        OzoneConfiguration.of(getConfSource()));
+    OFSPath ofsDst = new OFSPath(dst,
+        OzoneConfiguration.of(getConfSource()));
     if (!ofsSrc.isInSameBucketAs(ofsDst)) {
       throw new IOException("Cannot rename a key to a different bucket");
     }
@@ -476,7 +486,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
         throw new PathIsNotEmptyDirectoryException(f.toString());
       }
       // Initialize bucket here to reduce number of RPC calls
-      OFSPath ofsPath = new OFSPath(f);
+      OFSPath ofsPath = new OFSPath(f,
+          OzoneConfiguration.of(getConfSource()));
       // TODO: Refactor later.
       adapterImpl = (BasicRootedOzoneClientAdapterImpl) adapter;
       this.bucket = adapterImpl.getBucket(ofsPath, false);
@@ -506,7 +517,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
       this.f = f;
       this.recursive = recursive;
       // Initialize bucket here to reduce number of RPC calls
-      OFSPath ofsPath = new OFSPath(f);
+      OFSPath ofsPath = new OFSPath(f,
+          OzoneConfiguration.of(getConfSource()));
       adapterImpl = (BasicRootedOzoneClientAdapterImpl) adapter;
       this.bucket = adapterImpl.getBucket(ofsPath, false);
       LOG.debug("Deleting bucket with name {} is via DeleteIteratorWithFSO.",
@@ -537,7 +549,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
     DeleteIteratorFactory(Path f, boolean recursive) {
       this.path = f;
       this.recursive = recursive;
-      this.ofsPath = new OFSPath(f);
+      this.ofsPath = new OFSPath(f,
+          OzoneConfiguration.of(getConfSource()));
     }
 
     OzoneListingIterator getDeleteIterator()
@@ -602,7 +615,9 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
 
     if (status.isDirectory()) {
       LOG.debug("delete: Path is a directory: {}", f);
-      OFSPath ofsPath = new OFSPath(key);
+
+      OFSPath ofsPath = new OFSPath(key,
+          OzoneConfiguration.of(getConfSource()));
 
       // Handle rm root
       if (ofsPath.isRoot()) {
@@ -843,7 +858,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
    */
   @Override
   public Path getTrashRoot(Path path) {
-    OFSPath ofsPath = new OFSPath(path);
+    OFSPath ofsPath = new OFSPath(path,
+        OzoneConfiguration.of(getConfSource()));
     return ofsPath.getTrashRoot();
   }
 
@@ -1250,7 +1266,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
           OZONE_FS_ITERATE_BATCH_SIZE_DEFAULT);
       if (status.isDir()) {
         LOG.trace("Iterating directory: {}", pathKey);
-        OFSPath ofsPath = new OFSPath(pathKey);
+        OFSPath ofsPath = new OFSPath(pathKey,
+            OzoneConfiguration.of(getConfSource()));
         String ofsPathPrefix =
             ofsPath.getNonKeyPathNoPrefixDelim() + OZONE_URI_DELIMITER;
         if (isFSO) {
@@ -1258,7 +1275,8 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
           fileStatuses = listStatusAdapter(path);
           for (FileStatusAdapter fileStatus : fileStatuses) {
             String keyName =
-                new OFSPath(fileStatus.getPath().toString()).getKeyName();
+                new OFSPath(fileStatus.getPath().toString(),
+                    OzoneConfiguration.of(getConfSource())).getKeyName();
             keyPathList.add(ofsPathPrefix + keyName);
           }
           if (keyPathList.size() >= batchSize) {
@@ -1390,6 +1408,17 @@ public class BasicRootedOzoneFileSystem extends FileSystem {
     return new ContentSummary.Builder().length(summary[0]).
         fileCount(summary[2]).directoryCount(summary[3]).
         spaceConsumed(summary[1]).build();
+  }
+
+  /**
+   * Start the lease recovery of a file
+   *
+   * @param f a file
+   * @return true if the file is already closed
+   * @throws IOException if an error occurs
+   */
+  public boolean recoverLease(final Path f) throws IOException {
+    return adapterImpl.recoverLease(f);
   }
 
 }

@@ -22,6 +22,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
@@ -244,6 +245,20 @@ public interface OzoneManagerProtocol
       throws IOException {
     throw new UnsupportedOperationException("OzoneManager does not require " +
         "this to be implemented, as write requests use a new approach.");
+  }
+
+  /**
+   * Synchronize the key length. This will make the change from the client
+   * visible. The client is identified by the clientID.
+   *
+   * @param args the key to commit
+   * @param clientID the client identification
+   * @throws IOException
+   */
+  default void hsyncKey(OmKeyArgs args, long clientID)
+          throws IOException {
+    throw new UnsupportedOperationException("OzoneManager does not require " +
+            "this to be implemented, as write requests use a new approach.");
   }
 
 
@@ -939,4 +954,16 @@ public interface OzoneManagerProtocol
                              int payloadSizeResp)
           throws IOException;
 
+
+  /**
+   * Start the lease recovery of a file
+   *
+   * @param volumeName - The volume name.
+   * @param bucketName - The bucket name.
+   * @param keyName - The key user want to recover.
+   * @return true if the file is already closed
+   * @throws IOException if an error occurs
+   */
+  public boolean recoverLease(String volumeName, String bucketName,
+                              String keyName) throws IOException;
 }

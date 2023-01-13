@@ -1,6 +1,6 @@
 docker_images:
   ozone-filesystem-hadoop3-image: ozone-filesystem-hadoop3-image
 
-registry: __REGISTRY__
+registry: docker-sandbox.infra.cloudera.com/cloudera
 docker_image_tag:
-  build_tag: REPLACE_TAG
+  build_tag: 1.3.0.718.1.0-b7

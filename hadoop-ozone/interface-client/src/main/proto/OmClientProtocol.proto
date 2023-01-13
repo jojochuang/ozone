@@ -124,6 +124,7 @@ enum Type {
   RangerBGSync = 109;
   EchoRPC = 110;
   GetKeyInfo = 111;
+  RecoverLease = 112;
 }
 
 message OMRequest {
@@ -230,6 +231,7 @@ message OMRequest {
   optional RangerBGSyncRequest              RangerBGSyncRequest            = 109;
   optional EchoRPCRequest                   EchoRPCRequest                 = 110;
   optional GetKeyInfoRequest                GetKeyInfoRequest              = 111;
+  optional RecoverLeaseRequest              RecoverLeaseRequest            = 112;
 }
 
 message OMResponse {
@@ -329,6 +331,7 @@ message OMResponse {
   optional RangerBGSyncResponse              RangerBGSyncResponse          = 109;
   optional EchoRPCResponse                   EchoRPCResponse               = 110;
   optional GetKeyInfoResponse                GetKeyInfoResponse            = 111;
+  optional RecoverLeaseResponse              RecoverLeaseResponse          = 112;
 }
 
 enum Status {
@@ -1232,6 +1235,7 @@ message ListKeysResponse {
 message CommitKeyRequest {
     required KeyArgs keyArgs = 1;
     required uint64 clientID = 2;
+    optional bool hsync = 3;
 }
 
 message CommitKeyResponse {
@@ -1695,6 +1699,16 @@ message S3Authentication {
     optional string stringToSign = 1;
     optional string signature = 2;
     optional string accessId = 3;
+}
+
+message RecoverLeaseRequest {
+  optional string volumeName = 1;
+  optional string bucketName = 2;
+  optional string keyName = 3;
+}
+
+message RecoverLeaseResponse {
+  optional bool response = 1;
 }
 
 /**
