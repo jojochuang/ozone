@@ -2890,7 +2890,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     }
 
     boolean auditSuccess = true;
-    OmKeyArgs resolvedArgs = bucket.update(args);
+    OmKeyArgs resolvedArgs = bucket.update(resolvedVolumeArgs);
 
     try {
       metrics.incNumGetKeyInfo();
