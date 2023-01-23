@@ -739,7 +739,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
   }
 
   @Override
-  public void hflushKey(OmKeyArgs args, long clientId)
+  public void hsyncKey(OmKeyArgs args, long clientId)
           throws IOException {
     updateKey(args, clientId, false);
   }

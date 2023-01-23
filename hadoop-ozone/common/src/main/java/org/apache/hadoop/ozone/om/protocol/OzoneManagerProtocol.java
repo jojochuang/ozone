@@ -247,14 +247,14 @@ public interface OzoneManagerProtocol
   }
 
   /**
-   * Commit a key. This will make the change from the client visible. The client
+   * Synchronize the key length. This will make the change from the client visible. The client
    * is identified by the clientID.
    *
    * @param args the key to commit
    * @param clientID the client identification
    * @throws IOException
    */
-  default void hflushKey(OmKeyArgs args, long clientID)
+  default void hsyncKey(OmKeyArgs args, long clientID)
           throws IOException {
     throw new UnsupportedOperationException("OzoneManager does not require " +
             "this to be implemented, as write requests use a new approach.");
