@@ -257,12 +257,14 @@ public class OMKeyCommitRequest extends OMKeyRequest {
       }
 
       // Add to cache of open key table and key table.
+      boolean isHSync = false;
       if (!commitKeyRequest.hasFinalUpdate() ||
               (commitKeyRequest.hasFinalUpdate() &&
               commitKeyRequest.getFinalUpdate() == true)) {
         omMetadataManager.getOpenKeyTable(getBucketLayout()).addCacheEntry(
             new CacheKey<>(dbOpenKey),
             new CacheValue<>(Optional.absent(), trxnLogIndex));
+        isHSync = true;
       }
 
       omMetadataManager.getKeyTable(getBucketLayout()).addCacheEntry(
@@ -278,7 +280,7 @@ public class OMKeyCommitRequest extends OMKeyRequest {
 
       omClientResponse = new OMKeyCommitResponse(omResponse.build(),
           omKeyInfo, dbOzoneKey, dbOpenKey, omBucketInfo.copyObject(),
-          oldKeyVersionsToDelete);
+          oldKeyVersionsToDelete, isHSync);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {

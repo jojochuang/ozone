@@ -194,12 +194,14 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
         }
       }
 
+      boolean isHSync = false;
       // Add to cache of open key table and key table.
       if (!commitKeyRequest.hasFinalUpdate() ||
               (commitKeyRequest.hasFinalUpdate() &&
                       commitKeyRequest.getFinalUpdate() == true)) {
         OMFileRequest.addOpenFileTableCacheEntry(omMetadataManager, dbOpenFileKey,
                 null, fileName, trxnLogIndex);
+        isHSync = true;
       }
 
       OMFileRequest.addFileTableCacheEntry(omMetadataManager, dbFileKey,
@@ -214,7 +216,7 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
 
       omClientResponse = new OMKeyCommitResponseWithFSO(omResponse.build(),
               omKeyInfo, dbFileKey, dbOpenFileKey, omBucketInfo.copyObject(),
-              oldKeyVersionsToDelete, volumeId);
+              oldKeyVersionsToDelete, volumeId, isHSync);
 
       result = Result.SUCCESS;
     } catch (IOException ex) {
