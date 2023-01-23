@@ -74,7 +74,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <dependency>
       <groupId>org.jacoco</groupId>
       <artifactId>org.jacoco.core</artifactId>
-      <version>0.8.5</version>
+      <version>0.8.8</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
