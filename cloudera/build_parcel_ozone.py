@@ -21,6 +21,8 @@ class CopyAndModifyData(object):
         self._in_dir = in_dir
         self._scratch_dir = scratch_dir
         self._bin = os.path.join(self._scratch_dir, "bin")
+        self._scripts = os.path.join(self._scratch_dir, "scripts")
+        self._scripts_local = os.path.abspath("cloudera/scripts")
         self._hadoop_ozone = os.path.join(self._scratch_dir, "lib", "hadoop-ozone")
         self._lib_bin = os.path.join(self._hadoop_ozone, "bin")
         self._lib_libexec = os.path.join(self._hadoop_ozone, "libexec")
@@ -226,12 +228,24 @@ class CopyAndModifyData(object):
             logging.info("Exception in _modify_libexec {}".format(traceback.format_exc()))
             sys.exit(1)
 
+    def _copy_scripts(self):
+        os.makedirs(self._scripts)
+        try:
+            script_file = "update_tez_client_jar.sh"
+            subprocess.check_output(f"cp {self._scripts_local}/{script_file} {self._scripts}/", shell=True)
+            subprocess.check_output(f"cd {self._scripts} && chmod a+x {script_file}", shell=True)
+
+        except Exception:
+            logging.info("Exception in _copy_scripts {}".format(traceback.format_exc()))
+            sys.exit(1)
+
     def copy_and_modify(self):
         self._parcel_ozone_wrapper()
         self._parcel_ozone_cli()
         self._copy_jars()
         self._copy_classpaths()
         self._update_libexec()
+        self._copy_scripts()
 
 class WriteMetadata(object):
 
