@@ -164,7 +164,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <proto3.hadooprpc.protobuf.version>3.7.1</proto3.hadooprpc.protobuf.version>
     <hadoop-thirdparty.version>1.1.1</hadoop-thirdparty.version>
 
-    <findbugs.version>3.0.0</findbugs.version>
+    <findbugs.version>3.0.2</findbugs.version>
     <spotbugs.version>3.1.12</spotbugs.version>
     <dnsjava.version>2.1.7</dnsjava.version>
 
