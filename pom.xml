@@ -169,7 +169,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <dnsjava.version>2.1.7</dnsjava.version>
 
     <guava.version>31.1-jre</guava.version>
-    <guice.version>4.0</guice.version>
+    <guice.version>4.2.3</guice.version>
     <gson.version>2.9.0</gson.version>
 
     <okhttp.version>2.7.5</okhttp.version>
