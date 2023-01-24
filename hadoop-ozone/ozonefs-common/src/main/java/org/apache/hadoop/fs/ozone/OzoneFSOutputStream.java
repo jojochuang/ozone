@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.fs.ozone;
 
+import org.apache.hadoop.fs.StreamCapabilities;
 import org.apache.hadoop.fs.Syncable;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 
@@ -31,7 +32,8 @@ import java.io.OutputStream;
  * TODO: Make outputStream generic for both rest and rpc clients
  * This class is not thread safe.
  */
-public class OzoneFSOutputStream extends OutputStream implements Syncable {
+public class OzoneFSOutputStream extends OutputStream
+        implements Syncable, StreamCapabilities {
 
   private final OzoneOutputStream outputStream;
 
@@ -67,5 +69,10 @@ public class OzoneFSOutputStream extends OutputStream implements Syncable {
   @Override
   public void hsync() throws IOException {
     outputStream.hsync();
+  }
+
+  @Override
+  public boolean hasCapability(String capability) {
+    return outputStream.hasCapability(capability);
   }
 }

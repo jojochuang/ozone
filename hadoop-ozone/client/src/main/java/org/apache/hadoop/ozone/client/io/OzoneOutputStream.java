@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.client.io;
 
 import org.apache.hadoop.crypto.CryptoOutputStream;
+import org.apache.hadoop.fs.StreamCapabilities;
 import org.apache.hadoop.fs.Syncable;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartCommitUploadPartInfo;
 
@@ -28,7 +29,8 @@ import java.io.OutputStream;
  * OzoneOutputStream is used to write data into Ozone.
  * It uses SCM's {@link KeyOutputStream} for writing the data.
  */
-public class OzoneOutputStream extends OutputStream {
+public class OzoneOutputStream extends OutputStream
+        implements StreamCapabilities {
 
   private final OutputStream outputStream;
   private final Syncable syncable;
@@ -98,5 +100,17 @@ public class OzoneOutputStream extends OutputStream {
 
   public OutputStream getOutputStream() {
     return outputStream;
+  }
+
+  @Override
+  public boolean hasCapability(String capability) {
+    // Both KeyOutputStream and CryptoOutputStream implements
+    // StreamCapabilities interface
+    if (outputStream instanceof KeyOutputStream ||
+            outputStream instanceof CryptoOutputStream) {
+      return ((StreamCapabilities) outputStream).hasCapability(capability);
+    }
+
+    return false;
   }
 }
