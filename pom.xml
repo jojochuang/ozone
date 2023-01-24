@@ -1331,7 +1331,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <dependency>
         <groupId>org.assertj</groupId>
         <artifactId>assertj-core</artifactId>
-        <version>3.12.2</version>
+        <version>3.23.1</version>
         <scope>test</scope>
       </dependency>
       <dependency>
