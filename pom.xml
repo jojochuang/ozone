@@ -153,7 +153,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <disruptor.version>3.4.2</disruptor.version>
     <reload4j.version>1.2.22</reload4j.version>
 
-    <prometheus.version>0.7.0</prometheus.version>
+    <prometheus.version>0.16.0</prometheus.version>
 
     <!-- com.google.re2j version -->
     <re2j.version>1.1</re2j.version>
