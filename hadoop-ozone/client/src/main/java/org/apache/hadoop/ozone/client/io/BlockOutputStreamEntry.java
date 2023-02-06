@@ -172,7 +172,9 @@ public class BlockOutputStreamEntry extends OutputStream {
   void cleanup(boolean invalidateClient) throws IOException {
     checkStream();
     BlockOutputStream out = (BlockOutputStream) getOutputStream();
-    out.cleanup(invalidateClient);
+    synchronized (out) {
+      out.cleanup(invalidateClient);
+    }
   }
 
   /**

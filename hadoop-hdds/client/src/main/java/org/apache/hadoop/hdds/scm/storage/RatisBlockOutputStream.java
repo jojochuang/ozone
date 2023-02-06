@@ -135,7 +135,7 @@ public class RatisBlockOutputStream extends BlockOutputStream
   }
 
   @Override
-  public void hsync() throws IOException {
+  public synchronized void hsync() throws IOException {
     if (!isClosed()) {
       if (getBufferPool() != null && getBufferPool().getSize() > 0) {
         handleFlush(false);
