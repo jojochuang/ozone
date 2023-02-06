@@ -247,7 +247,7 @@ public class BlockOutputStream extends OutputStream {
   }
 
   @Override
-  public void write(int b) throws IOException {
+  public synchronized void write(int b) throws IOException {
     checkOpen();
     allocateNewBufferIfNeeded();
     currentBuffer.put((byte) b);
@@ -264,7 +264,7 @@ public class BlockOutputStream extends OutputStream {
   }
 
   @Override
-  public void write(byte[] b, int off, int len) throws IOException {
+  public synchronized void write(byte[] b, int off, int len) throws IOException {
     checkOpen();
     if (b == null) {
       throw new NullPointerException();
@@ -330,7 +330,7 @@ public class BlockOutputStream extends OutputStream {
    */
 
   // In this case, the data is already cached in the currentBuffer.
-  public void writeOnRetry(long len) throws IOException {
+  public synchronized void writeOnRetry(long len) throws IOException {
     if (len == 0) {
       return;
     }
@@ -513,7 +513,7 @@ public class BlockOutputStream extends OutputStream {
   }
 
   @Override
-  public void flush() throws IOException {
+  public synchronized void flush() throws IOException {
     if (xceiverClientFactory != null && xceiverClient != null
         && bufferPool != null && bufferPool.getSize() > 0
         && (!config.isStreamBufferFlushDelay() ||

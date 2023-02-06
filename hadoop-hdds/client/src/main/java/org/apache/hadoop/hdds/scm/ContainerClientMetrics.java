@@ -27,6 +27,7 @@ import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.Interns;
 import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
+import org.apache.hadoop.metrics2.lib.MutableRollingAverages;
 import org.apache.hadoop.ozone.OzoneConsts;
 
 import java.util.Map;
@@ -51,9 +52,20 @@ public final class ContainerClientMetrics {
   private MutableCounterLong totalWriteChunkCalls;
   @Metric
   private MutableCounterLong totalWriteChunkBytes;
+
+  @Metric
+  private MutableCounterLong hsyncCount;
+
+  @Metric
+  private MutableRollingAverages dataNodeHsyncDuration;
+
+  @Metric
+  private MutableRollingAverages omHsyncDuration;
+
   private final Map<PipelineID, MutableCounterLong> writeChunkCallsByPipeline;
   private final Map<PipelineID, MutableCounterLong> writeChunkBytesByPipeline;
   private final Map<UUID, MutableCounterLong> writeChunksCallsByLeaders;
+
   private final MetricsRegistry registry;
 
   public static synchronized ContainerClientMetrics acquire() {
@@ -119,6 +131,18 @@ public final class ContainerClientMetrics {
   @VisibleForTesting
   public MutableCounterLong getTotalWriteChunkCalls() {
     return totalWriteChunkCalls;
+  }
+
+  public MutableCounterLong getHsyncCount() {
+    return hsyncCount;
+  }
+
+  public MutableRollingAverages getDataNodeHsyncDuration() {
+    return dataNodeHsyncDuration;
+  }
+
+  public MutableRollingAverages getOmHsyncDuration() {
+    return omHsyncDuration;
   }
 
   @VisibleForTesting
