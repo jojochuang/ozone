@@ -407,14 +407,14 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
           BlockData blkInfo = blockDataTable.get(blk);
           if (blkInfo != null) {
             String deletingKey = containerData.deletingBlockKey(blkLong);
-            if (blockDataTable.get(deletingKey) != null
+            /*if (blockDataTable.get(deletingKey) != null
                 || deletedBlocksTable.get(blk) != null) {
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Ignoring delete for block {} in container {}."
                         + " Entry already added.", blkLong, containerId);
               }
               continue;
-            }
+            }*/
             // Found the block in container db,
             // use an atomic update to change its state to deleting.
             blockDataTable.putWithBatch(batch, deletingKey, blkInfo);
@@ -489,14 +489,14 @@ public class DeleteBlocksCommandHandler implements CommandHandler {
           containerData.getMetadataPath());
     }
 
-    if (delTX.getTxID() <= containerData.getDeleteTransactionId()) {
+    /*if (delTX.getTxID() <= containerData.getDeleteTransactionId()) {
       if (LOG.isDebugEnabled()) {
         LOG.debug(String.format("Ignoring delete blocks for containerId: %d."
                 + " Outdated delete transactionId %d < %d", containerId,
             delTX.getTxID(), containerData.getDeleteTransactionId()));
       }
       b = false;
-    }
+    }*/
     return b;
   }
 
