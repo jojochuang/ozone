@@ -153,7 +153,7 @@ public class BlockOutputStreamEntry extends OutputStream {
       long start = Time.monotonicNow();
       ((Syncable)out).hsync();
       long duration = Time.monotonicNow() - start;
-      clientMetrics.getDataNodeHsyncDuration().add
+      clientMetrics.getDataNodeHsyncDuration().add("ratis", duration);
     }
   }
 
