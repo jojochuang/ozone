@@ -159,6 +159,39 @@ public class TestHSync {
     }
   }
 
+  @Test
+  public void testWalDirectoryDelete() throws Exception {
+    // Set the fs.defaultFS
+    final String rootPath = String.format("%s://%s/",
+        OZONE_OFS_URI_SCHEME, CONF.get(OZONE_OM_ADDRESS_KEY));
+    CONF.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, rootPath);
+
+    final String dir = OZONE_ROOT + bucket.getVolumeName()
+        + OZONE_URI_DELIMITER + bucket.getName();
+
+    try (FileSystem fs = FileSystem.get(CONF)) {
+      final Path src = new Path(dir, "src");
+      fs.mkdirs(src);
+      for (int i = 0; i < 10; i++) {
+        final Path file = new Path(src, "file" + i);
+        try (StreamWithLength out = new StreamWithLength(
+            fs.create(file, true))) {
+          runTestHSync(fs, file, out, 1 << i);
+        }
+      }
+      final Path dest = new Path(dir, "dest");
+      fs.mkdirs(dest);
+      for (int i = 0; i < 10; i++) {
+        final Path srcfile = new Path(src, "file" + i);
+        final Path destfile = new Path(dest, "file" + i);
+        fs.rename(srcfile, destfile);
+      }
+      final Path src2 = new Path(dir, "src-splitting");
+      fs.rename(src, src2);
+      fs.delete(src2, false);
+    }
+  }
+
   static void runTestHSync(FileSystem fs, Path file, int initialDataSize)
       throws Exception {
     try (StreamWithLength out = new StreamWithLength(
