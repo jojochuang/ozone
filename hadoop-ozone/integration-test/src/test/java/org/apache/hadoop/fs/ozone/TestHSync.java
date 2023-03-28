@@ -132,10 +132,12 @@ public class TestHSync {
         OZONE_URI_SCHEME, bucket.getName(), bucket.getVolumeName());
     CONF.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, rootPath);
 
+    final Path destPath = new Path("/dest");
     try (FileSystem fs = FileSystem.get(CONF)) {
+      fs.mkdirs(destPath);
       for (int i = 0; i < 10; i++) {
         final Path file = new Path("/file" + i);
-        runTestHSync(fs, file, 1 << i);
+        runTestHSync(fs, file, destPath, 1 << i);
       }
     }
   }
@@ -150,17 +152,19 @@ public class TestHSync {
 
     final String dir = OZONE_ROOT + bucket.getVolumeName()
         + OZONE_URI_DELIMITER + bucket.getName();
+    final Path destPath = new Path(dir, "dest");
 
     try (FileSystem fs = FileSystem.get(CONF)) {
+      fs.mkdirs(destPath);
       for (int i = 0; i < 10; i++) {
         final Path file = new Path(dir, "file" + i);
-        runTestHSync(fs, file, 1 << i);
+        runTestHSync(fs, file, destPath, 1 << i);
       }
     }
   }
 
-  static void runTestHSync(FileSystem fs, Path file, int initialDataSize)
-      throws Exception {
+  static void runTestHSync(FileSystem fs, Path file, Path destPath,
+      int initialDataSize) throws Exception {
     try (StreamWithLength out = new StreamWithLength(
         fs.create(file, true))) {
       runTestHSync(fs, file, out, initialDataSize);
@@ -170,7 +174,11 @@ public class TestHSync {
           runTestHSync(fs, file, out, dataSize);
         }
       }
+      fs.rename(file, destPath);
     }
+    Path destFile = new Path(destPath, file.getName());
+    assertFalse(fs.exists(file));
+    assertTrue(fs.exists(destFile));
   }
 
   private static class StreamWithLength implements Closeable {
