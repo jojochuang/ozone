@@ -30,11 +30,8 @@ source "$COMPOSE_DIR/../testlib.sh"
 
 start_docker_env
 
-## Exclude virtual-host tests. This is tested separately as it requires additional config.
-exclude="--exclude virtual-host"
-for bucket in generated; do
-  execute_robot_test ${SCM} -v BUCKET:${bucket} -N s3-${bucket} ${exclude} s3
-  # some tests are independent of the bucket type, only need to be run once
-  ## Exclude awss3virtualhost.robot
-  exclude="--exclude virtual-host --exclude no-bucket-type"
-done
+execute_robot_test scm basic/basic.robot
+
+stop_docker_env
+
+generate_report
