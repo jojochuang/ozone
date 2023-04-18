@@ -18,7 +18,10 @@
 
 package org.apache.hadoop.fs.ozone;
 
+import org.apache.hadoop.fs.LeaseRecoverable;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.SafeMode;
+import org.apache.hadoop.fs.SafeModeAction;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -26,6 +29,7 @@ import org.apache.hadoop.crypto.key.KeyProvider;
 import org.apache.hadoop.crypto.key.KeyProviderTokenIssuer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.StorageStatistics;
+import org.apache.hadoop.hdds.utils.HAUtils;
 import org.apache.hadoop.security.token.DelegationTokenIssuer;
 
 import java.io.IOException;
@@ -43,7 +47,7 @@ import java.net.URI;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class RootedOzoneFileSystem extends BasicRootedOzoneFileSystem
-    implements KeyProviderTokenIssuer {
+    implements KeyProviderTokenIssuer, LeaseRecoverable, SafeMode {
 
   private OzoneFSStorageStatistics storageStatistics;
 
@@ -117,5 +121,49 @@ public class RootedOzoneFileSystem extends BasicRootedOzoneFileSystem
       return cap;
     }
     return super.hasPathCapability(p, capability);
+  }
+
+  /**
+   * Start the lease recovery of a file.
+   *
+   * @param f a file
+   * @return true if the file is already closed
+   * @throws IOException if an error occurs
+   */
+  public boolean recoverLease(final Path f) throws IOException {
+    return super.recoverLease(f);
+  }
+
+  @Override
+  public boolean isFileClosed(Path file) throws IOException {
+    return getAdapter().isFileClosed(file);
+  }
+
+  @Override
+  public boolean setSafeMode(SafeModeAction action) throws IOException {
+    return setSafeMode(action, false);
+  }
+
+  @Override
+  public boolean setSafeMode(SafeModeAction action, boolean isChecked)
+      throws IOException {
+    switch (action) {
+    case GET:
+      return getSafeMode();
+    case ENTER:
+      throw new IOException("This file system does not support entering safe mode");
+    case LEAVE:
+    case FORCE_EXIT:
+      forceExitSafeMode();
+    }
+    return false;
+  }
+
+  private boolean getSafeMode() throws IOException {
+    return false; //HAUtils.getScmContainerClient(getConfSource()).inSafeMode();
+  }
+
+  private boolean forceExitSafeMode() throws IOException {
+    return true; //HAUtils.getScmContainerClient(getConfSource()).forceExitSafeMode();
   }
 }

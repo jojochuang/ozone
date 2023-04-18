@@ -1356,6 +1356,27 @@ public class BasicRootedOzoneClientAdapterImpl
     return snapshotDiffResponse.getSnapshotDiffReport();
   }
 
+  @Override
+  public boolean isFileClosed(Path path) throws IOException {
+    incrementCounter(Statistic.OBJECTS_QUERY, 1);
+    OFSPath ofsPath = new OFSPath(path, config);
+    String key = ofsPath.getKeyName();
+    if (ofsPath.isRoot() || ofsPath.isVolume()) {
+      throw new IOException("not a file");
+    } else {
+      OzoneBucket bucket = getBucket(ofsPath, false);
+      if (ofsPath.isSnapshotPath()) {
+        throw new IOException("file is in a snapshot.");
+        //OzoneVolume volume = objectStore.getVolume(ofsPath.getVolumeName());
+        //return getFileStatusAdapterWithSnapshotIndicator(
+        //    volume, bucket, uri);
+      } else {
+        OzoneFileStatus status = bucket.getFileStatus(key);
+        return !status.getKeyInfo().isHsync();
+      }
+    }
+  }
+
   public boolean recoverLease(final Path f) throws IOException {
     OFSPath ofsPath = new OFSPath(f, config);
 

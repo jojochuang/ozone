@@ -91,4 +91,6 @@ public interface OzoneClientAdapter {
   SnapshotDiffReport getSnapshotDiffReport(Path snapshotDir,
       String fromSnapshot, String toSnapshot)
       throws IOException, InterruptedException;
+
+  boolean isFileClosed(Path file) throws IOException;
 }

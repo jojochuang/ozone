@@ -60,6 +60,10 @@
       <artifactId>slf4j-reload4j</artifactId>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.ozone</groupId>
+      <artifactId>hdds-server-framework</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

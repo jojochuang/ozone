@@ -706,4 +706,9 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
     }
     return snapshotDiffResponse.getSnapshotDiffReport();
   }
+
+  @Override
+  public boolean isFileClosed(Path file) throws IOException {
+    throw new IOException("Unsupported");
+  }
 }

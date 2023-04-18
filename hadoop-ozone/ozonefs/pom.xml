@@ -102,5 +102,9 @@
       <artifactId>powermock-api-mockito</artifactId>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>org.apache.ozone</groupId>
+          <artifactId>hdds-server-framework</artifactId>
+      </dependency>
   </dependencies>
 </project>
