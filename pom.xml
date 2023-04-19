@@ -1423,7 +1423,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <dependency>
         <groupId>org.glassfish.jaxb</groupId>
         <artifactId>jaxb-runtime</artifactId>
-        <version>${jaxb-runtime.version}</version>
+        <version>2.3.8</version>
       </dependency>
       <dependency>
         <groupId>com.sun.jersey</groupId>
