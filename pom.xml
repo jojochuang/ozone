@@ -979,7 +979,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <dependency>
         <groupId>com.google.errorprone</groupId>
         <artifactId>error_prone_annotations</artifactId>
-        <version>${errorprone-annotations.version}</version>
+        <version>2.18.0</version>
         <optional>true</optional>
       </dependency>
 
