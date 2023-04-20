@@ -1418,7 +1418,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <dependency>
         <groupId>javax.xml.bind</groupId>
         <artifactId>jaxb-api</artifactId>
-        <version>${jaxb-api.version}</version>
+        <version>2.3.1</version>
       </dependency>
       <dependency>
         <groupId>org.glassfish.jaxb</groupId>
