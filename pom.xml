@@ -220,7 +220,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <powermock1.version>1.6.5</powermock1.version>
     <powermock2.version>2.0.4</powermock2.version>
     <jmockit.version>1.24</jmockit.version>
-    <junit4.version>4.13.1</junit4.version>
+    <junit4.version>4.13.2</junit4.version>
     <junit.jupiter.version>5.8.2</junit.jupiter.version>
     <junit.platform.version>1.8.2</junit.platform.version>
     <zookeeper.version>3.5.6</zookeeper.version>
