@@ -194,6 +194,15 @@ public final class OmKeyInfo extends WithParentObjectId implements Cloneable {
     return metadata.containsKey(OzoneConsts.HSYNC_CLIENT_ID);
   }
 
+  public boolean isHsyncAndWrittenBy(String clientIdString) {
+    boolean isHsync = java.util.Optional.ofNullable(this)
+        .map(WithMetadata::getMetadata)
+        .map(meta -> meta.get(OzoneConsts.HSYNC_CLIENT_ID))
+        .filter(id -> id.equals(clientIdString))
+        .isPresent();
+    return isHsync;
+  }
+
   /**
    * updates the length of the each block in the list given.
    * This will be called when the key is being committed to OzoneManager.

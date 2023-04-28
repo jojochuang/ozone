@@ -88,7 +88,6 @@ import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.S3SecretValue;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
-import org.apache.hadoop.ozone.om.helpers.WithMetadata;
 import org.apache.hadoop.ozone.om.lock.IOzoneManagerLock;
 import org.apache.hadoop.ozone.om.lock.OmReadOnlyLock;
 import org.apache.hadoop.ozone.om.lock.OzoneManagerLock;
@@ -1595,11 +1594,7 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
               = dbOpenKeyName.substring(lastPrefix + 1);
 
           final OmKeyInfo info = kt.get(dbKeyName);
-          final boolean isHsync = java.util.Optional.ofNullable(info)
-              .map(WithMetadata::getMetadata)
-              .map(meta -> meta.get(OzoneConsts.HSYNC_CLIENT_ID))
-              .filter(id -> id.equals(clientIdString))
-              .isPresent();
+          final boolean isHsync = info.isHsyncAndWrittenBy(clientIdString);
 
           if (!isHsync) {
             // add non-hsync'ed keys

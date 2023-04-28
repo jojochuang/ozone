@@ -117,7 +117,6 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
 
 
       Iterator<Path> pathComponents = Paths.get(keyName).iterator();
-      String dbOpenFileKey = null;
 
       List<OmKeyLocationInfo>
           locationInfoList = getOmKeyLocationInfos(ozoneManager, commitKeyArgs);
@@ -139,8 +138,8 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
               + " as parent directory doesn't exist");
       String dbFileKey = omMetadataManager.getOzonePathKey(volumeId, bucketId,
               parentID, fileName);
-      dbOpenFileKey = omMetadataManager.getOpenFileName(volumeId, bucketId,
-              parentID, fileName, commitKeyRequest.getClientID());
+      String dbOpenFileKey = omMetadataManager.getOpenFileName(volumeId,
+          bucketId, parentID, fileName, commitKeyRequest.getClientID());
 
       omKeyInfo = OMFileRequest.getOmKeyInfoFromFileTable(true,
               omMetadataManager, dbOpenFileKey, keyName);
@@ -154,6 +153,9 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
                 KEY_NOT_FOUND);
       }
       if (isHSync) {
+        // make a copy of omKeyInfo; this is linked by fileTable
+        // do not change the omKeyInfo that's linked by openFileTable
+        omKeyInfo = omKeyInfo.copyObject();
         omKeyInfo.getMetadata().put(OzoneConsts.HSYNC_CLIENT_ID,
             String.valueOf(commitKeyRequest.getClientID()));
       }
@@ -162,11 +164,11 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
 
       omKeyInfo.setModificationTime(commitKeyArgs.getModificationTime());
 
-      List<OmKeyLocationInfo> uncommitted = omKeyInfo.updateLocationInfoList(
-          locationInfoList, false);
-
       // Set the UpdateID to current transactionLogIndex
       omKeyInfo.setUpdateID(trxnLogIndex, ozoneManager.isRatisEnabled());
+
+      List<OmKeyLocationInfo> uncommitted =
+          omKeyInfo.updateLocationInfoList(locationInfoList, false);
 
       // If bucket versioning is turned on during the update, between key
       // creation and key commit, old versions will be just overwritten and
@@ -178,14 +180,25 @@ public class OMKeyCommitRequestWithFSO extends OMKeyCommitRequest {
 
       long correctedSpace = omKeyInfo.getReplicatedSize();
 
+      // if the file was hsync'ed by the same client, not overwritten,
+      // then don't clean up the existing key.
+      boolean isHsyncByClient = false;
+      if (keyToDelete != null) {
+        isHsyncByClient = keyToDelete.isHsyncAndWrittenBy(
+            String.valueOf(commitKeyRequest.getClientID()));
+      }
+
       // if keyToDelete isn't null, usedNamespace shouldn't check and
       // increase.
       if (keyToDelete != null && !omBucketInfo.getIsVersionEnabled()) {
         // Subtract the size of blocks to be overwritten.
         correctedSpace -= keyToDelete.getReplicatedSize();
-        oldKeyVersionsToDelete = getOldVersionsToCleanUp(dbFileKey,
-            keyToDelete, omMetadataManager,
-            trxnLogIndex, ozoneManager.isRatisEnabled());
+
+        if (!isHsyncByClient) {
+          oldKeyVersionsToDelete =
+              getOldVersionsToCleanUp(dbFileKey, keyToDelete, omMetadataManager,
+                  trxnLogIndex, ozoneManager.isRatisEnabled());
+        }
         checkBucketQuotaInBytes(omMetadataManager, omBucketInfo,
             correctedSpace);
       } else {
