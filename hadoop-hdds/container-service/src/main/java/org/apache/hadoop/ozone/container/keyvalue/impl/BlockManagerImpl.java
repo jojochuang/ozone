@@ -195,6 +195,7 @@ public class BlockManagerImpl implements BlockManager {
       long localID, boolean isBlockInCache,
       BatchOperation batch) throws IOException {
     boolean incrBlockCount = false;
+    long epoch = data.getBlockCommitSequenceId();
     Table<String, BlockData> blockDataTable = db.getStore().getBlockDataTable();
     String blockKey = containerData.getBlockKey(localID);
     // If the block does not exist in the pendingPutBlockCache of the
@@ -217,6 +218,7 @@ public class BlockManagerImpl implements BlockManager {
     if ((data.getFlag() & BlockData.FLAG_INCREMENTAL_CHUNKS) == 0 ||
         existingBlockData == null) {
       blockDataTable.putWithBatch(batch, blockKey, data);
+      blockDataTable.addCacheEntry(blockKey, data, epoch);
     } else {
       // otherwise, the chunk is appended to an existing block
       // create a new list since the existing list may be unmodifiable.
@@ -225,6 +227,7 @@ public class BlockManagerImpl implements BlockManager {
       updatedChunks.addAll(data.getChunks());
       data.setChunks(updatedChunks);
       blockDataTable.putWithBatch(batch, blockKey, data);
+      blockDataTable.addCacheEntry(blockKey, data, epoch);
     }
 
     if (bcsId != 0) {
