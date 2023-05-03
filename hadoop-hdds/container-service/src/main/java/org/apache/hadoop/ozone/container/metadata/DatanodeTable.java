@@ -22,6 +22,8 @@ import org.apache.hadoop.hdds.utils.MetadataKeyFilters;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
+import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
+import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 
 import java.io.File;
 import java.io.IOException;
@@ -114,6 +116,12 @@ public class DatanodeTable<KEY, VALUE> implements Table<KEY, VALUE> {
   @Override
   public VALUE getIfExist(KEY key) throws IOException {
     return table.getIfExist(key);
+  }
+
+  @Override
+  public void addCacheEntry(CacheKey<KEY> cacheKey,
+      CacheValue<VALUE> cacheValue) {
+    table.addCacheEntry(cacheKey, cacheValue);
   }
 
   @Override
