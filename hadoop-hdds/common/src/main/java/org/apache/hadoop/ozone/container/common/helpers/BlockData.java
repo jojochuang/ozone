@@ -70,6 +70,14 @@ public class BlockData {
     this.size = 0;
   }
 
+  public BlockData(BlockID blockID, Map<String, String> metadata,
+      Object chunkList, long size) {
+    this.blockID = blockID;
+    this.metadata = metadata;
+    this.chunkList = chunkList;
+    this.size = size;
+  }
+
   public long getBlockCommitSequenceId() {
     return blockID.getBlockCommitSequenceId();
   }
@@ -298,5 +306,51 @@ public class BlockData {
     sb.append(", flag=").append(flag);
     sb.append(", size=").append(size);
     sb.append("]");
+  }
+
+  public static class Builder {
+    private BlockID blockID;
+    private Map<String, String> metadata;
+    private Object chunkList;
+    private long size;
+
+    public Builder() {
+
+    }
+
+    Builder setBlockID(BlockID blockID) {
+      this.blockID = blockID;
+      return this;
+    }
+
+    Builder setMetadata(Map<String, String> metadata) {
+      this.metadata = metadata;
+      return this;
+    }
+
+    Builder setChunkList(Object chunkList) {
+      this.chunkList = chunkList;
+      return this;
+    }
+
+    Builder setSize(long size) {
+      this.size = size;
+      return this;
+    }
+
+    BlockData build() {
+      return new BlockData(this.blockID, this.metadata, this.chunkList,
+          this.size);
+    }
+  }
+
+
+  public BlockData copyObject() {
+    return new Builder()
+        .setBlockID(blockID)
+        .setMetadata(metadata)
+        .setChunkList(chunkList)
+        .setSize(size)
+        .build();
   }
 }

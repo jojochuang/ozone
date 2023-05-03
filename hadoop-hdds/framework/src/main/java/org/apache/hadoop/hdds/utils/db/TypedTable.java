@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.utils.MetadataKeyFilters;
 import org.apache.hadoop.hdds.utils.TableCacheMetrics;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
@@ -388,6 +390,17 @@ public class TypedTable<KEY, VALUE> implements Table<KEY, VALUE> {
   @Override
   public void deleteBatchWithPrefix(BatchOperation batch, KEY prefix)
       throws IOException {
+    // clear up cache
+    byte[] rawKeyPrefix = codecRegistry.asRawData(prefix);
+    try (TableIterator<byte[], ByteArrayKeyValue> iter =
+        (TableIterator<byte[], ByteArrayKeyValue>) rawTable.iterator(
+        rawKeyPrefix)) {
+      while (iter.hasNext()) {
+        byte[] key = iter.next().getKey();
+        KEY cacheKey = codecRegistry.asObject(key, keyType);
+        cache.put(new CacheKey<>(cacheKey), CacheValue.get(0));
+      }
+    }
     rawTable.deleteBatchWithPrefix(batch, codecRegistry.asRawData(prefix));
   }
 

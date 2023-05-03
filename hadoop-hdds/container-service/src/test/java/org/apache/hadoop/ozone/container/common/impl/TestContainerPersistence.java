@@ -758,6 +758,7 @@ public class TestContainerPersistence {
     blockManager.putBlock(container, blockData);
     BlockData readBlockData;
     try {
+      blockID1 = new BlockID(blockID1);
       blockID1.setBlockCommitSequenceId(5);
       // read with bcsId higher than container bcsId
       blockManager.

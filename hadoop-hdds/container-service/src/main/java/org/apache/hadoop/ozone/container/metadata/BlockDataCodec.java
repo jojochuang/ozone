@@ -42,7 +42,6 @@ public class BlockDataCodec implements Codec<BlockData> {
 
   @Override
   public BlockData copyObject(BlockData object) {
-    return object;
-    //throw new UnsupportedOperationException();
+    return object.copyObject();
   }
 }

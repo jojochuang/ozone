@@ -35,6 +35,10 @@ public class BlockID {
     this(containerID, localID, 0);
   }
 
+  public BlockID(BlockID from) {
+    this(from.getContainerBlockID(), from .blockCommitSequenceId);
+  }
+
   private BlockID(long containerID, long localID, long bcsID) {
     containerBlockID = new ContainerBlockID(containerID, localID);
     blockCommitSequenceId = bcsID;
