@@ -310,6 +310,11 @@ public class OzoneManagerRequestHandler implements RequestHandler {
         responseBuilder.setTransferOmLeadershipResponse(transferLeadership(
             request.getTransferOmLeadershipRequest()));
         break;
+      case RenewLease:
+        EchoRPCResponse echoRPCResponse =
+            echoRPC(request.getEchoRPCRequest());
+        responseBuilder.setEchoRPCResponse(echoRPCResponse);
+        break;
       default:
         responseBuilder.setSuccess(false);
         responseBuilder.setMessage("Unrecognized Command Type: " + cmdType);

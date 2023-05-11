@@ -258,6 +258,8 @@ import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ADDRESS_KEY;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_FILE_LEASE_HARD_LIMIT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_FILE_LEASE_HARD_LIMIT_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KEY_PATH_LOCK_ENABLED;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KEY_PATH_LOCK_ENABLED_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HANDLER_COUNT_DEFAULT;
@@ -467,6 +469,7 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   // This metadata reader points to the active filesystem
   private OmMetadataReader omMetadataReader;
   private OmSnapshotManager omSnapshotManager;
+  private FileLeaseManager fileLeaseManager;
 
   /** A list of property that are reconfigurable at runtime. */
   private final SortedSet<String> reconfigurableProperties =
@@ -815,9 +818,12 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
     // TODO: [SNAPSHOT] Revisit this in HDDS-8529.
     omSnapshotManager = new OmSnapshotManager(this);
-
     // Snapshot metrics
     updateActiveSnapshotMetrics();
+
+    long period = configuration.getTimeDuration(OZONE_OM_FILE_LEASE_HARD_LIMIT,
+        OZONE_OM_FILE_LEASE_HARD_LIMIT_DEFAULT, TimeUnit.MILLISECONDS);
+    fileLeaseManager = new FileLeaseManager(period);
 
     if (withNewSnapshot) {
       Integer layoutVersionInDB = getLayoutVersionInDB();
@@ -1571,6 +1577,10 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
   public OzoneBlockTokenSecretManager getBlockTokenMgr() {
     return blockTokenMgr;
+  }
+
+  public FileLeaseManager getFileLeaseManager() {
+    return fileLeaseManager;
   }
 
   public OzoneManagerProtocolServerSideTranslatorPB getOmServerProtocol() {

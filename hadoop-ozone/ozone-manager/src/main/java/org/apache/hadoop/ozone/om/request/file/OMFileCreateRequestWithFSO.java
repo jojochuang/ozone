@@ -19,7 +19,9 @@
 package org.apache.hadoop.ozone.om.request.file;
 
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.om.FileLeaseManager;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneConfigUtil;
@@ -228,6 +230,10 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
               omFileInfo, missingParentInfos, clientID,
               omBucketInfo.copyObject(), volumeId);
 
+      if (needLease(getOmRequest())) {
+        addLease(ozoneManager, clientID, dbOpenFileName);
+      }
+
       result = Result.SUCCESS;
     } catch (IOException ex) {
       result = Result.FAILURE;
@@ -266,5 +272,19 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
     }
 
     return omClientResponse;
+  }
+
+  boolean needLease(OMRequest req) {
+    if (ClientVersion.fromProtoValue(req.getVersion())
+        .compareTo(ClientVersion.LEASE_RENEWAL_SUPPORT) >= 0) {
+      return true;
+    }
+    return false;
+  }
+
+  void addLease(OzoneManager ozoneManager, long clientID,
+      String dbOpenFileName) {
+    FileLeaseManager fileLeaseManager = ozoneManager.getFileLeaseManager();
+    //fileLeaseManager
   }
 }
