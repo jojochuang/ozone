@@ -250,7 +250,7 @@ public class LeaseRenewer {
     RpcClients.add(dfsc);
 
     //update renewal time
-    final int hdfsTimeout = 0; //dfsc.getConf().getHdfsTimeout();
+    final int hdfsTimeout = dfsc.getConf().getTimeout();
     if (hdfsTimeout > 0) {
       final long half = hdfsTimeout/2;
       if (half < renewal) {
@@ -383,11 +383,11 @@ public class LeaseRenewer {
     }
 
     //update renewal time
-    int closedClientTimeout = 0;//dfsc.getConf().getHdfsTimeout()
+    int closedClientTimeout = dfsc.getConf().getTimeout();
     if (renewal == closedClientTimeout/2) {
       long min = HdfsConstants.LEASE_SOFTLIMIT_PERIOD;
       for(RpcClient c : RpcClients) {
-        final int timeout = 0; //c.getConf().getHdfsTimeout();
+        final int timeout = dfsc.getConf().getTimeout();
         if (timeout > 0 && timeout < min) {
           min = timeout;
         }

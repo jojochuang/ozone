@@ -24,6 +24,7 @@ import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;
 import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ratis.protocol.ClientId;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,6 +32,8 @@ import org.junit.Test;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -42,6 +45,8 @@ import java.util.regex.Pattern;
 import static org.junit.Assert.assertSame;
 
 public class TestLeaseRenewer {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(TestLeaseRenewer.class);
   private final String FAKE_AUTHORITY="hdfs://nn1/";
   private final UserGroupInformation FAKE_UGI_A =
       UserGroupInformation.createUserForTesting(
@@ -72,7 +77,9 @@ public class TestLeaseRenewer {
     RpcClient mock = Mockito.mock(RpcClient.class);
     Mockito.doReturn(true).when(mock).isClientRunning();
     Mockito.doReturn(mockConf).when(mock).getConf();
-    Mockito.doReturn("myclient").when(mock).getClientId();
+
+    ClientId clientId = ClientId.randomId();
+    Mockito.doReturn(clientId).when(mock).getClientId();
     return mock;
   }
 
@@ -281,6 +288,7 @@ public class TestLeaseRenewer {
         continue;
       }
       if (pattern.matcher(info.getThreadName()).matches()) {
+        LOG.info(info.getThreadName() + " matches pattern " + pattern);
         count++;
       }
     }
