@@ -169,7 +169,6 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_REQUIRED_OM_V
 import static org.apache.hadoop.ozone.OzoneConsts.OLD_QUOTA_DEFAULT;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_MAXIMUM_ACCESS_ID_LENGTH;
 
-import org.apache.hadoop.util.Time;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.ratis.protocol.ClientId;
 import org.jetbrains.annotations.NotNull;
@@ -213,14 +212,7 @@ public class RpcClient implements ClientProtocol {
   private final OzoneManagerVersion omVersion;
   private volatile ExecutorService ecReconstructExecutor;
   private final ContainerClientMetrics clientMetrics;
-  /**
-   * A map from file names to {@link KeyOutputStream} objects
-   * that are currently being written by this client.
-   * Note that a file can only be written by a single client.
-   */
-  /*private final Map<Long, KeyOutputStream> filesBeingWritten = new HashMap<>();
-  volatile long lastLeaseRenewal;*/
-  volatile boolean clientRunning = true;
+  private volatile boolean clientRunning = true;
   private final RpcClientFileLease fileLease;
 
   /**
@@ -243,7 +235,7 @@ public class RpcClient implements ClientProtocol {
 
     this.clientConfig = conf.getObject(OzoneClientConfig.class);
 
-    OmTransport omTransport = createOmTransport(omServiceId);
+    OmTransport omTransport = createOmTransport();
     OzoneManagerProtocolClientSideTranslatorPB
         ozoneManagerProtocolClientSideTranslatorPB =
         new OzoneManagerProtocolClientSideTranslatorPB(omTransport,
@@ -414,7 +406,7 @@ public class RpcClient implements ClientProtocol {
   }
 
   @VisibleForTesting
-  protected OmTransport createOmTransport(String omServiceId)
+  protected OmTransport createOmTransport()
       throws IOException {
     return OmTransportFactory.create(conf, ugi, omServiceId);
   }
@@ -1637,6 +1629,7 @@ public class RpcClient implements ClientProtocol {
 
   @Override
   public void close() throws IOException {
+    clientRunning = false;
     if (ecReconstructExecutor != null) {
       ecReconstructExecutor.shutdownNow();
       ecReconstructExecutor = null;

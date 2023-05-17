@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.ozone.client.rpc;
 
-import com.google.common.base.Supplier;
-
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -44,14 +42,17 @@ import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertSame;
 
+/**
+ * Test cases for LeaseRenewer.
+ */
 public class TestLeaseRenewer {
   public static final Logger LOG =
       LoggerFactory.getLogger(TestLeaseRenewer.class);
-  private final String FAKE_AUTHORITY="hdfs://nn1/";
-  private final UserGroupInformation FAKE_UGI_A =
+  private final String fakeAuthority = "hdfs://nn1/";
+  private final UserGroupInformation fakeUgiA =
       UserGroupInformation.createUserForTesting(
           "myuser", new String[]{"group1"});
-  private final UserGroupInformation FAKE_UGI_B =
+  private final UserGroupInformation fakeUgiB =
       UserGroupInformation.createUserForTesting(
           "myuser", new String[]{"group1"});
 
@@ -65,8 +66,7 @@ public class TestLeaseRenewer {
   public void setupMocksAndRenewer() throws IOException {
     mockRpcClient = createMockClient();
 
-    renewer = LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+    renewer = LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
     renewer.setGraceSleepPeriod(FAST_GRACE_PERIOD);
   }
 
@@ -87,21 +87,21 @@ public class TestLeaseRenewer {
   public void testInstanceSharing() throws IOException {
     // Two lease renewers with the same UGI should return
     // the same instance
-    LeaseRenewer lr = LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
-    LeaseRenewer lr2 = LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+    LeaseRenewer lr =
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
+    LeaseRenewer lr2 =
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
     Assert.assertSame(lr, lr2);
 
     // But a different UGI should return a different instance
-    LeaseRenewer lr3 = LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_B, mockRpcClient);
+    LeaseRenewer lr3 =
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiB, mockRpcClient);
     Assert.assertNotSame(lr, lr3);
 
     // A different authority with same UGI should also be a different
     // instance.
     LeaseRenewer lr4 = LeaseRenewer.getInstance(
-        "someOtherAuthority", FAKE_UGI_B, mockRpcClient);
+        "someOtherAuthority", fakeUgiB, mockRpcClient);
     Assert.assertNotSame(lr, lr4);
     Assert.assertNotSame(lr3, lr4);
   }
@@ -147,35 +147,32 @@ public class TestLeaseRenewer {
     // First DFSClient has no files open so doesn't renew leases.
     final RpcClient mockClient1 = createMockClient();
     Mockito.doReturn(false).when(mockClient1).renewLease();
-    assertSame(renewer, LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_A, mockClient1));
+    assertSame(renewer,
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockClient1));
     long fileId = 456L;
     renewer.put(mockClient1);
 
     // Second DFSClient does renew lease
     final RpcClient mockClient2 = createMockClient();
     Mockito.doReturn(true).when(mockClient2).renewLease();
-    assertSame(renewer, LeaseRenewer.getInstance(
-        FAKE_AUTHORITY, FAKE_UGI_A, mockClient2));
+    assertSame(renewer,
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockClient2));
 
     renewer.put(mockClient2);
 
 
     // Wait for lease to get renewed
-    GenericTestUtils.waitFor(new Supplier<Boolean>() {
-      @Override
-      public Boolean get() {
-        try {
-          Mockito.verify(mockClient1, Mockito.atLeastOnce()).renewLease();
-          Mockito.verify(mockClient2, Mockito.atLeastOnce()).renewLease();
-          return true;
-        } catch (AssertionError err) {
-          LeaseRenewer.LOG.warn("Not yet satisfied", err);
-          return false;
-        } catch (IOException e) {
-          // should not throw!
-          throw new RuntimeException(e);
-        }
+    GenericTestUtils.waitFor(() -> {
+      try {
+        Mockito.verify(mockClient1, Mockito.atLeastOnce()).renewLease();
+        Mockito.verify(mockClient2, Mockito.atLeastOnce()).renewLease();
+        return true;
+      } catch (AssertionError err) {
+        LeaseRenewer.LOG.warn("Not yet satisfied", err);
+        return false;
+      } catch (IOException e) {
+        // should not throw!
+        throw new RuntimeException(e);
       }
     }, 100, 10000);
 
@@ -234,7 +231,7 @@ public class TestLeaseRenewer {
     // Pretend to create file#2, daemon#2 starts due to expiration
     LeaseRenewer lastRenewer = renewer;
     renewer =
-        LeaseRenewer.getInstance(FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
     Assert.assertEquals(lastRenewer, renewer);
 
     // Pretend to close file#1
@@ -245,13 +242,13 @@ public class TestLeaseRenewer {
     renewer.setEmptyTime(0);
 
     renewer =
-        LeaseRenewer.getInstance(FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
     renewer.setGraceSleepPeriod(FAST_GRACE_PERIOD);
     boolean success = renewer.put(mockRpcClient);
     if (!success) {
       LeaseRenewer.remove(renewer);
       renewer =
-          LeaseRenewer.getInstance(FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+          LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
       renewer.setGraceSleepPeriod(FAST_GRACE_PERIOD);
       renewer.put(mockRpcClient);
     }
@@ -267,7 +264,7 @@ public class TestLeaseRenewer {
     // Pretend to close file#2, renewer#2 will be created
     lastRenewer = renewer;
     renewer =
-        LeaseRenewer.getInstance(FAKE_AUTHORITY, FAKE_UGI_A, mockRpcClient);
+        LeaseRenewer.getInstance(fakeAuthority, fakeUgiA, mockRpcClient);
     Assert.assertEquals(lastRenewer, renewer);
     renewer.setGraceSleepPeriod(FAST_GRACE_PERIOD);
     renewer.closeClient(mockRpcClient);

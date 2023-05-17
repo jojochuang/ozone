@@ -72,15 +72,15 @@ import org.slf4j.LoggerFactory;
  * </p>
  */
 @InterfaceAudience.Private
-public class LeaseRenewer {
+public final class LeaseRenewer {
   public static final Logger LOG = LoggerFactory.getLogger(LeaseRenewer.class);
 
-  private static long leaseRenewerGraceDefault = 60*1000L;
+  private static long leaseRenewerGraceDefault = 60 * 1000L;
   static final long LEASE_RENEWER_SLEEP_DEFAULT = 1000L;
 
   private AtomicBoolean isLSRunning = new AtomicBoolean(false);
 
-  /** Get a {@link LeaseRenewer} instance */
+  /** Get a {@link LeaseRenewer} instance. */
   public static LeaseRenewer getInstance(final String authority,
       final UserGroupInformation ugi, final RpcClient dfsc) {
     final LeaseRenewer
@@ -109,11 +109,11 @@ public class LeaseRenewer {
     private static final LeaseRenewer.Factory
         INSTANCE = new LeaseRenewer.Factory();
 
-    private static class Key {
-      /** Namenode info */
-      final String authority;
-      /** User info */
-      final UserGroupInformation ugi;
+    private static final class Key {
+      /** Namenode info. */
+      private final String authority;
+      /** User info. */
+      private final UserGroupInformation ugi;
 
       private Key(final String authority, final UserGroupInformation ugi) {
         if (authority == null) {
@@ -151,7 +151,8 @@ public class LeaseRenewer {
     }
 
     /** A map for per user per namenode renewers. */
-    private final Map<LeaseRenewer.Factory.Key, LeaseRenewer> renewers = new HashMap<>();
+    private final Map<LeaseRenewer.Factory.Key, LeaseRenewer> renewers =
+        new HashMap<>();
 
     /** Get a renewer. */
     private synchronized LeaseRenewer get(final String authority,
@@ -181,10 +182,10 @@ public class LeaseRenewer {
 
   /** The time in milliseconds that the map became empty. */
   private long emptyTime = Long.MAX_VALUE;
-  /** A fixed lease renewal time period in milliseconds */
+  /** A fixed lease renewal time period in milliseconds. */
   private long renewal = HdfsConstants.LEASE_SOFTLIMIT_PERIOD / 2;
 
-  /** A daemon for renewing lease */
+  /** A daemon for renewing lease. */
   private Daemon daemon = null;
   /** Only the daemon with currentId should run. */
   private int currentId = 0;
@@ -206,7 +207,7 @@ public class LeaseRenewer {
   private final LeaseRenewer.Factory.Key factorykey;
 
   /** A list of clients corresponding to this renewer. */
-  private final List<RpcClient> RpcClients = new ArrayList<>();
+  private final List<RpcClient> rpcClients = new ArrayList<>();
 
   /**
    * A stringified stack trace of the call stack when the Lease Renewer
@@ -234,25 +235,25 @@ public class LeaseRenewer {
 
   /** Used for testing only. */
   @VisibleForTesting
-  public synchronized void setRenewalTime(final long renewal) {
-    this.renewal = renewal;
+  public synchronized void setRenewalTime(final long renewalPeriod) {
+    this.renewal = renewalPeriod;
   }
 
   /** Add a client. */
   private synchronized void addClient(final RpcClient dfsc) {
-    for(RpcClient c : RpcClients) {
+    for (RpcClient c : rpcClients) {
       if (c == dfsc) {
         //client already exists, nothing to do.
         return;
       }
     }
     //client not found, add it
-    RpcClients.add(dfsc);
+    rpcClients.add(dfsc);
 
     //update renewal time
     final int hdfsTimeout = dfsc.getConf().getTimeout();
     if (hdfsTimeout > 0) {
-      final long half = hdfsTimeout/2;
+      final long half = hdfsTimeout / 2;
       if (half < renewal) {
         this.renewal = half;
       }
@@ -260,16 +261,16 @@ public class LeaseRenewer {
   }
 
   private synchronized void clearClients() {
-    RpcClients.clear();
+    rpcClients.clear();
   }
 
   private synchronized boolean clientsRunning() {
-    for(Iterator<RpcClient> i = RpcClients.iterator(); i.hasNext(); ) {
+    for (Iterator<RpcClient> i = rpcClients.iterator(); i.hasNext();) {
       if (!i.next().isClientRunning()) {
         i.remove();
       }
     }
-    return !RpcClients.isEmpty();
+    return !rpcClients.isEmpty();
   }
 
   private synchronized long getSleepPeriod() {
@@ -277,19 +278,19 @@ public class LeaseRenewer {
   }
 
   /** Set the grace period and adjust the sleep period accordingly. */
-  synchronized void setGraceSleepPeriod(final long gracePeriod) {
-    unsyncSetGraceSleepPeriod(gracePeriod);
+  synchronized void setGraceSleepPeriod(final long period) {
+    unsyncSetGraceSleepPeriod(period);
   }
 
-  private void unsyncSetGraceSleepPeriod(final long gracePeriod) {
-    if (gracePeriod < 100L) {
-      throw new HadoopIllegalArgumentException(gracePeriod
+  private void unsyncSetGraceSleepPeriod(final long period) {
+    if (period < 100L) {
+      throw new HadoopIllegalArgumentException(period
           + " = gracePeriod < 100ms is too small.");
     }
-    this.gracePeriod = gracePeriod;
-    final long half = gracePeriod/2;
-    this.sleepPeriod = half < LEASE_RENEWER_SLEEP_DEFAULT?
-        half: LEASE_RENEWER_SLEEP_DEFAULT;
+    this.gracePeriod = period;
+    final long half = period / 2;
+    this.sleepPeriod = half < LEASE_RENEWER_SLEEP_DEFAULT ?
+        half : LEASE_RENEWER_SLEEP_DEFAULT;
   }
 
   @VisibleForTesting
@@ -300,10 +301,10 @@ public class LeaseRenewer {
 
   /** Does this renewer have nothing to renew? */
   public boolean isEmpty() {
-    return RpcClients.isEmpty();
+    return rpcClients.isEmpty();
   }
 
-  /** Used only by tests */
+  @VisibleForTesting
   synchronized String getDaemonName() {
     return daemon.getName();
   }
@@ -335,10 +336,10 @@ public class LeaseRenewer {
                     + " with renew id " + id + " started");
               }
               LeaseRenewer.this.run(id);
-            } catch(InterruptedException e) {
+            } catch (InterruptedException e) {
               LOG.debug("LeaseRenewer is interrupted.", e);
             } finally {
-              synchronized(LeaseRenewer.this) {
+              synchronized (LeaseRenewer.this) {
                 LeaseRenewer.Factory.INSTANCE.remove(
                     LeaseRenewer.this);
               }
@@ -369,8 +370,8 @@ public class LeaseRenewer {
 
   /** Close the given client. */
   public synchronized void closeClient(final RpcClient dfsc) {
-    RpcClients.remove(dfsc);
-    if (RpcClients.isEmpty()) {
+    rpcClients.remove(dfsc);
+    if (rpcClients.isEmpty()) {
       if (!isRunning() || isRenewerExpired()) {
         LeaseRenewer.Factory.INSTANCE.remove(
             LeaseRenewer.this);
@@ -384,15 +385,15 @@ public class LeaseRenewer {
 
     //update renewal time
     int closedClientTimeout = dfsc.getConf().getTimeout();
-    if (renewal == closedClientTimeout/2) {
+    if (renewal == closedClientTimeout / 2) {
       long min = HdfsConstants.LEASE_SOFTLIMIT_PERIOD;
-      for(RpcClient c : RpcClients) {
+      for (RpcClient c : rpcClients) {
         final int timeout = dfsc.getConf().getTimeout();
         if (timeout > 0 && timeout < min) {
           min = timeout;
         }
       }
-      renewal = min/2;
+      renewal = min / 2;
     }
   }
 
@@ -413,14 +414,15 @@ public class LeaseRenewer {
 
   private void renew() throws IOException {
     final List<RpcClient> copies;
-    synchronized(this) {
-      copies = new ArrayList<>(RpcClients);
+    synchronized (this) {
+      copies = new ArrayList<>(rpcClients);
     }
     //sort the client names for finding out repeated names.
     Collections.sort(copies, new Comparator<RpcClient>() {
       @Override
       public int compare(final RpcClient left, final RpcClient right) {
-        return left.getClientId().toString().compareTo(right.getClientId().toString());
+        return left.getClientId().toString().compareTo(
+            right.getClientId().toString());
       }
     });
     String previousName = "";
@@ -442,7 +444,7 @@ public class LeaseRenewer {
    * when the lease period is half over.
    */
   private void run(final int id) throws InterruptedException {
-    for(long lastRenewed = Time.monotonicNow(); !Thread.interrupted();
+    for (long lastRenewed = Time.monotonicNow(); !Thread.interrupted();
         Thread.sleep(getSleepPeriod())) {
       final long elapsed = Time.monotonicNow() - lastRenewed;
       if (elapsed >= getRenewalTime()) {
@@ -455,25 +457,25 @@ public class LeaseRenewer {
           lastRenewed = Time.monotonicNow();
         } catch (SocketTimeoutException ie) {
           LOG.warn("Failed to renew lease for " + clientsString() + " for "
-              + (elapsed/1000) + " seconds.  Aborting ...", ie);
-          List<RpcClient> RpcClientsCopy;
+              + (elapsed / 1000) + " seconds.  Aborting ...", ie);
+          List<RpcClient> rpcClientsCopy;
           synchronized (this) {
             //RpcClientFaultInjector.get().delayWhenRenewLeaseTimeout();
-            RpcClientsCopy = new ArrayList<>(RpcClients);
+            rpcClientsCopy = new ArrayList<>(rpcClients);
             LeaseRenewer.Factory.INSTANCE.remove(
                 LeaseRenewer.this);
           }
-          for (RpcClient rpcClient : RpcClientsCopy) {
+          for (RpcClient rpcClient : rpcClientsCopy) {
             rpcClient.closeAllFilesBeingWritten(true);
           }
           break;
         } catch (IOException ie) {
           LOG.warn("Failed to renew lease for " + clientsString() + " for "
-              + (elapsed/1000) + " seconds.  Will retry shortly ...", ie);
+              + (elapsed / 1000) + " seconds.  Will retry shortly ...", ie);
         }
       }
 
-      synchronized(this) {
+      synchronized (this) {
         if (id != currentId || isRenewerExpired()) {
           if (LOG.isDebugEnabled()) {
             if (id != currentId) {
@@ -508,15 +510,15 @@ public class LeaseRenewer {
     return s;
   }
 
-  /** Get the names of all clients */
+  /** Get the names of all clients. */
   private synchronized String clientsString() {
-    if (RpcClients.isEmpty()) {
+    if (rpcClients.isEmpty()) {
       return "[]";
     } else {
       final StringBuilder b = new StringBuilder("[").append(
-          RpcClients.get(0).getClientId());
-      for(int i = 1; i < RpcClients.size(); i++) {
-        b.append(", ").append(RpcClients.get(i).getClientId());
+          rpcClients.get(0).getClientId());
+      for (int i = 1; i < rpcClients.size(); i++) {
+        b.append(", ").append(rpcClients.get(i).getClientId());
       }
       return b.append("]").toString();
     }
