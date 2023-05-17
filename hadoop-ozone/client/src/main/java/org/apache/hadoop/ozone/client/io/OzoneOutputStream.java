@@ -96,6 +96,20 @@ public class OzoneOutputStream extends OutputStream {
     return null;
   }
 
+  public void abort() throws IOException {
+    if (outputStream instanceof KeyOutputStream) {
+      ((KeyOutputStream) outputStream).abort();
+    } else if (outputStream instanceof CryptoOutputStream) {
+      OutputStream wrappedStream =
+          ((CryptoOutputStream) outputStream).getWrappedStream();
+      if (wrappedStream instanceof KeyOutputStream) {
+        ((KeyOutputStream) wrappedStream).abort();
+      }
+      // TODO: Hadoop's CryptoOutputStream does not support abort() semantics.
+      // ((CryptoOutputStream) outputStream).abort();
+    }
+  }
+
   public OutputStream getOutputStream() {
     return outputStream;
   }

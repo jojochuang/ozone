@@ -20,7 +20,6 @@ package org.apache.hadoop.ozone.client.rpc;
 import com.google.common.base.Supplier;
 
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
-import org.apache.hadoop.hdfs.DFSClient;
 import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;

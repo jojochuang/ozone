@@ -43,6 +43,8 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
+import org.apache.hadoop.ozone.client.rpc.LeaseEventListener;
+import org.apache.hadoop.ozone.client.rpc.RpcClientFileLease;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartCommitUploadPartInfo;
@@ -52,7 +54,6 @@ import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
-import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.slf4j.Logger;
@@ -97,6 +98,8 @@ public class KeyOutputStream extends OutputStream implements Syncable {
   private long clientID;
 
   private OzoneManagerProtocol omClient;
+  private RpcClientFileLease.KeyIdentifier keyIdentifier;
+  private LeaseEventListener leaseEventListener;
 
   public KeyOutputStream(ReplicationConfig replicationConfig,
       ContainerClientMetrics clientMetrics) {
@@ -145,7 +148,8 @@ public class KeyOutputStream extends OutputStream implements Syncable {
       String requestId, ReplicationConfig replicationConfig,
       String uploadID, int partNumber, boolean isMultipart,
       boolean unsafeByteBufferConversion,
-      ContainerClientMetrics clientMetrics
+      ContainerClientMetrics clientMetrics,
+      LeaseEventListener listener
   ) {
     this.config = config;
     this.replication = replicationConfig;
@@ -167,6 +171,11 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     this.writeOffset = 0;
     this.clientID = handler.getId();
     this.omClient = omClient;
+    this.leaseEventListener = listener;
+
+    this.keyIdentifier =
+        new RpcClientFileLease.KeyIdentifier(handler.getKeyInfo());
+    listener.beginFileLease(keyIdentifier, this);
   }
 
   /**
@@ -562,6 +571,7 @@ public class KeyOutputStream extends OutputStream implements Syncable {
       blockOutputStreamEntryPool.commitKey(offset);
     } finally {
       blockOutputStreamEntryPool.cleanup();
+      leaseEventListener.endFileLease(keyIdentifier);
     }
   }
 
@@ -593,7 +603,12 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     if (ioe != null) {
       throw ioe;
     }
+    leaseEventListener.endFileLease(keyIdentifier);
     closed = true;
+  }
+
+  public String getSrc() {
+    return keyIdentifier.toString();
   }
 
   public synchronized OmMultipartCommitUploadPartInfo
@@ -622,6 +637,7 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     private OzoneClientConfig clientConfig;
     private ReplicationConfig replicationConfig;
     private ContainerClientMetrics clientMetrics;
+    private LeaseEventListener leaseEventListener;
 
     public String getMultipartUploadID() {
       return multipartUploadID;
@@ -731,6 +747,15 @@ public class KeyOutputStream extends OutputStream implements Syncable {
       return clientMetrics;
     }
 
+    public LeaseEventListener getLeaseEventListener() {
+      return leaseEventListener;
+    }
+
+    public Builder setLeaseEventListener(LeaseEventListener listener) {
+      this.leaseEventListener = listener;
+      return this;
+    }
+
     public KeyOutputStream build() {
       return new KeyOutputStream(
           clientConfig,
@@ -744,7 +769,8 @@ public class KeyOutputStream extends OutputStream implements Syncable {
           multipartNumber,
           isMultipartKey,
           unsafeByteBufferConversion,
-          clientMetrics);
+          clientMetrics,
+          leaseEventListener);
     }
 
   }
