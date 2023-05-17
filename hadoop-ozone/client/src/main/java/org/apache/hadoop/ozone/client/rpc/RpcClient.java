@@ -2509,5 +2509,8 @@ public class RpcClient implements ClientProtocol {
     return clientId;
   }
 
-
+  @VisibleForTesting
+  OzoneClientConfig getConf() {
+    return clientConfig;
+  }
 }

@@ -221,6 +221,12 @@ public class OzoneClientConfig {
       tags = ConfigTag.CLIENT)
   private int leaseHardLimit = 1200;
 
+  @Config(key = "timeout",
+      defaultValue =  "0",
+      description = "Determines the timeout for lease renewal request",
+      tags = ConfigTag.CLIENT)
+  private int timeout = 0;
+
   @Config(key = "fs.default.bucket.layout",
       defaultValue = "FILE_SYSTEM_OPTIMIZED",
       type = ConfigType.STRING,
@@ -409,5 +415,9 @@ public class OzoneClientConfig {
 
   public int getLeaseHardLimitPeriod() {
     return leaseHardLimit;
+  }
+
+  public int getTimeout() {
+    return timeout;
   }
 }
