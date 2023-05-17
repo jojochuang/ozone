@@ -214,6 +214,13 @@ public class OzoneClientConfig {
   private String checksumCombineMode =
       ChecksumCombineMode.COMPOSITE_CRC.name();
 
+  @Config(key = "lease-hard-limit-sec",
+      defaultValue =  "1200",
+      description = "Determines the namenode automatic lease recovery " +
+          "interval in seconds.",
+      tags = ConfigTag.CLIENT)
+  private int leaseHardLimit = 1200;
+
   @Config(key = "fs.default.bucket.layout",
       defaultValue = "FILE_SYSTEM_OPTIMIZED",
       type = ConfigType.STRING,
@@ -398,5 +405,9 @@ public class OzoneClientConfig {
 
   public void setDatastreamPipelineMode(boolean datastreamPipelineMode) {
     this.datastreamPipelineMode = datastreamPipelineMode;
+  }
+
+  public int getLeaseHardLimitPeriod() {
+    return leaseHardLimit;
   }
 }

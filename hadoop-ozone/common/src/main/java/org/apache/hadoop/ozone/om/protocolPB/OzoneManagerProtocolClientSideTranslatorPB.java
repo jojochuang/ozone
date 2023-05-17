@@ -162,6 +162,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameK
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeyRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenameKeysRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenewDelegationTokenResponseProto;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenewLeaseRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RevokeS3SecretRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.S3Secret;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServiceListRequest;
@@ -2212,6 +2213,19 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     RecoverLeaseResponse recoverLeaseResponse =
             handleError(submitRequest(omRequest)).getRecoverLeaseResponse();
     return recoverLeaseResponse.getResponse();
+  }
+
+  @Override
+  public boolean renewLease() throws IOException {
+    RenewLeaseRequest renewLeaseRequest =
+        RenewLeaseRequest.newBuilder().build();
+
+    OMRequest omRequest = createOMRequest(Type.RenewLease)
+        .setRenewLeaseRequest(renewLeaseRequest).build();
+
+    //RenewLeaseResponse renewLeaseResponse =
+    handleError(submitRequest(omRequest));
+    return true;
   }
 
   @VisibleForTesting

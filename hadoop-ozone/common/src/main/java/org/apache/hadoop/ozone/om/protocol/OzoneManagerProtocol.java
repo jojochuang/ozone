@@ -995,4 +995,12 @@ public interface OzoneManagerProtocol
    */
   boolean recoverLease(String volumeName, String bucketName,
                               String keyName) throws IOException;
+
+  /**
+   * Renew the leases of a client.
+   *
+   * @return true if renewal is successful
+   * @throws IOException if an error occurs
+   */
+  boolean renewLease() throws IOException;
 }

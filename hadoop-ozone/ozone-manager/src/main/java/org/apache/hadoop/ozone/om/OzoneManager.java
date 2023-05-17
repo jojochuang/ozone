@@ -4470,6 +4470,11 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     return false;
   }
 
+  @Override
+  public boolean renewLease() throws IOException {
+    return true;
+  }
+
   /**
    * Write down Layout version of a finalized feature to DB on finalization.
    * @param lvm OMLayoutVersionManager

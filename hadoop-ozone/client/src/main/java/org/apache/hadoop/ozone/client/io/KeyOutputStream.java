@@ -40,6 +40,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
+import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
@@ -50,6 +51,8 @@ import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+
+import org.apache.hadoop.util.Time;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.slf4j.Logger;
@@ -560,6 +563,37 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     } finally {
       blockOutputStreamEntryPool.cleanup();
     }
+  }
+
+  /**
+   * Aborts this output stream and releases any system
+   * resources associated with this stream.
+   */
+  public synchronized void abort() throws IOException {
+    final MultipleIOException.Builder b = new MultipleIOException.Builder();
+    synchronized (this) {
+      if (closed) {
+        return;
+      }
+      /*
+      getStreamer().getLastException().set(new IOException(
+          "Lease timeout of " + (dfsClient.getConf().getHdfsTimeout() / 1000)
+              + " seconds expired."));
+       */
+
+      try {
+        //closeThreads(true);
+        handleFlushOrClose(StreamAction.CLOSE);
+        blockOutputStreamEntryPool.cleanup();
+      } catch (IOException e) {
+        b.add(e);
+      }
+    }
+    final IOException ioe = b.build();
+    if (ioe != null) {
+      throw ioe;
+    }
+    closed = true;
   }
 
   public synchronized OmMultipartCommitUploadPartInfo

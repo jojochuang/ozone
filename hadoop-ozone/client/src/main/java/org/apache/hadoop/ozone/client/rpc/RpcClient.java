@@ -169,6 +169,7 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_CLIENT_REQUIRED_OM_V
 import static org.apache.hadoop.ozone.OzoneConsts.OLD_QUOTA_DEFAULT;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_MAXIMUM_ACCESS_ID_LENGTH;
 
+import org.apache.hadoop.util.Time;
 import org.apache.logging.log4j.util.Strings;
 import org.apache.ratis.protocol.ClientId;
 import org.jetbrains.annotations.NotNull;
@@ -195,6 +196,7 @@ public class RpcClient implements ClientProtocol {
   private final XceiverClientFactory xceiverClientManager;
   private final int chunkSize;
   private final UserGroupInformation ugi;
+  private final String omServiceId;
   private final ACLType userRights;
   private final ACLType groupRights;
   private final long blockSize;
@@ -211,6 +213,14 @@ public class RpcClient implements ClientProtocol {
   private final OzoneManagerVersion omVersion;
   private volatile ExecutorService ecReconstructExecutor;
   private final ContainerClientMetrics clientMetrics;
+  /**
+   * A map from file names to {@link KeyOutputStream} objects
+   * that are currently being written by this client.
+   * Note that a file can only be written by a single client.
+   */
+  private final Map<Long, KeyOutputStream> filesBeingWritten = new HashMap<>();
+  volatile long lastLeaseRenewal;
+  volatile boolean clientRunning = true;
 
   /**
    * Creates RpcClient instance with the given configuration.
@@ -224,6 +234,7 @@ public class RpcClient implements ClientProtocol {
     Preconditions.checkNotNull(conf);
     this.conf = conf;
     this.ugi = UserGroupInformation.getCurrentUser();
+    this.omServiceId = omServiceId;
     // Get default acl rights for user and group.
     OzoneAclConfig aclConfig = this.conf.getObject(OzoneAclConfig.class);
     this.userRights = aclConfig.getUserDefaultRights();
@@ -2346,4 +2357,157 @@ public class RpcClient implements ClientProtocol {
     }
     return executor;
   }
+
+  /** Return the lease renewer instance. The renewer thread won't start
+   *  until the first output stream is created. The same instance will
+   *  be returned until all output streams are closed.
+   */
+  public LeaseRenewer getLeaseRenewer() {
+    return LeaseRenewer.getInstance(
+        omServiceId != null ? omServiceId : "null", ugi, this);
+  }
+
+  /** Get a lease and start automatic renewal */
+  private void beginFileLease(final long inodeId, final KeyOutputStream out)
+      throws IOException {
+    synchronized (filesBeingWritten) {
+      putFileBeingWritten(inodeId, out);
+      LeaseRenewer renewer = getLeaseRenewer();
+      boolean result = renewer.put(this);
+      if (!result) {
+        // Existing LeaseRenewer cannot add another Daemon, so remove existing
+        // and add new one.
+        LeaseRenewer.remove(renewer);
+        renewer = getLeaseRenewer();
+        renewer.put(this);
+      }
+    }
+  }
+
+  /** Stop renewal of lease for the file. */
+  void endFileLease(final long inodeId) {
+    synchronized (filesBeingWritten) {
+      removeFileBeingWritten(inodeId);
+      // remove client from renewer if no files are open
+      if (filesBeingWritten.isEmpty()) {
+        getLeaseRenewer().closeClient(this);
+      }
+    }
+  }
+
+
+  /** Put a file. Only called from LeaseRenewer, where proper locking is
+   *  enforced to consistently update its local dfsclients array and
+   *  client's filesBeingWritten map.
+   */
+  public void putFileBeingWritten(final long inodeId,
+      final KeyOutputStream out) {
+    synchronized(filesBeingWritten) {
+      filesBeingWritten.put(inodeId, out);
+      // update the last lease renewal time only when there was no
+      // writes. once there is one write stream open, the lease renewer
+      // thread keeps it updated well with in anyone's expiration time.
+      if (lastLeaseRenewal == 0) {
+        updateLastLeaseRenewal();
+      }
+    }
+  }
+
+  /** Remove a file. Only called from LeaseRenewer. */
+  public void removeFileBeingWritten(final long inodeId) {
+    synchronized(filesBeingWritten) {
+      filesBeingWritten.remove(inodeId);
+      if (filesBeingWritten.isEmpty()) {
+        lastLeaseRenewal = 0;
+      }
+    }
+  }
+
+  /** Is file-being-written map empty? */
+  public boolean isFilesBeingWrittenEmpty() {
+    synchronized(filesBeingWritten) {
+      return filesBeingWritten.isEmpty();
+    }
+  }
+
+  /** @return true if the client is running */
+  public boolean isClientRunning() {
+    return clientRunning;
+  }
+
+  long getLastLeaseRenewal() {
+    return lastLeaseRenewal;
+  }
+
+  void updateLastLeaseRenewal() {
+    synchronized(filesBeingWritten) {
+      if (filesBeingWritten.isEmpty()) {
+        return;
+      }
+      lastLeaseRenewal = Time.monotonicNow();
+    }
+  }
+
+  /** Close/abort all files being written. */
+  public void closeAllFilesBeingWritten(final boolean abort) {
+    for(;;) {
+      final long inodeId;
+      final KeyOutputStream out;
+      synchronized(filesBeingWritten) {
+        if (filesBeingWritten.isEmpty()) {
+          return;
+        }
+        inodeId = filesBeingWritten.keySet().iterator().next();
+        out = filesBeingWritten.remove(inodeId);
+      }
+      if (out != null) {
+        try {
+          if (abort) {
+            out.abort();
+          } else {
+            out.close();
+          }
+        } catch(IOException ie) {
+          LOG.error("Failed to " + (abort ? "abort" : "close") + " file: "
+              + /*out.getSrc() + */" with inode: " + inodeId, ie);
+        }
+      }
+    }
+  }
+
+  /**
+   * Renew leases.
+   * @return true if lease was renewed. May return false if this
+   * client has been closed or has no files open.
+   **/
+  public boolean renewLease() throws IOException {
+    if (clientRunning && !isFilesBeingWrittenEmpty()) {
+      try {
+        ozoneManagerClient.renewLease();
+
+        updateLastLeaseRenewal();
+        return true;
+      } catch (IOException e) {
+        // Abort if the lease has already expired.
+        final long elapsed = Time.monotonicNow() - getLastLeaseRenewal();
+        if (elapsed > clientConfig.getLeaseHardLimitPeriod()) {
+          LOG.warn("Failed to renew lease for " + getClientId() + " for "
+              + (elapsed/1000) + " seconds (>= hard-limit ="
+              + (clientConfig.getLeaseHardLimitPeriod() / 1000) + " seconds.) "
+              + "Closing all files being written ...", e);
+          closeAllFilesBeingWritten(true);
+        } else {
+          // Let the lease renewer handle it and retry.
+          throw e;
+        }
+      }
+    }
+    return false;
+  }
+
+  public ClientId getClientId() {
+    return clientId;
+  }
+
+
 }
