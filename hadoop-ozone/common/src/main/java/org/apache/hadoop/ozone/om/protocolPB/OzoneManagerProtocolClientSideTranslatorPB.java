@@ -2216,7 +2216,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
   }
 
   @Override
-  public boolean renewLease() throws IOException {
+  public boolean renewLease(String clientId) throws IOException {
     RenewLeaseRequest renewLeaseRequest =
         RenewLeaseRequest.newBuilder().build();
 

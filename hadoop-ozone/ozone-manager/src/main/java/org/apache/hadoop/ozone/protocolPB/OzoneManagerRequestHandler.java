@@ -35,6 +35,7 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.TransferLeadershipRespon
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.UpgradeFinalizationStatus;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.utils.db.SequenceNumberNotFoundException;
+import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.OzoneManagerPrepareState;
@@ -104,6 +105,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OzoneFi
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PrepareStatusResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RangerBGSyncRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RangerBGSyncResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenewLeaseRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RenewLeaseResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.RepeatedKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServiceListRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ServiceListResponse;
@@ -120,6 +123,7 @@ import org.apache.hadoop.ozone.security.acl.OzoneObjInfo;
 
 import com.google.common.collect.Lists;
 
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.FEATURE_NOT_ENABLED;
 import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.MULTITENANCY_SCHEMA;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DBUpdatesRequest;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DBUpdatesResponse;
@@ -309,6 +313,11 @@ public class OzoneManagerRequestHandler implements RequestHandler {
       case TransferLeadership:
         responseBuilder.setTransferOmLeadershipResponse(transferLeadership(
             request.getTransferOmLeadershipRequest()));
+        break;
+      case RenewLease:
+          RenewLeaseResponse renewLeaseResponse =
+              renewLease(request);
+          responseBuilder.setRenewLeaseResponse(renewLeaseResponse);
         break;
       default:
         responseBuilder.setSuccess(false);
@@ -1279,5 +1288,16 @@ public class OzoneManagerRequestHandler implements RequestHandler {
     String newLeaderId = req.getNewLeaderId();
     impl.transferLeadership(newLeaderId);
     return TransferLeadershipResponseProto.getDefaultInstance();
+  }
+
+  private RenewLeaseResponse renewLease(OMRequest req)
+      throws IOException {
+    if (ClientVersion.fromProtoValue(req.getVersion())
+        .compareTo(ClientVersion.LEASE_RENEWAL_SUPPORT) < 0) {
+      throw new OMException(FEATURE_NOT_ENABLED);
+    } else {
+      impl.renewLease(req.getClientId());
+      return RenewLeaseResponse.getDefaultInstance();
+    }
   }
 }

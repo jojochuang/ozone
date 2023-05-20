@@ -3,7 +3,6 @@ package org.apache.hadoop.ozone.client.rpc;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.ozone.client.io.KeyOutputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
-import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.KeyIdentifier;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerClientProtocol;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;
@@ -46,74 +45,6 @@ public class RpcClientFileLease implements LeaseEventListener {
     this.clientId = clientId;
     this.clientConfig = clientConfig;
     this.rpcClient = rpcClient;
-  }
-
-  /**
-   * KeyIdentifier is a unique identifier of a key.
-   * TODO: eventually, migrate to inode id based key identifier.
-   */
-  public static class KeyIdentifier implements Comparable<KeyIdentifier> {
-    private final String volumeName;
-    private final String bucketName;
-    private final String keyName;
-
-    public KeyIdentifier(OmKeyInfo omKeyInfo) {
-      this.volumeName = omKeyInfo.getVolumeName();
-      this.bucketName = omKeyInfo.getBucketName();
-      this.keyName = omKeyInfo.getKeyName();
-    }
-
-    public String getVolumeName() {
-      return volumeName;
-    }
-
-    public String getBucketName() {
-      return bucketName;
-    }
-
-    public String getKeyName() {
-      return keyName;
-    }
-
-    @Override
-    public int compareTo(KeyIdentifier other) {
-      int volumeComparison = this.volumeName.compareTo(other.volumeName);
-      if (volumeComparison != 0) {
-        return volumeComparison;
-      }
-
-      int bucketComparison = this.bucketName.compareTo(other.bucketName);
-      if (bucketComparison != 0) {
-        return bucketComparison;
-      }
-
-      return this.keyName.compareTo(other.keyName);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (obj == null || getClass() != obj.getClass()) {
-        return false;
-      }
-      KeyIdentifier other = (KeyIdentifier) obj;
-      return Objects.equals(volumeName, other.volumeName) &&
-          Objects.equals(bucketName, other.bucketName) &&
-          Objects.equals(keyName, other.keyName);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(volumeName, bucketName, keyName);
-    }
-
-    @Override
-    public String toString() {
-      return "volume=" + volumeName + ", bucket=" + bucketName + ", keyName=" +
-          keyName;
-    }
   }
 
   /** Get a lease and start automatic renewal. */
@@ -237,7 +168,7 @@ public class RpcClientFileLease implements LeaseEventListener {
   boolean renewLease() throws IOException {
     if (rpcClient.isClientRunning() && !isFilesBeingWrittenEmpty()) {
       try {
-        ozoneManagerClient.renewLease();
+        ozoneManagerClient.renewLease(clientId.toString());
         updateLastLeaseRenewal();
         return true;
       } catch (IOException e) {

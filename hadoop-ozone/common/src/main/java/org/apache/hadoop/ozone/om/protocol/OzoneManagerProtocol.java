@@ -1002,5 +1002,5 @@ public interface OzoneManagerProtocol
    * @return true if renewal is successful
    * @throws IOException if an error occurs
    */
-  boolean renewLease() throws IOException;
+  boolean renewLease(String clientId) throws IOException;
 }

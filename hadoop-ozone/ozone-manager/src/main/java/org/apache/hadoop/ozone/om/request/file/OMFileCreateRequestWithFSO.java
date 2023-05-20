@@ -19,12 +19,15 @@
 package org.apache.hadoop.ozone.om.request.file;
 
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.om.FileLeaseManager;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneConfigUtil;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
+import org.apache.hadoop.ozone.om.helpers.KeyIdentifier;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
@@ -228,6 +231,11 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
               omFileInfo, missingParentInfos, clientID,
               omBucketInfo.copyObject(), volumeId);
 
+      if (needLease(getOmRequest())) {
+        KeyIdentifier keyIdentifier = new KeyIdentifier(volumeName, bucketName,
+            keyName, String.valueOf(clientID));
+        addLease(ozoneManager, clientID, keyIdentifier);
+      }
       result = Result.SUCCESS;
     } catch (IOException ex) {
       result = Result.FAILURE;
@@ -266,5 +274,19 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
     }
 
     return omClientResponse;
+  }
+
+  private boolean needLease(OMRequest req) {
+    if (ClientVersion.fromProtoValue(req.getVersion())
+        .compareTo(ClientVersion.LEASE_RENEWAL_SUPPORT) >= 0) {
+      return true;
+    }
+    return false;
+  }
+
+  private void addLease(OzoneManager ozoneManager, long clientID,
+      KeyIdentifier keyIdentifier) {
+    FileLeaseManager fileLeaseManager = ozoneManager.getFileLeaseManager();
+    fileLeaseManager.addLease(String.valueOf(clientID), keyIdentifier);
   }
 }

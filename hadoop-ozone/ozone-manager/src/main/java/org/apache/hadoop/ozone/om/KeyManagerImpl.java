@@ -65,6 +65,7 @@ import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.om.helpers.BucketEncryptionKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.KeyIdentifier;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
@@ -594,6 +595,11 @@ public class KeyManagerImpl implements KeyManager {
   }
 
   @Override
+  public Map<String, List<OmKeyInfo>> listOpenKeys() throws IOException {
+    return metadataManager.listOpenFiles();
+  }
+
+  @Override
   public List<RepeatedOmKeyInfo> listTrash(String volumeName,
       String bucketName, String startKeyName, String keyPrefix,
       int maxKeys) throws IOException {
@@ -622,6 +628,31 @@ public class KeyManagerImpl implements KeyManager {
       int count, BucketLayout bucketLayout) throws IOException {
     return metadataManager.getExpiredOpenKeys(expireThreshold, count,
         bucketLayout);
+  }
+
+  @Override
+  public boolean isDeleted(KeyIdentifier keyIdentifier) throws IOException {
+    // if a file is deleted, it is removed from fileTable as well as
+    // openFileTable.
+
+    // Assuming FSO
+    final long volumeId = metadataManager
+        .getVolumeId(keyIdentifier.getVolumeName());
+    final long bucketId = metadataManager
+        .getBucketId(keyIdentifier.getVolumeName(),
+            keyIdentifier.getBucketName());
+    String fileName = OzoneFSUtils.getFileName(keyIdentifier.getKeyName());
+    Iterator<Path> pathComponents =
+        Paths.get(keyIdentifier.getKeyName()).iterator();
+    long parentID =
+        OMFileRequest.getParentID(volumeId, bucketId, pathComponents,
+            keyIdentifier.getKeyName(), metadataManager);
+    String openKey = metadataManager.getOpenFileName(volumeId, bucketId,
+        parentID, fileName, Integer.parseInt(keyIdentifier.getClientId()));
+
+    OmKeyInfo omKeyInfo = OMFileRequest.getOmKeyInfoFromFileTable(true,
+        metadataManager, openKey, keyIdentifier.getKeyName());
+    return omKeyInfo == null;
   }
 
   @Override

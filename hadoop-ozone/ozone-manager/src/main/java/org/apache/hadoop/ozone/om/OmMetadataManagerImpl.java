@@ -1636,6 +1636,32 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
   }
 
   @Override
+  public Map<String, List<OmKeyInfo>> listOpenFiles() throws IOException {
+    BucketLayout layout = BucketLayout.FILE_SYSTEM_OPTIMIZED;
+    final Map<String, List<OmKeyInfo>> clientsWithOpenFiles = new HashMap<>();
+    try (TableIterator<String, ? extends KeyValue<String, OmKeyInfo>>
+        keyValueTableIterator = getOpenKeyTable(layout).iterator()) {
+
+      while (keyValueTableIterator.hasNext()) {
+        KeyValue<String, OmKeyInfo> openKeyValue = keyValueTableIterator.next();
+        String dbOpenKeyName = openKeyValue.getKey();
+        final int lastPrefix = dbOpenKeyName.lastIndexOf(OM_KEY_PREFIX);
+        final String clientIdString
+            = dbOpenKeyName.substring(lastPrefix + 1);
+        List<OmKeyInfo> openFiles;
+        if (clientsWithOpenFiles.containsKey(clientIdString)) {
+          openFiles = clientsWithOpenFiles.get(clientIdString);
+        } else {
+          openFiles = new ArrayList<>();
+          clientsWithOpenFiles.put(clientIdString, openFiles);
+        }
+        openFiles.add(openKeyValue.getValue());
+      }
+    }
+    return clientsWithOpenFiles;
+  }
+
+  @Override
   public <KEY, VALUE> long countRowsInTable(Table<KEY, VALUE> table)
       throws IOException {
     long count = 0;

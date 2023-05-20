@@ -21,6 +21,7 @@ import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.KeyIdentifier;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartUploadList;
@@ -32,6 +33,7 @@ import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Handles key level commands.
@@ -99,6 +101,8 @@ public interface KeyManager extends OzoneManagerFS, IOzoneAcl {
   List<OmKeyInfo> listKeys(String volumeName,
       String bucketName, String startKey, String keyPrefix, int maxKeys)
       throws IOException;
+
+  Map<String, List<OmKeyInfo>> listOpenKeys() throws IOException;
 
   /**
    * List trash allows the user to list the keys that were marked as deleted,
@@ -229,6 +233,14 @@ public interface KeyManager extends OzoneManagerFS, IOzoneAcl {
   List<OmKeyInfo> getPendingDeletionSubFiles(long volumeId,
       long bucketId, OmKeyInfo parentInfo, long numEntries)
           throws IOException;
+
+  /**
+   * Determine if the key is deleted.
+   * @param keyIdentifier
+   * @return
+   * @throws IOException
+   */
+  boolean isDeleted(KeyIdentifier keyIdentifier) throws IOException;
 
   /**
    * Returns the instance of Directory Deleting Service.

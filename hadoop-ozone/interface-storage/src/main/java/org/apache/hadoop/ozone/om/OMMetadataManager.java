@@ -270,6 +270,8 @@ public interface OMMetadataManager extends DBStoreHAManager {
   ExpiredOpenKeys getExpiredOpenKeys(Duration expireThreshold, int count,
       BucketLayout bucketLayout) throws IOException;
 
+  Map<String, List<OmKeyInfo>> listOpenFiles() throws IOException;
+
   /**
    * Retrieve RWLock for the table.
    * @param tableName table name.

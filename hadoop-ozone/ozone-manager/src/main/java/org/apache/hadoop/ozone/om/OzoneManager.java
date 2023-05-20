@@ -86,6 +86,9 @@ import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.hdds.utils.db.Table.KeyValue;
 import org.apache.hadoop.hdds.utils.db.TableIterator;
 import org.apache.hadoop.ozone.OzoneManagerVersion;
+import org.apache.hadoop.ozone.lease.Lease;
+import org.apache.hadoop.ozone.lease.LeaseExpiredException;
+import org.apache.hadoop.ozone.lease.LeaseNotFoundException;
 import org.apache.hadoop.ozone.om.ratis_snapshot.OmRatisSnapshotProvider;
 import org.apache.hadoop.ozone.om.ha.OMHAMetrics;
 import org.apache.hadoop.ozone.om.helpers.KeyInfoWithVolumeContext;
@@ -258,6 +261,8 @@ import static org.apache.hadoop.ozone.OzoneConsts.TRANSACTION_INFO_KEY;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ADDRESS_KEY;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM_PATHS_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_FILE_LEASE_HARD_LIMIT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_FILE_LEASE_HARD_LIMIT_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KEY_PATH_LOCK_ENABLED;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_KEY_PATH_LOCK_ENABLED_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_HANDLER_COUNT_DEFAULT;
@@ -467,6 +472,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   // This metadata reader points to the active filesystem
   private OmMetadataReader omMetadataReader;
   private OmSnapshotManager omSnapshotManager;
+  private FileLeaseManager fileLeaseManager;
+  private long hardLimitLeasePeriod;
 
   /** A list of property that are reconfigurable at runtime. */
   private final SortedSet<String> reconfigurableProperties =
@@ -818,6 +825,10 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
     // Snapshot metrics
     updateActiveSnapshotMetrics();
+
+    hardLimitLeasePeriod = configuration.getTimeDuration(OZONE_OM_FILE_LEASE_HARD_LIMIT,
+        OZONE_OM_FILE_LEASE_HARD_LIMIT_DEFAULT, TimeUnit.MILLISECONDS);
+    fileLeaseManager = new FileLeaseManager(this, configuration);
 
     if (withNewSnapshot) {
       Integer layoutVersionInDB = getLayoutVersionInDB();
@@ -1573,6 +1584,10 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     return blockTokenMgr;
   }
 
+  public FileLeaseManager getFileLeaseManager() {
+    return fileLeaseManager;
+  }
+
   public OzoneManagerProtocolServerSideTranslatorPB getOmServerProtocol() {
     return omServerProtocol;
   }
@@ -1667,6 +1682,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
     omRpcServer.start();
     isOmRpcServerRunning = true;
+
+    fileLeaseManager.startMonitor();
 
     startTrashEmptier(configuration);
     if (isOmGrpcServerEnabled) {
@@ -2252,6 +2269,9 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
 
       if (omhaMetrics != null) {
         OMHAMetrics.unRegister();
+      }
+      if (fileLeaseManager != null) {
+        fileLeaseManager.stop();
       }
     } catch (Exception e) {
       LOG.error("OzoneManager stop failed.", e);
@@ -4471,7 +4491,8 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   }
 
   @Override
-  public boolean renewLease() throws IOException {
+  public boolean renewLease(String clientId) {
+    fileLeaseManager.renewLease(clientId);
     return true;
   }
 

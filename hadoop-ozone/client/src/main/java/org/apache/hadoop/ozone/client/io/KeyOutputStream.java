@@ -45,6 +45,7 @@ import org.apache.hadoop.io.retry.RetryPolicies;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.ozone.client.rpc.LeaseEventListener;
 import org.apache.hadoop.ozone.client.rpc.RpcClientFileLease;
+import org.apache.hadoop.ozone.om.helpers.KeyIdentifier;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartCommitUploadPartInfo;
@@ -98,7 +99,7 @@ public class KeyOutputStream extends OutputStream implements Syncable {
   private long clientID;
 
   private OzoneManagerProtocol omClient;
-  private RpcClientFileLease.KeyIdentifier keyIdentifier;
+  private KeyIdentifier keyIdentifier;
   private LeaseEventListener leaseEventListener;
 
   public KeyOutputStream(ReplicationConfig replicationConfig,
@@ -174,7 +175,7 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     this.leaseEventListener = listener;
 
     this.keyIdentifier =
-        new RpcClientFileLease.KeyIdentifier(handler.getKeyInfo());
+        new KeyIdentifier(handler.getKeyInfo());
     listener.beginFileLease(keyIdentifier, this);
   }
 
