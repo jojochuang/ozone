@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -52,18 +53,20 @@ public abstract class MisReplicationHandler implements
 
   public static final Logger LOG =
           LoggerFactory.getLogger(MisReplicationHandler.class);
-  private final PlacementPolicy<ContainerReplica> containerPlacement;
+  private final PlacementPolicy containerPlacement;
   private final long currentContainerSize;
   private final ReplicationManager replicationManager;
+  private final ReplicationManagerMetrics metrics;
 
   public MisReplicationHandler(
-      final PlacementPolicy<ContainerReplica> containerPlacement,
+      final PlacementPolicy containerPlacement,
       final ConfigurationSource conf, ReplicationManager replicationManager) {
     this.containerPlacement = containerPlacement;
     this.currentContainerSize = (long) conf.getStorageSize(
             ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE,
             ScmConfigKeys.OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
     this.replicationManager = replicationManager;
+    this.metrics = replicationManager.getMetrics();
   }
 
   protected ReplicationManager getReplicationManager() {
@@ -137,22 +140,23 @@ public abstract class MisReplicationHandler implements
               container.getContainerID());
       return 0;
     }
-
     Set<ContainerReplica> sources = filterSources(replicas);
     Set<ContainerReplica> replicasToBeReplicated = containerPlacement
             .replicasToCopyToFixMisreplication(replicas.stream()
             .collect(Collectors.toMap(Function.identity(), sources::contains)));
-    usedDns = replicas.stream().filter(r -> !replicasToBeReplicated.contains(r))
-            .map(ContainerReplica::getDatanodeDetails)
-            .collect(Collectors.toList());
-    List<DatanodeDetails> excludedDns = replicasToBeReplicated.stream()
-            .map(ContainerReplica::getDatanodeDetails)
-            .collect(Collectors.toList());
+
+    ReplicationManagerUtil.ExcludedAndUsedNodes excludedAndUsedNodes
+        = ReplicationManagerUtil.getExcludedAndUsedNodes(
+            new ArrayList(replicas), replicasToBeReplicated,
+            Collections.emptyList(), replicationManager);
+
     int requiredNodes = replicasToBeReplicated.size();
 
     List<DatanodeDetails> targetDatanodes = ReplicationManagerUtil
-        .getTargetDatanodes(containerPlacement, requiredNodes, usedDns,
-            excludedDns, currentContainerSize, container);
+        .getTargetDatanodes(containerPlacement, requiredNodes,
+            excludedAndUsedNodes.getUsedNodes(),
+            excludedAndUsedNodes.getExcludedNodes(), currentContainerSize,
+            container);
     List<DatanodeDetails> availableSources = sources.stream()
         .map(ContainerReplica::getDatanodeDetails)
         .collect(Collectors.toList());
@@ -162,6 +166,11 @@ public abstract class MisReplicationHandler implements
 
     int found = targetDatanodes.size();
     if (found < requiredNodes) {
+      if (container.getReplicationType() == HddsProtos.ReplicationType.EC) {
+        metrics.incrEcPartialReplicationForMisReplicationTotal();
+      } else {
+        metrics.incrPartialReplicationForMisReplicationTotal();
+      }
       LOG.warn("Placement Policy {} found only {} nodes for Container: {}," +
           " number of required nodes: {}, usedNodes : {}",
           containerPlacement.getClass(), found,

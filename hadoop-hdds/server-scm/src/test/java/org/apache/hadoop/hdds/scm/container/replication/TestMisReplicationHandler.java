@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -69,6 +70,9 @@ public abstract class TestMisReplicationHandler {
   private OzoneConfiguration conf;
   private ReplicationManager replicationManager;
   private Set<Pair<DatanodeDetails, SCMCommand<?>>> commandsSent;
+  private final AtomicBoolean throwThrottledException =
+      new AtomicBoolean(false);
+  private ReplicationManagerMetrics metrics;
 
   protected void setup(ReplicationConfig repConfig)
       throws NodeNotFoundException, CommandTargetOverloadedException,
@@ -86,12 +90,14 @@ public abstract class TestMisReplicationHandler {
         conf.getObject(ReplicationManagerConfiguration.class);
     Mockito.when(replicationManager.getConfig())
         .thenReturn(rmConf);
+    metrics = ReplicationManagerMetrics.create(replicationManager);
+    Mockito.when(replicationManager.getMetrics()).thenReturn(metrics);
 
     commandsSent = new HashSet<>();
     ReplicationTestUtil.mockRMSendDatanodeCommand(
         replicationManager, commandsSent);
     ReplicationTestUtil.mockRMSendThrottleReplicateCommand(
-        replicationManager, commandsSent);
+        replicationManager, commandsSent, throwThrottledException);
 
     container = ReplicationTestUtil
             .createContainer(HddsProtos.LifeCycleState.CLOSED, repConfig);
@@ -104,8 +110,16 @@ public abstract class TestMisReplicationHandler {
     return replicationManager;
   }
 
-  static PlacementPolicy<?> mockPlacementPolicy() {
-    PlacementPolicy<?> placementPolicy = Mockito.mock(PlacementPolicy.class);
+  protected ReplicationManagerMetrics getMetrics() {
+    return metrics;
+  }
+
+  protected void setThrowThrottledException(boolean showThrow) {
+    throwThrottledException.set(showThrow);
+  }
+
+  static PlacementPolicy mockPlacementPolicy() {
+    PlacementPolicy placementPolicy = Mockito.mock(PlacementPolicy.class);
     ContainerPlacementStatus mockedContainerPlacementStatus =
         Mockito.mock(ContainerPlacementStatus.class);
     Mockito.when(mockedContainerPlacementStatus.isPolicySatisfied())
