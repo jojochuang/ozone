@@ -64,6 +64,11 @@ public class TestReplicationAnnotation {
       }
 
       @Override
+      public boolean triggerSnapshot() throws IOException {
+        throw new IOException("submitSnapshotRequest is called.");
+      }
+
+      @Override
       public void stop() throws IOException {
       }
 
@@ -125,10 +130,9 @@ public class TestReplicationAnnotation {
     try {
       proxy.addContainer(HddsProtos.ContainerInfoProto.getDefaultInstance());
       Assertions.fail("Cannot reach here: should have seen a IOException");
-    } catch (IOException ignore) {
-      Assertions.assertNotNull(ignore.getMessage() != null);
-      Assertions.assertEquals("submitRequest is called.",
-          ignore.getMessage());
+    } catch (IOException e) {
+      Assertions.assertNotNull(e.getMessage());
+      Assertions.assertTrue(e.getMessage().contains("submitRequest is called"));
     }
 
     scmhaInvocationHandler = new SCMHAInvocationHandler(
@@ -146,10 +150,9 @@ public class TestReplicationAnnotation {
           KeyStoreTestUtil.generateCertificate("CN=Test", keyPair, 30,
           "SHA256withRSA"), HddsProtos.NodeType.DATANODE);
       Assertions.fail("Cannot reach here: should have seen a IOException");
-    } catch (IOException ignore) {
-      Assertions.assertNotNull(ignore.getMessage() != null);
-      Assertions.assertEquals("submitRequest is called.",
-          ignore.getMessage());
+    } catch (IOException e) {
+      Assertions.assertNotNull(e.getMessage());
+      Assertions.assertTrue(e.getMessage().contains("submitRequest is called"));
     }
 
   }
