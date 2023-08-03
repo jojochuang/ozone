@@ -54,6 +54,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.putBlockAsync;
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.writeChunkAsync;
+import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.writeSmallChunkAsync;
+
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -523,6 +525,15 @@ public class BlockOutputStream extends OutputStream {
     }
   }
 
+  private void writeSmallChunk(ChunkBuffer buffer)
+      throws IOException {
+    if (bufferList == null) {
+      bufferList = new ArrayList<>();
+    }
+    bufferList.add(buffer);
+    writeChunkToContainer(buffer.duplicate(0, buffer.position()));
+  }
+
   private void writeChunk(ChunkBuffer buffer)
       throws IOException {
     // This data in the buffer will be pushed to datanode and a reference will
@@ -566,14 +577,19 @@ public class BlockOutputStream extends OutputStream {
     if (totalDataFlushedLength < writtenDataLength) {
       refreshCurrentBuffer();
       Preconditions.checkArgument(currentBuffer.position() > 0);
-      if (currentBuffer.hasRemaining()) {
-        writeChunk(currentBuffer);
+      if (writtenDataLength - totalDataFlushedLength < 1 * 1024 * 1024) {
+        updateFlushLength();
+        writeSmallChunk(currentBuffer);
+      } else {
+        if (currentBuffer.hasRemaining()) {
+          writeChunk(currentBuffer);
+        }
+        // This can be a partially filled chunk. Since we are flushing the buffer
+        // here, we just limit this buffer to the current position. So that next
+        // write will happen in new buffer
+        updateFlushLength();
+        executePutBlock(close, false);
       }
-      // This can be a partially filled chunk. Since we are flushing the buffer
-      // here, we just limit this buffer to the current position. So that next
-      // write will happen in new buffer
-      updateFlushLength();
-      executePutBlock(close, false);
     } else if (close) {
       // forcing an "empty" putBlock if stream is being closed without new
       // data since latest flush - we need to send the "EOF" flag
@@ -686,7 +702,7 @@ public class BlockOutputStream extends OutputStream {
    * @return
    */
   CompletableFuture<ContainerCommandResponseProto> writeChunkToContainer(
-      ChunkBuffer chunk) throws IOException {
+      ChunkBuffer chunk, boolean small) throws IOException {
     int effectiveChunkSize = chunk.remaining();
     final long offset = chunkOffset.getAndAdd(effectiveChunkSize);
     final ByteString data = chunk.toByteString(
@@ -704,8 +720,14 @@ public class BlockOutputStream extends OutputStream {
           chunkInfo.getChunkName(), effectiveChunkSize, offset);
     }
     try {
-      XceiverClientReply asyncReply = writeChunkAsync(xceiverClient, chunkInfo,
-          blockID.get(), data, token, replicationIndex);
+      XceiverClientReply asyncReply;
+      if (small) {
+        asyncReply = writeSmallChunkAsync(xceiverClient, chunkInfo,
+            blockID.get(), data, token, replicationIndex);
+      } else {
+        asyncReply = writeChunkAsync(xceiverClient, chunkInfo,
+            blockID.get(), data, token, replicationIndex);
+      }
       CompletableFuture<ContainerProtos.ContainerCommandResponseProto>
           respFuture = asyncReply.getResponse();
       CompletableFuture<ContainerProtos.ContainerCommandResponseProto>

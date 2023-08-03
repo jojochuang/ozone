@@ -453,6 +453,19 @@ public final class ContainerProtocolCalls  {
     return xceiverClient.sendCommandAsync(request);
   }
 
+  public static XceiverClientReply writeSmallChunkAsync(
+      XceiverClientSpi xceiverClient, ChunkInfo chunk, BlockID blockID,
+      ByteString data, Token<? extends TokenIdentifier> token,
+      int replicationIndex) {
+    writeSmallFile(xceiverClient, blockID, data.toByteArray(), token, true);
+  }
+
+  public static PutSmallFileResponseProto writeSmallFile(
+      XceiverClientSpi client, BlockID blockID, byte[] data,
+      Token<? extends TokenIdentifier> token) throws IOException {
+    writeSmallFile(client, blockID, data, token, false);
+  }
+
   /**
    * Allows writing a small file using single RPC. This takes the container
    * name, block name and data to write sends all that data to the container
@@ -467,7 +480,8 @@ public final class ContainerProtocolCalls  {
    */
   public static PutSmallFileResponseProto writeSmallFile(
       XceiverClientSpi client, BlockID blockID, byte[] data,
-      Token<OzoneBlockTokenIdentifier> token) throws IOException {
+      Token<? extends TokenIdentifier> token,
+      boolean hsync) throws IOException {
 
     BlockData containerBlockData =
         BlockData.newBuilder().setBlockID(blockID.getDatanodeBlockIDProtobuf())
