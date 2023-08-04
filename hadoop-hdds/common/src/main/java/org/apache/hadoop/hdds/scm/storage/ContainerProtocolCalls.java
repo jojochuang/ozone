@@ -453,17 +453,24 @@ public final class ContainerProtocolCalls  {
     return xceiverClient.sendCommandAsync(request);
   }
 
-  public static XceiverClientReply writeSmallChunkAsync(
+  public static XceiverClientReply flushSmallChunkAsync(
       XceiverClientSpi xceiverClient, ChunkInfo chunk, BlockID blockID,
       ByteString data, Token<? extends TokenIdentifier> token,
-      int replicationIndex) {
-    writeSmallFile(xceiverClient, blockID, data.toByteArray(), token, true);
+      int replicationIndex)
+      throws IOException, ExecutionException, InterruptedException {
+    ContainerCommandRequestProto request =
+        writeSmallFileCommon(xceiverClient, chunk, blockID, data, token, replicationIndex, true);
+    return xceiverClient.sendCommandAsync(request);
   }
 
   public static PutSmallFileResponseProto writeSmallFile(
       XceiverClientSpi client, BlockID blockID, byte[] data,
       Token<? extends TokenIdentifier> token) throws IOException {
-    writeSmallFile(client, blockID, data, token, false);
+    ContainerCommandRequestProto request =
+        writeSmallFileCommon(client, null, blockID, ByteString.copyFrom(data), token, 0, false);
+    ContainerCommandResponseProto response =
+        client.sendCommand(request, getValidatorList());
+    return response.getPutSmallFile();
   }
 
   /**
@@ -478,13 +485,16 @@ public final class ContainerProtocolCalls  {
    * @param token a token for this block (may be null)
    * @return container protocol writeSmallFile response
    */
-  public static PutSmallFileResponseProto writeSmallFile(
-      XceiverClientSpi client, BlockID blockID, byte[] data,
+  public static ContainerCommandRequestProto writeSmallFileCommon(
+      XceiverClientSpi client, ChunkInfo chunk, BlockID blockID, ByteString data,
       Token<? extends TokenIdentifier> token,
+      int replicationIndex,
       boolean hsync) throws IOException {
 
     BlockData containerBlockData =
-        BlockData.newBuilder().setBlockID(blockID.getDatanodeBlockIDProtobuf())
+        BlockData.newBuilder()
+            .setBlockID(blockID
+                .getDatanodeBlockIDProtobuf(replicationIndex))
             .build();
     PutBlockRequestProto.Builder createBlockRequest =
         PutBlockRequestProto.newBuilder()
@@ -495,19 +505,22 @@ public final class ContainerProtocolCalls  {
             .build();
 
     Checksum checksum = new Checksum(ChecksumType.CRC32, 256);
-    final ChecksumData checksumData = checksum.computeChecksum(data);
-    ChunkInfo chunk =
+    final ChecksumData checksumData = checksum.computeChecksum(data.asReadOnlyByteBuffer());
+    if (chunk == null) {
+     chunk =
         ChunkInfo.newBuilder()
             .setChunkName(blockID.getLocalID() + "_chunk")
             .setOffset(0)
-            .setLen(data.length)
+            .setLen(data.size())
             .addMetadata(keyValue)
             .setChecksumData(checksumData.getProtoBufMessage())
             .build();
+     }
 
     PutSmallFileRequestProto putSmallFileRequest =
         PutSmallFileRequestProto.newBuilder().setChunkInfo(chunk)
-            .setBlock(createBlockRequest).setData(ByteString.copyFrom(data))
+            .setBlock(createBlockRequest).setData(data)
+            .setFlush(hsync)
             .build();
 
     String id = client.getPipeline().getFirstNode().getUuidString();
@@ -521,9 +534,7 @@ public final class ContainerProtocolCalls  {
       builder.setEncodedToken(token.encodeToUrlString());
     }
     ContainerCommandRequestProto request = builder.build();
-    ContainerCommandResponseProto response =
-        client.sendCommand(request, getValidatorList());
-    return response.getPutSmallFile();
+    return request;
   }
 
   /**

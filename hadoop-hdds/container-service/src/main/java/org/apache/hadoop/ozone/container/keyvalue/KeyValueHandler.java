@@ -887,7 +887,12 @@ public class KeyValueHandler extends Handler {
       chunkManager
           .writeChunk(kvContainer, blockID, chunkInfo, data, dispatcherContext);
       validateChunkChecksumData(data, chunkInfo);
-      chunkManager.finishWriteChunks(kvContainer, blockData);
+      if (putSmallFileReq.hasFlush() && putSmallFileReq.getFlush() == true) {
+
+      } else {
+        chunkManager.finishWriteChunks(kvContainer, blockData);
+      }
+      //////////////////////////////
 
       List<ContainerProtos.ChunkInfo> chunks = new LinkedList<>();
       chunks.add(chunkInfoProto);

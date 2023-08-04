@@ -94,6 +94,17 @@ public class BlockID {
   }
 
   @JsonIgnore
+  public ContainerProtos.DatanodeBlockID getDatanodeBlockIDProtobuf(
+      int replicationIndex) {
+    return ContainerProtos.DatanodeBlockID.newBuilder().
+            setContainerID(containerBlockID.getContainerID())
+        .setLocalID(containerBlockID.getLocalID())
+        .setBlockCommitSequenceId(blockCommitSequenceId)
+        .setReplicaIndex(replicationIndex)
+        .build();
+  }
+
+  @JsonIgnore
   public static BlockID getFromProtobuf(
       ContainerProtos.DatanodeBlockID blockID) {
     return new BlockID(blockID.getContainerID(),

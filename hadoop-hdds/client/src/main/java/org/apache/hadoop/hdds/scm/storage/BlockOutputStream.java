@@ -52,9 +52,10 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+
+import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.flushSmallChunkAsync;
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.putBlockAsync;
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.writeChunkAsync;
-import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.writeSmallChunkAsync;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -531,7 +532,7 @@ public class BlockOutputStream extends OutputStream {
       bufferList = new ArrayList<>();
     }
     bufferList.add(buffer);
-    writeChunkToContainer(buffer.duplicate(0, buffer.position()));
+    writeChunkToContainer(buffer.duplicate(0, buffer.position()), true);
   }
 
   private void writeChunk(ChunkBuffer buffer)
@@ -545,7 +546,7 @@ public class BlockOutputStream extends OutputStream {
       bufferList = new ArrayList<>();
     }
     bufferList.add(buffer);
-    writeChunkToContainer(buffer.duplicate(0, buffer.position()));
+    writeChunkToContainer(buffer.duplicate(0, buffer.position()), false);
   }
 
   /**
@@ -692,6 +693,11 @@ public class BlockOutputStream extends OutputStream {
     return xceiverClient == null;
   }
 
+  CompletableFuture<ContainerCommandResponseProto> writeChunkToContainer(
+      ChunkBuffer chunk) throws IOException {
+    return writeChunkToContainer(chunk, false);
+  }
+
   /**
    * Writes buffered data as a new chunk to the container and saves chunk
    * information to be used later in putKey call.
@@ -722,7 +728,7 @@ public class BlockOutputStream extends OutputStream {
     try {
       XceiverClientReply asyncReply;
       if (small) {
-        asyncReply = writeSmallChunkAsync(xceiverClient, chunkInfo,
+        asyncReply = flushSmallChunkAsync(xceiverClient, chunkInfo,
             blockID.get(), data, token, replicationIndex);
       } else {
         asyncReply = writeChunkAsync(xceiverClient, chunkInfo,
