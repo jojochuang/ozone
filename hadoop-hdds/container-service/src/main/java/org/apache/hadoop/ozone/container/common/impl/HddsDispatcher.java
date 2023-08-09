@@ -279,9 +279,11 @@ public class HddsDispatcher implements ContainerDispatcher, Auditor {
           audit(action, eventType, params, AuditEventStatus.FAILURE, sce);
           return ContainerUtils.logAndReturnError(LOG, sce, msg);
         }
+        LOG.info("isWriteStage {} container2BCSIDMap {} dispatcherContext {} cmdType {}",
+            isWriteStage, container2BCSIDMap, dispatcherContext, cmdType);
         Preconditions.checkArgument(isWriteStage && container2BCSIDMap != null
             || dispatcherContext == null
-            || cmdType == Type.PutBlock);
+            || cmdType == Type.PutBlock || cmdType == Type.PutSmallFile);
         if (container2BCSIDMap != null) {
           // adds this container to list of containers created in the pipeline
           // with initial BCSID recorded as 0.
