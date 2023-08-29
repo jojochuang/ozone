@@ -884,11 +884,11 @@ public class KeyValueHandler extends Handler {
 
       // chunks will be committed as a part of handling putSmallFile
       // here. There is no need to maintain this info in openContainerBlockMap.
+      validateChunkChecksumData(data, chunkInfo);
       chunkManager
           .writeChunk(kvContainer, blockID, chunkInfo, data, dispatcherContext);
-      validateChunkChecksumData(data, chunkInfo);
       if (putSmallFileReq.hasFlush() && putSmallFileReq.getFlush() == true) {
-
+        // if it's a hsync/hflush, don't finish the chunk.
       } else {
         chunkManager.finishWriteChunks(kvContainer, blockData);
       }

@@ -56,6 +56,8 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.io.ECKeyOutputStream;
 import org.apache.hadoop.ozone.client.io.KeyOutputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
+import org.apache.hadoop.ozone.container.keyvalue.impl.FilePerBlockStrategy;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -196,6 +198,8 @@ public class TestHSync {
 
   @Test
   public void testO3fsHSync() throws Exception {
+    GenericTestUtils.setLogLevel(FilePerBlockStrategy.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(ChunkUtils.LOG, Level.DEBUG);
     // Set the fs.defaultFS
     final String rootPath = String.format("%s://%s.%s/",
         OZONE_URI_SCHEME, bucket.getName(), bucket.getVolumeName());

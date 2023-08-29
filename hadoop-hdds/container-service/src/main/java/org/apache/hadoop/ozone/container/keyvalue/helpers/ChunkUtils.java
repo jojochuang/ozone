@@ -69,7 +69,7 @@ public final class ChunkUtils {
 
   private static final Set<Path> LOCKS = ConcurrentHashMap.newKeySet();
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(ChunkUtils.class);
 
   // skip SYNC and DSYNC to reduce contention on file.lock
@@ -223,8 +223,8 @@ public final class ChunkUtils {
       volume.getVolumeIOStats().incReadBytes(bytesRead);
     }
 
-    LOG.debug("Read {} bytes starting at offset {} from {}",
-        bytesRead, offset, file);
+    LOG.debug("Read {} bytes, expected {} bytes, starting at offset {} from {}",
+        bytesRead, len, offset, file);
 
     validateReadSize(len, bytesRead);
 

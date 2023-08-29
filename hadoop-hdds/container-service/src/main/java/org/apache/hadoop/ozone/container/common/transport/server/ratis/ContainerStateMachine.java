@@ -51,6 +51,8 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerC
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ReadChunkRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ReadChunkResponseProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Type;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.PutBlockRequestProto;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.PutSmallFileRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.WriteChunkRequestProto;
 import org.apache.hadoop.hdds.ratis.ContainerCommandRequestMessage;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -169,6 +171,9 @@ public class ContainerStateMachine extends BaseStateMachine {
   private final ConcurrentHashMap<Long,
       CompletableFuture<ContainerCommandResponseProto>> writeChunkFutureMap;
 
+  private final ConcurrentHashMap<Long,
+      CompletableFuture<ContainerCommandResponseProto>> writeSmallFileFutureMap;
+
   // keeps track of the containers created per pipeline
   private final Map<Long, Long> container2BCSIDMap;
   private final TaskQueueMap containerTaskQueues = new TaskQueueMap();
@@ -176,6 +181,7 @@ public class ContainerStateMachine extends BaseStateMachine {
   private final List<ThreadPoolExecutor> chunkExecutors;
   private final Map<Long, Long> applyTransactionCompletionMap;
   private final Cache<Long, ByteString> stateMachineDataCache;
+  private final Cache<Long, ByteString> stateMachineDataCacheForSmallFile;
   private final AtomicBoolean stateMachineHealthy;
 
   private final Semaphore applyTransactionSemaphore;
@@ -196,6 +202,7 @@ public class ContainerStateMachine extends BaseStateMachine {
     this.ratisServer = ratisServer;
     metrics = CSMMetrics.create(gid);
     this.writeChunkFutureMap = new ConcurrentHashMap<>();
+    this.writeSmallFileFutureMap = new ConcurrentHashMap<>();
     applyTransactionCompletionMap = new ConcurrentHashMap<>();
     int numPendingRequests = conf
         .getObject(DatanodeRatisServerConfig.class)
@@ -207,6 +214,10 @@ public class ContainerStateMachine extends BaseStateMachine {
     int pendingRequestsMegaBytesLimit =
         HddsUtils.roundupMb(pendingRequestsBytesLimit);
     stateMachineDataCache = new ResourceLimitCache<>(new ConcurrentHashMap<>(),
+        (index, data) -> new int[] {1, HddsUtils.roundupMb(data.size())},
+        numPendingRequests, pendingRequestsMegaBytesLimit);
+    stateMachineDataCacheForSmallFile =
+        new ResourceLimitCache<>(new ConcurrentHashMap<>(),
         (index, data) -> new int[] {1, HddsUtils.roundupMb(data.size())},
         numPendingRequests, pendingRequestsMegaBytesLimit);
 
@@ -370,32 +381,9 @@ public class ContainerStateMachine extends BaseStateMachine {
       return ctxt;
     }
     if (proto.getCmdType() == Type.WriteChunk) {
-      final WriteChunkRequestProto write = proto.getWriteChunk();
-      // create the log entry proto
-      final WriteChunkRequestProto commitWriteChunkProto =
-          WriteChunkRequestProto.newBuilder()
-              .setBlockID(write.getBlockID())
-              .setChunkData(write.getChunkData())
-              // skipping the data field as it is
-              // already set in statemachine data proto
-              .build();
-      ContainerCommandRequestProto commitContainerCommandProto =
-          ContainerCommandRequestProto
-              .newBuilder(proto)
-              .setWriteChunk(commitWriteChunkProto)
-              .setTraceID(proto.getTraceID())
-              .build();
-      Preconditions.checkArgument(write.hasData());
-      Preconditions.checkArgument(!write.getData().isEmpty());
-
-      return TransactionContext.newBuilder()
-          .setClientRequest(request)
-          .setStateMachine(this)
-          .setServerRole(RaftPeerRole.LEADER)
-          .setStateMachineContext(startTime)
-          .setStateMachineData(write.getData())
-          .setLogData(commitContainerCommandProto.toByteString())
-          .build();
+      return createTransactionContextForWriteChunk(request, startTime, proto);
+    } else if (proto.getCmdType() == Type.PutSmallFile) {
+      return createTransactionContextForPutSmallFile(request, startTime, proto);
     } else {
       return TransactionContext.newBuilder()
           .setClientRequest(request)
@@ -406,6 +394,64 @@ public class ContainerStateMachine extends BaseStateMachine {
           .build();
     }
 
+  }
+
+  private TransactionContext createTransactionContextForWriteChunk(
+      RaftClientRequest request, long startTime,
+      ContainerCommandRequestProto proto) {
+    final WriteChunkRequestProto write = proto.getWriteChunk();
+    // create the log entry proto
+    final WriteChunkRequestProto commitWriteChunkProto =
+        WriteChunkRequestProto.newBuilder()
+            .setBlockID(write.getBlockID())
+            .setChunkData(write.getChunkData())
+            // skipping the data field as it is
+            // already set in statemachine data proto
+            .build();
+    ContainerCommandRequestProto commitContainerCommandProto =
+        ContainerCommandRequestProto
+            .newBuilder(proto)
+            .setWriteChunk(commitWriteChunkProto)
+            .setTraceID(proto.getTraceID())
+            .build();
+    Preconditions.checkArgument(write.hasData());
+    Preconditions.checkArgument(!write.getData().isEmpty());
+
+    return TransactionContext.newBuilder().setClientRequest(request)
+        .setStateMachine(this).setServerRole(RaftPeerRole.LEADER)
+        .setStateMachineContext(startTime).setStateMachineData(write.getData())
+        .setLogData(commitContainerCommandProto.toByteString()).build();
+  }
+
+  private TransactionContext createTransactionContextForPutSmallFile(
+      RaftClientRequest request, long startTime,
+      ContainerCommandRequestProto proto) {
+    final PutSmallFileRequestProto write = proto.getPutSmallFile();
+    // create the log entry proto
+    final PutSmallFileRequestProto.Builder commitWriteChunkProtoBuilder =
+        PutSmallFileRequestProto.newBuilder()
+            .setBlock(write.getBlock())
+            .setChunkInfo(write.getChunkInfo())
+            // skipping the data field as it is
+            // already set in statemachine data proto
+            .setFlush(write.getFlush());
+    if (write.hasFlush()) {
+      commitWriteChunkProtoBuilder.setFlush(write.getFlush());
+    }
+            //.build();
+    ContainerCommandRequestProto commitContainerCommandProto =
+        ContainerCommandRequestProto
+            .newBuilder(proto)
+            .setPutSmallFile(commitWriteChunkProtoBuilder.build())
+            .setTraceID(proto.getTraceID())
+            .build();
+    Preconditions.checkArgument(write.hasData());
+    Preconditions.checkArgument(!write.getData().isEmpty());
+
+    return TransactionContext.newBuilder().setClientRequest(request)
+        .setStateMachine(this).setServerRole(RaftPeerRole.LEADER)
+        .setStateMachineContext(startTime).setStateMachineData(write.getData())
+        .setLogData(commitContainerCommandProto.toByteString()).build();
   }
 
   private ByteString getStateMachineData(StateMachineLogEntryProto entryProto) {

@@ -70,7 +70,7 @@ import static org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils.veri
  */
 public class FilePerBlockStrategy implements ChunkManager {
 
-  private static final Logger LOG =
+  public static final Logger LOG =
       LoggerFactory.getLogger(FilePerBlockStrategy.class);
 
   private final boolean doSyncWrite;

@@ -580,6 +580,7 @@ public class BlockOutputStream extends OutputStream {
       Preconditions.checkArgument(currentBuffer.position() > 0);
       if (writtenDataLength - totalDataFlushedLength < 1 * 1024 * 1024) {
         updateFlushLength();
+        // send a PutSmallFileRequestProto, don't send WriteChunk+PutBlock
         writeSmallChunk(currentBuffer);
       } else {
         if (currentBuffer.hasRemaining()) {
