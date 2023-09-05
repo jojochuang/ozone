@@ -133,13 +133,13 @@ public class TestRootedOzoneFileSystemWithFSO
         + root + "/b/c");
 
     // rename should fail and return false
-    assertFalse(getFs().rename(dir2SourcePath, destinPath));
+    assertThrows(OMException.class, () -> getFs().rename(dir2SourcePath, destinPath));
     // (b) parent of dst is a file. /root_dir/file1/c
     Path filePath = new Path(getBucketPath() + root + "/file1");
     ContractTestUtils.touch(getFs(), filePath);
     Path newDestinPath = new Path(filePath, "c");
     // rename should fail and return false
-    assertFalse(getFs().rename(dir2SourcePath, newDestinPath));
+    assertThrows(OMException.class, () -> getFs().rename(dir2SourcePath, newDestinPath));
   }
 
   @Test
