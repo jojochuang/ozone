@@ -402,7 +402,6 @@ public class ChunkInputStream extends InputStream
   private void readChunkDataIntoBuffers(ChunkInfo readChunkInfo)
       throws IOException {
     buffers = readChunk(readChunkInfo);
-
     buffersSize = readChunkInfo.getLen();
 
     bufferOffsets = new long[buffers.length];
