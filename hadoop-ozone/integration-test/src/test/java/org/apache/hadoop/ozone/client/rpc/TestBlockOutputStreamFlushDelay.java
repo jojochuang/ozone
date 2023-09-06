@@ -413,7 +413,7 @@ public class TestBlockOutputStreamFlushDelay {
         .getPendingContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(writeChunkCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
-    Assert.assertEquals(putBlockCount + 2,
+    Assert.assertEquals(putBlockCount + 1,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(totalOpCount + 4,
         metrics.getTotalOpCount());
@@ -486,7 +486,7 @@ public class TestBlockOutputStreamFlushDelay {
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
     Assert.assertEquals(putBlockCount + 1,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
-    Assert.assertEquals(totalOpCount + 5,
+    Assert.assertEquals(totalOpCount + 4,
         metrics.getTotalOpCount());
     Assert.assertEquals(dataLength, blockOutputStream.getTotalAckDataLength());
     // make sure the bufferPool is empty
@@ -697,7 +697,7 @@ public class TestBlockOutputStreamFlushDelay {
     // The previous flush did not trigger any action.
     Assert.assertEquals(putBlockCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
-    Assert.assertEquals(totalOpCount + 8,
+    Assert.assertEquals(totalOpCount + 7,
         metrics.getTotalOpCount());
     Assert.assertEquals(dataLength, blockOutputStream.getTotalAckDataLength());
     Assert.assertTrue(
