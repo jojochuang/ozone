@@ -378,7 +378,7 @@ public class TestBlockOutputStreamFlushDelay {
     key.flush();
     Assert.assertEquals(writeChunkCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
-    Assert.assertEquals(putBlockCount + 1,
+    Assert.assertEquals(putBlockCount + 0,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(pendingWriteChunkCount, metrics
         .getPendingContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
@@ -481,7 +481,7 @@ public class TestBlockOutputStreamFlushDelay {
         .getPendingContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(writeChunkCount + 3,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
-    Assert.assertEquals(putBlockCount + 2,
+    Assert.assertEquals(putBlockCount + 1,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(totalOpCount + 5,
         metrics.getTotalOpCount());
@@ -690,7 +690,7 @@ public class TestBlockOutputStreamFlushDelay {
     Assert.assertEquals(writeChunkCount + 5,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
     // The previous flush did not trigger any action.
-    Assert.assertEquals(putBlockCount + 3,
+    Assert.assertEquals(putBlockCount + 2,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
     Assert.assertEquals(totalOpCount + 8,
         metrics.getTotalOpCount());
