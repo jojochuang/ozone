@@ -47,12 +47,9 @@ class CopyAndModifyData(object):
             LIB_DIR=$BIN_DIR/../lib
 
         IFS='.' read -ra HDP_VERSION_ARRAY <<< "${HDP_VERSION}"
-        IFS="-" read -ra CHF_VERSION <<< "${HDP_VERSION_ARRAY[3]}"
 
-        if [[ ( "${HDP_VERSION_ARRAY[0]}" == 7 ) && ( "${HDP_VERSION_ARRAY[1]}" == 1 ) && ( "${HDP_VERSION_ARRAY[2]}" -ge 8 ) && ( -n "${CHF_VERSION[0]}" ) && ( "${CHF_VERSION[0]}" -ge 0 ) ]]; then
-            :
-        else
-            echo "Validation of CDH version has failed: The current CDH version ${HDP_VERSION} is older than the minimum expected CDH version 7.1.8.0 for using Ozone parcels."
+        if [[ ( "${HDP_VERSION_ARRAY[0]}" != 7 ) && ( "${HDP_VERSION_ARRAY[1]}" != 1 ) && ( "${HDP_VERSION_ARRAY[2]}" != 9 ) ]]; then
+            echo "Validation of CDH version failed: The current CDH version ${HDP_VERSION} does not match the expected CDH version 7.1.9"
             exit 1
         fi
 
