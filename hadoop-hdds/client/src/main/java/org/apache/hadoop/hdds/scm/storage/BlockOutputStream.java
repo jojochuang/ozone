@@ -608,8 +608,8 @@ public class BlockOutputStream extends OutputStream {
     }
     TracingUtil.executeInNewSpan("BlockOutputStream.waitOnFlushFutures",
         this::waitOnFlushFutures);
-    TracingUtil.executeInNewSpan("BlockOutputStream.waitOnFlushFutures",
-        () -> watchForCommit(false));
+    //TracingUtil.executeInNewSpan("BlockOutputStream.waitOnFlushFutures",
+    //    () -> watchForCommit(false));
     // just check again if the exception is hit while waiting for the
     // futures to ensure flush has indeed succeeded
 
