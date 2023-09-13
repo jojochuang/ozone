@@ -140,7 +140,7 @@ public class RatisBlockOutputStream extends BlockOutputStream
       if (getBufferPool() != null && getBufferPool().getSize() > 0) {
         handleFlush(false);
       }
-      waitForFlushAndCommit(false);
+      //waitForFlushAndCommit(false);
     }
   }
 }
