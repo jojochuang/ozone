@@ -213,7 +213,7 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
       HddsProtos.PipelineID pipelineID) throws IOException {
     Span span = TracingUtil
         .importAndCreateSpan(
-            "XceiverServerGrpc." + request.getCmdType().name(),
+            "XceiverServerGrpc(" + request.getCmdType().name() + ")",
             request.getTraceID());
     try (Scope scope = GlobalTracer.get().activateSpan(span)) {
       ContainerProtos.ContainerCommandResponseProto response =

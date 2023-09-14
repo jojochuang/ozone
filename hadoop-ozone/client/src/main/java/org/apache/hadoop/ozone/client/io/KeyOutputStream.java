@@ -467,7 +467,7 @@ public class KeyOutputStream extends OutputStream implements Syncable {
     handleFlushOrClose(StreamAction.HSYNC);
     Preconditions.checkState(offset >= hsyncPos,
         "offset = %s < hsyncPos = %s", offset, hsyncPos);
-    blockOutputStreamEntryPool.hsyncKey(hsyncPos);
+    //blockOutputStreamEntryPool.hsyncKey(hsyncPos);
   }
 
   /**
