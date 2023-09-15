@@ -6,3 +6,4 @@ exclude_jars: ['log4j*']
 # Exclude log4j1 in the docker image; reload4j is in the runtime so it's fine.
 # Include log4j2 because docker image does not contain CDP runtime.
 exclude_jars_in_docker: ['log4j-1.2.17*']
+exclude_angular_in_docker_jars: ['hdds-container-service*', 'hdds-server-framework*', 'hdds-server-scm*', 'ozone-manager*', 'ozone-s3gateway*']

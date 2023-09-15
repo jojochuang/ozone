@@ -235,6 +235,7 @@ class CopyAndModifyData(object):
             os.makedirs(dest_path_share_ozone_lib)
             shutil.copy(os.path.join(self._in_dir, "NOTICE.txt"), self._docker_dir)
             self._docker_image_copy_files_util(dest_path_share_ozone_lib, "ozone-tools")
+            self._docker_image_exclude_angular(dest_path_share_ozone_lib)
 
             dest_path_share_ozone_classpath = self._docker_dir + "/share/ozone/classpath"
             os.makedirs(dest_path_share_ozone_classpath)
@@ -292,6 +293,37 @@ class CopyAndModifyData(object):
                         shutil.copy(file, destination_path)
         except Exception:
             logging.info("Exception in _docker_image_copy_files_util {}".format(traceback.format_exc()))
+            sys.exit(1)
+
+    def _docker_image_exclude_angular(self, destination_path):
+        try:
+            exclude_angular_in_jars_list = []
+            for files in self._configs['exclude_angular_in_docker_jars']:
+                for file in glob.glob(os.path.join(self._in_dir, f"{destination_path}/{files}")):
+                    exclude_angular_in_jars_list.append(file)
+
+            for jar_path in exclude_angular_in_jars_list:
+                self._docker_image_exclude_angular_util(jar_path)
+        except Exception:
+            logging.info("Exception in _docker_image_exclude_angular {}".format(traceback.format_exc()))
+            sys.exit(1)
+
+    def _docker_image_exclude_angular_util(self, jar_path):
+        try:
+            logging.info(f"Excluding angular@1.8.0.min from {jar_path}")
+            test_command = f"unzip -t {jar_path} | grep angular"
+            test_result = subprocess.run(test_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            if "angular" in test_result.stdout.decode('utf-8'):
+                remove_command = f"zip -d {jar_path} webapps/static/angular*"
+                remove_result = subprocess.run(remove_command, shell=True)
+
+            count_command = f"unzip -t {jar_path} | grep -c angular"
+            count_result = subprocess.run(count_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            logging.info(f"'angular' count post removal from {jar_path}: {count_result.stdout.decode('utf-8').strip()}\n")
+        except Exception:
+            logging.info("Exception in _docker_image_exclude_angular_util {}".format(traceback.format_exc()))
             sys.exit(1)
 
     def copy_and_modify(self):
