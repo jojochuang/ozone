@@ -382,6 +382,7 @@ message ChunkInfo {
   repeated KeyValue metadata = 4;
   required ChecksumData checksumData =5;
   optional bytes stripeChecksum = 6;
+  optional uint64 start = 7;
 }
 
 message ChunkInfoList {
@@ -407,6 +408,7 @@ message  WriteChunkRequestProto  {
   optional ChunkInfo chunkData = 2;
   optional bytes data = 3;
   optional PutBlockRequestProto block = 4;
+  optional uint32 lastChunkStart = 5;
 }
 
 message  WriteChunkResponseProto {

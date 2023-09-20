@@ -119,6 +119,8 @@ public class BlockManagerImpl implements BlockManager {
 
     KeyValueContainerData containerData = container.getContainerData();
 
+
+
     // We are not locking the key manager since LevelDb serializes all actions
     // against a single DB. We rely on DB level locking to avoid conflicts.
     try (DBHandle db = BlockUtils.getDB(containerData, config)) {
@@ -159,8 +161,8 @@ public class BlockManagerImpl implements BlockManager {
         // container, then check the DB to ascertain if it exists or not.
         // If block exists in cache, blockCount should not be incremented.
         if (!isBlockInCache) {
-          if (db.getStore().getBlockDataTable().get(
-              containerData.getBlockKey(localID)) == null) {
+          if (!db.getStore().getBlockDataTable().isExist(
+              containerData.getBlockKey(localID))) {
             // Block does not exist in DB => blockCount needs to be
             // incremented when the block is added into DB.
             incrBlockCount = true;

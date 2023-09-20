@@ -34,7 +34,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
  */
 public class ChunkInfo {
   private final String chunkName;
-  private final long offset;
+  private long offset;
   private final long len;
   private ChecksumData checksumData;
   private final Map<String, String> metadata;
@@ -151,6 +151,11 @@ public class ChunkInfo {
   public long getOffset() {
     return offset;
   }
+
+  public void setOffset(long offset) {
+    this.offset = offset;
+  }
+
 
   /**
    * Returns the length of the Chunk.

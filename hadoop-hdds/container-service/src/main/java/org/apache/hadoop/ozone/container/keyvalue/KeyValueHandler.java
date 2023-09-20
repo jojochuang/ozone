@@ -39,6 +39,7 @@ import com.google.common.util.concurrent.Striped;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.ContainerBlockID;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -142,6 +143,14 @@ public class KeyValueHandler extends Handler {
   // A striped lock that is held during container creation.
   private final Striped<Lock> containerCreationLocks;
 
+  static public class BlockChunkList {
+    public List<ChunkInfo> completeChuk;
+    public ChunkInfo lastChunk;
+
+  }
+
+  private Map<ContainerBlockID, BlockChunkList> blockCompleteChunkList;
+
   public KeyValueHandler(ConfigurationSource config,
                          String datanodeId,
                          ContainerSet contSet,
@@ -185,6 +194,8 @@ public class KeyValueHandler extends Handler {
     byteBufferToByteString =
         ByteStringConversion
             .createByteBufferConversion(isUnsafeByteBufferConversionEnabled);
+
+    blockCompleteChunkList = new HashMap<>();
   }
 
   @VisibleForTesting
@@ -815,6 +826,9 @@ public class KeyValueHandler extends Handler {
       ChunkInfo chunkInfo = ChunkInfo.getFromProtoBuf(chunkInfoProto);
       Preconditions.checkNotNull(chunkInfo);
 
+      boolean isPartialChunk =
+          writeChunk.hasLastChunkStart();
+
       BlockData blockData = null;
       if (writeChunk.hasBlock()) {
         metrics.incContainerOpsMetrics(Type.PutBlock);
@@ -837,10 +851,30 @@ public class KeyValueHandler extends Handler {
           .writeChunk(kvContainer, blockID, chunkInfo, data, dispatcherContext);
 
       if (blockData != null) {
+        long lastChunkStart = writeChunk.getLastChunkStart();
+
+        // chunkInfo
+        BlockChunkList blockChunkList =
+            blockCompleteChunkList.get(blockID.getContainerBlockID());
+        List<ChunkInfo> allChunks = blockChunkList.completeChuk;
+        ChunkInfo lastChunk = chunkInfo;
+        lastChunk.setOffset(lastChunkStart);
+
+        blockData.setChunks(allChunks);
+        blockData.addChunk(lastChunk);
+
+        blockChunkList.lastChunk = lastChunk;
+
         // optimization for hsync:
         // block metadata is piggybacked in the same message.
         // there will not be an additional PutBlock request.
         blockData.setBlockCommitSequenceId(dispatcherContext.getLogIndex());
+        // TODO: update chunkData using the cache
+        // two caches: one for complete chunk list
+        // one for last chunk.
+        // TODO: update chunkData's offset to start from the last chunk,
+
+
         blockManager.putBlock(kvContainer, blockData);
         blockDataProto = blockData.getProtoBufMessage();
         final long numBytes = blockDataProto.getSerializedSize();
