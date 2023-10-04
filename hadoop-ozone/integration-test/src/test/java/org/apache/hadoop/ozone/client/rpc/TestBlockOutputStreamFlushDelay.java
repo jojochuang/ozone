@@ -415,7 +415,7 @@ public class TestBlockOutputStreamFlushDelay {
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.WriteChunk));
     Assert.assertEquals(putBlockCount + 1,
         metrics.getContainerOpCountMetrics(ContainerProtos.Type.PutBlock));
-    Assert.assertEquals(totalOpCount + 4,
+    Assert.assertEquals(totalOpCount + 3,
         metrics.getTotalOpCount());
     Assert.assertEquals(0, keyOutputStream.getStreamEntries().size());
     validateData(keyName, data1);
