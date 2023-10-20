@@ -122,6 +122,10 @@ public class BlockOutputStream extends OutputStream {
   private int currentBufferRemaining;
   //current buffer allocated to write
   private ChunkBuffer currentBuffer;
+  // last chunk holds the buffer from the last complete chunk
+  // so it may be different from currentBuffer
+  // we need this to calculate checksum
+  private ChunkBuffer lastChunkBuffer;
   private final Token<? extends TokenIdentifier> token;
   private int replicationIndex;
   private Pipeline pipeline;
@@ -186,6 +190,8 @@ public class BlockOutputStream extends OutputStream {
         config.getBytesPerChecksum());
     this.clientMetrics = clientMetrics;
     this.pipeline = pipeline;
+    this.lastChunkBuffer =
+        ChunkBuffer.allocate(config.getStreamBufferSize(), 0);
   }
 
   void refreshCurrentBuffer() {
@@ -728,6 +734,24 @@ public class BlockOutputStream extends OutputStream {
         .setChecksumData(checksumData.getProtoBufMessage())
         .build();
 
+    // copy the chunk to the lastChunkBuffer
+    //lastChunkBuffer
+
+    if (offset == 0) {
+      // starts a new chunk
+    } else {
+      // append to last chunk buffer
+    }
+
+    // calculate checksum for last chunk
+    ChecksumData lastChecksumData = checksum.computeChecksum(lastChunkBuffer);
+    ChunkInfo chunkInfoPutBlock = ChunkInfo.newBuilder()
+        .setChunkName(blockID.get().getLocalID() + "_last")
+        .setOffset(offset)
+        .setLen(effectiveChunkSize)
+        .setChecksumData(lastChecksumData.getProtoBufMessage())
+        .build();
+
     long flushPos = totalDataFlushedLength;
 
     if (LOG.isDebugEnabled()) {
@@ -752,15 +776,20 @@ public class BlockOutputStream extends OutputStream {
         validateFuture = null;
     try {
       BlockData blockData = null;
-      containerBlockData.addChunks(chunkInfo);
+
       if (smallChunk) {
+        containerBlockData.clearChunks();
+        containerBlockData.addChunks(chunkInfoPutBlock);
         Preconditions.checkNotNull(bufferList);
         byteBufferList = bufferList;
         bufferList = null;
         Preconditions.checkNotNull(byteBufferList);
 
         blockData = containerBlockData.build();
+
+        // TODO: just the last chunk info
       } else {
+        containerBlockData.addChunks(chunkInfo);
         byteBufferList = null;
       }
       XceiverClientReply asyncReply = writeChunkAsync(xceiverClient, chunkInfo,
