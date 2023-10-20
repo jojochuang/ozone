@@ -19,6 +19,7 @@
 package org.apache.hadoop.hdds.scm.storage;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -125,7 +126,7 @@ public class BlockOutputStream extends OutputStream {
   // last chunk holds the buffer from the last complete chunk
   // so it may be different from currentBuffer
   // we need this to calculate checksum
-  private ChunkBuffer lastChunkBuffer;
+  private ByteBuffer lastChunkBuffer;
   private final Token<? extends TokenIdentifier> token;
   private int replicationIndex;
   private Pipeline pipeline;
@@ -190,8 +191,9 @@ public class BlockOutputStream extends OutputStream {
         config.getBytesPerChecksum());
     this.clientMetrics = clientMetrics;
     this.pipeline = pipeline;
-    this.lastChunkBuffer =
-        ChunkBuffer.allocate(config.getStreamBufferSize(), 0);
+    this.lastChunkBuffer = null;
+    //this.lastChunkBuffer =
+    //    ByteBuffer.allocate(config.getStreamBufferSize());
   }
 
   void refreshCurrentBuffer() {
@@ -744,13 +746,13 @@ public class BlockOutputStream extends OutputStream {
     }
 
     // calculate checksum for last chunk
-    ChecksumData lastChecksumData = checksum.computeChecksum(lastChunkBuffer);
+    /*ChecksumData lastChecksumData = checksum.computeChecksum(lastChunkBuffer);
     ChunkInfo chunkInfoPutBlock = ChunkInfo.newBuilder()
         .setChunkName(blockID.get().getLocalID() + "_last")
         .setOffset(offset)
         .setLen(effectiveChunkSize)
         .setChecksumData(lastChecksumData.getProtoBufMessage())
-        .build();
+        .build();*/
 
     long flushPos = totalDataFlushedLength;
 
@@ -778,8 +780,9 @@ public class BlockOutputStream extends OutputStream {
       BlockData blockData = null;
 
       if (smallChunk) {
-        containerBlockData.clearChunks();
-        containerBlockData.addChunks(chunkInfoPutBlock);
+        //containerBlockData.clearChunks();
+        //containerBlockData.addChunks(chunkInfoPutBlock);
+        containerBlockData.addChunks(chunkInfo);
         Preconditions.checkNotNull(bufferList);
         byteBufferList = bufferList;
         bufferList = null;
