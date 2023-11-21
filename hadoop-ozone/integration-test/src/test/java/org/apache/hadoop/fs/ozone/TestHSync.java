@@ -61,12 +61,8 @@ import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 
 import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
-import org.apache.hadoop.ozone.om.request.key.OMKeyCommitRequest;
-import org.apache.hadoop.ozone.om.request.key.OMKeyCommitRequestWithFSO;
-import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Time;
-import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -74,7 +70,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_OFS_URI_SCHEME;
@@ -116,6 +111,7 @@ public class TestHSync {
     CONF.setBoolean(OZONE_OM_RATIS_ENABLE_KEY, false);
     CONF.set(OZONE_DEFAULT_BUCKET_LAYOUT, layout.name());
     CONF.setBoolean(OzoneConfigKeys.OZONE_FS_HSYNC_ENABLED, true);
+    CONF.setBoolean("ozone.client.incremental.chunk.list", true);
     cluster = MiniOzoneCluster.newBuilder(CONF)
         .setNumDatanodes(5)
         .setTotalPipelineNumLimit(10)
@@ -135,9 +131,9 @@ public class TestHSync {
     bucket = TestDataUtil.createVolumeAndBucket(client, layout);
 
     // Enable DEBUG level logging for relevant classes
-    GenericTestUtils.setLogLevel(OMKeyRequest.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(OMKeyCommitRequest.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(OMKeyCommitRequestWithFSO.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(OMKeyRequest.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(OMKeyCommitRequest.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(OMKeyCommitRequestWithFSO.LOG, Level.DEBUG);
   }
 
   @AfterAll
