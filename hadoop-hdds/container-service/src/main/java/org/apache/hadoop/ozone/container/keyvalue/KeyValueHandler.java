@@ -892,6 +892,7 @@ public class KeyValueHandler extends Handler {
       blockData.setChunks(chunks);
       blockData.setBlockCommitSequenceId(dispatcherContext.getLogIndex());
 
+      // FIXME
       blockManager.putBlock(kvContainer, blockData);
 
       blockDataProto = blockData.getProtoBufMessage();

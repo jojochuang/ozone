@@ -433,6 +433,7 @@ public class BlockDeletingTask implements BackgroundTask {
     for (DeletedBlocksTransaction entry : delBlocks) {
       for (Long blkLong : entry.getLocalIDList()) {
         String blk = containerData.getBlockKey(blkLong);
+
         BlockData blkInfo = blockDataTable.get(blk);
         LOG.debug("Deleting block {}", blkLong);
         if (blkInfo == null) {

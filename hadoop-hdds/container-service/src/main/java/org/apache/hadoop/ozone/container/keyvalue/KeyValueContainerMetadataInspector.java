@@ -548,6 +548,7 @@ public class KeyValueContainerMetadataInspector implements ContainerInspector {
     for (long id : localIDs) {
       try {
         final String blockKey = containerData.getBlockKey(id);
+        //// TODO: use store.getBlockByID() instead
         final BlockData blockData = blockDataTable.get(blockKey);
         if (blockData != null) {
           pendingDeleteBytes += blockData.getSize();
