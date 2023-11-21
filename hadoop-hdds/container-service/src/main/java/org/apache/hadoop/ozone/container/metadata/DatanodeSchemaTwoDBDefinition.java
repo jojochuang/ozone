@@ -110,6 +110,12 @@ public class DatanodeSchemaTwoDBDefinition
     return DELETED_BLOCKS;
   }
 
+  @Override
+  public DBColumnFamilyDefinition<String, BlockData>
+      getLastChunkInfoColumnFamily() {
+    return null;
+  }
+
   public DBColumnFamilyDefinition<Long, DeletedBlocksTransaction>
       getDeleteTransactionsColumnFamily() {
     return DELETE_TRANSACTION;

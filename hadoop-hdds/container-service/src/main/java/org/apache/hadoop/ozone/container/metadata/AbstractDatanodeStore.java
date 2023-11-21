@@ -63,6 +63,8 @@ public abstract class AbstractDatanodeStore implements DatanodeStore {
 
   private Table<String, BlockData> blockDataTable;
 
+  private Table<String, BlockData> lastChunkInfoTable;
+
   private Table<String, BlockData> blockDataTableWithIterator;
 
   private Table<String, ChunkInfoList> deletedBlocksTable;
@@ -173,6 +175,12 @@ public abstract class AbstractDatanodeStore implements DatanodeStore {
       deletedBlocksTable = new DatanodeTable<>(
               dbDef.getDeletedBlocksColumnFamily().getTable(this.store));
       checkTableStatus(deletedBlocksTable, deletedBlocksTable.getName());
+
+      if (dbDef.getLastChunkInfoColumnFamily() != null) {
+        lastChunkInfoTable = new DatanodeTable<>(
+            dbDef.getLastChunkInfoColumnFamily().getTable(this.store));
+        checkTableStatus(lastChunkInfoTable, lastChunkInfoTable.getName());
+      }
     }
   }
 
@@ -202,6 +210,11 @@ public abstract class AbstractDatanodeStore implements DatanodeStore {
   @Override
   public Table<String, BlockData> getBlockDataTable() {
     return blockDataTable;
+  }
+
+  @Override
+  public Table<String, BlockData> getLastChunkInfoTable() {
+    return lastChunkInfoTable;
   }
 
   @Override

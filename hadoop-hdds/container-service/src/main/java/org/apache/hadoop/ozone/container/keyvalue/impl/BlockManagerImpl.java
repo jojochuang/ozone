@@ -39,7 +39,6 @@ import org.apache.hadoop.ozone.container.keyvalue.interfaces.BlockManager;
 
 import com.google.common.base.Preconditions;
 import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.BCSID_MISMATCH;
-import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.NO_SUCH_BLOCK;
 import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Result.UNKNOWN_BCSID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,8 +54,10 @@ public class BlockManagerImpl implements BlockManager {
   private ConfigurationSource config;
 
   private static final String DB_NULL_ERR_MSG = "DB cannot be null here";
-  private static final String NO_SUCH_BLOCK_ERR_MSG =
+  public static final String NO_SUCH_BLOCK_ERR_MSG =
       "Unable to find the block.";
+  public static final String INCREMENTAL_CHUNK_LIST = "incremental";
+  public static final String FULL_CHUNK = "full";
 
   // Default Read Buffer capacity when Checksum is not present
   private final int defaultReadBufferCapacity;
@@ -90,17 +91,25 @@ public class BlockManagerImpl implements BlockManager {
   }
 
   @Override
+  public long putBlock(Container container, BlockData data, boolean endOfBlock)
+      throws IOException {
+    return putBlock(container, data, endOfBlock, true);
+  }
+
+  @Override
   public long putBlock(Container container, BlockData data,
-      boolean endOfBlock) throws IOException {
+      boolean endOfBlock, boolean incremental) throws IOException {
     return persistPutBlock(
         (KeyValueContainer) container,
         data,
         config,
-        endOfBlock);
+        endOfBlock,
+        incremental);
   }
 
   public static long persistPutBlock(KeyValueContainer container,
-      BlockData data, ConfigurationSource config, boolean endOfBlock)
+      BlockData data, ConfigurationSource config, boolean endOfBlock,
+      boolean incremental)
       throws IOException {
     Preconditions.checkNotNull(data, "BlockData cannot be null for put " +
         "operation.");
@@ -144,6 +153,12 @@ public class BlockManagerImpl implements BlockManager {
       // update the blockData as well as BlockCommitSequenceId here
       try (BatchOperation batch = db.getStore().getBatchHandler()
           .initBatchOperation()) {
+        //Preconditions.checkState(!data.getChunks().isEmpty(),
+        //    "empty chunk list unexpected");
+        /*if (data.getChunks().isEmpty()) {
+          //LOG.error("unexpected empty chunk");
+          assert endOfBlock;
+        }*/
 
         // If the block does not exist in the pendingPutBlockCache of the
         // container, then check the DB to ascertain if it exists or not.
@@ -157,8 +172,8 @@ public class BlockManagerImpl implements BlockManager {
           }
         }
 
-        db.getStore().getBlockDataTable().putWithBatch(
-            batch, containerData.getBlockKey(localID), data);
+        db.getStore().putBlockByID(batch, incremental, localID, data,
+            containerData, endOfBlock);
         if (bcsId != 0) {
           db.getStore().getMetadataTable().putWithBatch(
               batch, containerData.getBcsIdKey(), bcsId);
@@ -325,14 +340,6 @@ public class BlockManagerImpl implements BlockManager {
 
   private BlockData getBlockByID(DBHandle db, BlockID blockID,
       KeyValueContainerData containerData) throws IOException {
-    String blockKey = containerData.getBlockKey(blockID.getLocalID());
-
-    BlockData blockData = db.getStore().getBlockDataTable().get(blockKey);
-    if (blockData == null) {
-      throw new StorageContainerException(NO_SUCH_BLOCK_ERR_MSG +
-              " BlockID : " + blockID, NO_SUCH_BLOCK);
-    }
-
-    return blockData;
+    return db.getStore().getBlockByID(blockID, containerData);
   }
 }
