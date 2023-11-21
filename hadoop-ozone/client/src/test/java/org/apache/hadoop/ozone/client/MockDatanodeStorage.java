@@ -23,7 +23,6 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.BlockData;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChunkInfo;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.DatanodeBlockID;
-import org.apache.hadoop.hdds.scm.storage.BlockOutputStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 import java.io.IOException;
@@ -35,15 +34,16 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.hadoop.hdds.scm.storage.BlockOutputStream.FULL_CHUNK_KV;
-import static org.apache.hadoop.hdds.scm.storage.BlockOutputStream.INCREMENTAL_CHUNK_LIST;
-
 /**
  * State represents persisted data of one specific datanode.
  */
 public class MockDatanodeStorage {
   public static final Logger LOG =
       LoggerFactory.getLogger(MockDatanodeStorage.class);
+  public static final String INCREMENTAL_CHUNK_LIST = "incremental";
+  public static final String FULL_CHUNK = "full";
+  public static final ContainerProtos.KeyValue FULL_CHUNK_KV =
+      ContainerProtos.KeyValue.newBuilder().setKey(FULL_CHUNK).build();
 
   private final Map<BlockID, BlockData> blocks = new HashedMap();
   private final Map<Long, List<DatanodeBlockID>>
