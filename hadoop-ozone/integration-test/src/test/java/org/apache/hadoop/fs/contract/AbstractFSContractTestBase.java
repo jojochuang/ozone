@@ -209,9 +209,6 @@ public abstract class AbstractFSContractTestBase implements ContractOptions {
     Thread.currentThread().setName("teardown");
     LOG.debug("== Teardown ==");
     deleteTestDirInTeardown();
-    if (contract != null) {
-      contract.teardown();
-    }
     LOG.debug("== Teardown complete ==");
   }
 
