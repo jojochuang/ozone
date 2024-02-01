@@ -29,6 +29,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.util.GlobalTracer;
 import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
@@ -65,6 +68,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerNotOpenExcep
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
+import org.apache.hadoop.hdds.tracing.TracingUtil;
 import org.apache.hadoop.ozone.common.Checksum;
 import org.apache.hadoop.ozone.common.ChecksumData;
 import org.apache.hadoop.security.token.Token;
@@ -128,6 +132,10 @@ public final class ContainerProtocolCalls  {
     if (token != null) {
       builder.setEncodedToken(token.encodeToUrlString());
     }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      builder.setTraceID(traceId);
+    }
 
     ContainerCommandRequestProto request = builder.build();
     ContainerCommandResponseProto response =
@@ -143,7 +151,8 @@ public final class ContainerProtocolCalls  {
     for (; ;) {
       final DatanodeDetails d = pipeline.getClosestNode(excluded);
 
-      try {
+      try (AutoCloseable scope = TracingUtil
+          .createActivatedSpan(d.toString())){
         return op.apply(d);
       } catch (IOException e) {
         excluded.add(d);
@@ -153,6 +162,8 @@ public final class ContainerProtocolCalls  {
         } else {
           throw e;
         }
+      } catch (Exception e) {
+        LOG.warn("Unable to close trace span");
       }
     }
   }
@@ -203,10 +214,14 @@ public final class ContainerProtocolCalls  {
       List<Validator> validators,
       ContainerCommandRequestProto.Builder builder,
       DatanodeDetails datanode) throws IOException {
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      builder.setTraceID(traceId);
+    }
     final ContainerCommandRequestProto request = builder
         .setDatanodeUuid(datanode.getUuidString()).build();
     ContainerCommandResponseProto response =
-        xceiverClient.sendCommand(request, validators);
+        xceiverClient.sendCommand(builder.build(), validators);
     return response.getGetBlock();
   }
 
@@ -237,6 +252,10 @@ public final class ContainerProtocolCalls  {
             .setGetCommittedBlockLength(getBlockLengthRequestBuilder);
     if (token != null) {
       builder.setEncodedToken(token.encodeToUrlString());
+    }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      builder.setTraceID(traceId);
     }
     ContainerCommandRequestProto request = builder.build();
     ContainerCommandResponseProto response =
@@ -341,10 +360,14 @@ public final class ContainerProtocolCalls  {
       builder.setEncodedToken(token.encodeToUrlString());
     }
 
-    return tryEachDatanode(xceiverClient.getPipeline(),
-        d -> readChunk(xceiverClient, chunk, blockID,
-            validators, builder, d),
-        d -> toErrorMessage(chunk, blockID, d));
+    Span span = GlobalTracer.get()
+        .buildSpan("readChunk").start();
+    try (Scope ignored = GlobalTracer.get().activateSpan(span)) {
+      return tryEachDatanode(xceiverClient.getPipeline(),
+          d -> readChunk(xceiverClient, chunk, blockID,
+              validators, builder, d),
+          d -> toErrorMessage(chunk, blockID, d));
+    }
   }
 
   private static ContainerProtos.ReadChunkResponseProto readChunk(
@@ -352,10 +375,14 @@ public final class ContainerProtocolCalls  {
       List<Validator> validators,
       ContainerCommandRequestProto.Builder builder,
       DatanodeDetails d) throws IOException {
-    final ContainerCommandRequestProto request = builder
-        .setDatanodeUuid(d.getUuidString()).build();
+    ContainerCommandRequestProto.Builder requestBuilder = builder
+        .setDatanodeUuid(d.getUuidString());
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      requestBuilder = requestBuilder.setTraceID(traceId);
+    }
     ContainerCommandResponseProto reply =
-        xceiverClient.sendCommand(request, validators);
+        xceiverClient.sendCommand(requestBuilder.build(), validators);
     final ReadChunkResponseProto response = reply.getReadChunk();
     final long readLen = getLen(response);
     if (readLen != chunk.getLen()) {
@@ -537,6 +564,11 @@ public final class ContainerProtocolCalls  {
     if (encodedToken != null) {
       request.setEncodedToken(encodedToken);
     }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      request.setTraceID(traceId);
+    }
+
     request.setCmdType(ContainerProtos.Type.CreateContainer);
     request.setContainerID(containerID);
     request.setCreateContainer(createRequest.build());
@@ -566,6 +598,10 @@ public final class ContainerProtocolCalls  {
     if (encodedToken != null) {
       request.setEncodedToken(encodedToken);
     }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      request.setTraceID(traceId);
+    }
     client.sendCommand(request.build(), getValidatorList());
   }
 
@@ -587,6 +623,10 @@ public final class ContainerProtocolCalls  {
     request.setDatanodeUuid(id);
     if (encodedToken != null) {
       request.setEncodedToken(encodedToken);
+    }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      request.setTraceID(traceId);
     }
     client.sendCommand(request.build(), getValidatorList());
   }
@@ -610,6 +650,10 @@ public final class ContainerProtocolCalls  {
     request.setDatanodeUuid(id);
     if (encodedToken != null) {
       request.setEncodedToken(encodedToken);
+    }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      request.setTraceID(traceId);
     }
     ContainerCommandResponseProto response =
         client.sendCommand(request.build(), getValidatorList());
@@ -645,6 +689,10 @@ public final class ContainerProtocolCalls  {
         .setGetSmallFile(getSmallFileRequest);
     if (token != null) {
       builder.setEncodedToken(token.encodeToUrlString());
+    }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      builder.setTraceID(traceId);
     }
     ContainerCommandRequestProto request = builder.build();
     ContainerCommandResponseProto response =
@@ -716,6 +764,10 @@ public final class ContainerProtocolCalls  {
     if (token != null) {
       builder.setEncodedToken(token.encodeToUrlString());
     }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      builder.setTraceID(traceId);
+    }
     ContainerCommandRequestProto request = builder.build();
     Map<DatanodeDetails, ContainerCommandResponseProto> responses =
             xceiverClient.sendCommandOnAllNodes(request);
@@ -740,6 +792,10 @@ public final class ContainerProtocolCalls  {
     request.setDatanodeUuid(id);
     if (encodedToken != null) {
       request.setEncodedToken(encodedToken);
+    }
+    String traceId = TracingUtil.exportCurrentSpan();
+    if (traceId != null) {
+      request.setTraceID(traceId);
     }
     Map<DatanodeDetails, ContainerCommandResponseProto> responses =
         client.sendCommandOnAllNodes(request.build());

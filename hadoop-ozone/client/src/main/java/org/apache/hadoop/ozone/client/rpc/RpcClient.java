@@ -313,6 +313,8 @@ public class RpcClient implements ClientProtocol {
     this.blockInputStreamFactory = BlockInputStreamFactoryImpl
         .getInstance(byteBufferPool, this::getECReconstructExecutor);
     this.clientMetrics = ContainerClientMetrics.acquire();
+
+    TracingUtil.initTracing("client", conf);
   }
 
   public XceiverClientFactory getXceiverClientManager() {
