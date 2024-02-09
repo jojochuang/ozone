@@ -238,6 +238,8 @@ public class TestCommitWatcher {
         assertThat(watcher.getFutureMap()).isEmpty();
         assertThat(watcher.getCommitIndexMap()).isEmpty();
       }
+    } finally {
+      bufferPool.clearBufferPool();
     }
   }
 
@@ -331,6 +333,8 @@ public class TestCommitWatcher {
           assertThat(watcher.getCommitIndexMap()).isEmpty();
         }
       }
+    } finally {
+      bufferPool.clearBufferPool();
     }
   }
 }
