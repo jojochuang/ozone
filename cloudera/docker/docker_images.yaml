@@ -1,6 +1,6 @@
 docker_images:
   ozone-parcel-image: ozone-parcel-image
 
-registry: __REGISTRY__
+registry: docker-sandbox.infra.cloudera.com/cloudera
 docker_image_tag:
-  build_tag: REPLACE_TAG
+  build_tag: 1.3.0.719.2.0-b21
