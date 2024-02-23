@@ -151,10 +151,11 @@ public final class ContainerProtocolCalls  {
     for (; ;) {
       final DatanodeDetails d = pipeline.getClosestNode(excluded);
 
-      try (AutoCloseable scope = TracingUtil
-          .createActivatedSpan(d.toString())){
+      try {
         return op.apply(d);
       } catch (IOException e) {
+        Span span = GlobalTracer.get().activeSpan();
+        span.log("failed to connect to DN " + d);
         excluded.add(d);
         if (excluded.size() < pipeline.size()) {
           LOG.warn(toErrorMessage.apply(d)
@@ -162,8 +163,6 @@ public final class ContainerProtocolCalls  {
         } else {
           throw e;
         }
-      } catch (Exception e) {
-        LOG.warn("Unable to close trace span");
       }
     }
   }
@@ -363,10 +362,15 @@ public final class ContainerProtocolCalls  {
     Span span = GlobalTracer.get()
         .buildSpan("readChunk").start();
     try (Scope ignored = GlobalTracer.get().activateSpan(span)) {
+      span.setTag("offset", chunk.getOffset())
+          .setTag("length", chunk.getLen())
+          .setTag("block", blockID.toString());
       return tryEachDatanode(xceiverClient.getPipeline(),
           d -> readChunk(xceiverClient, chunk, blockID,
               validators, builder, d),
           d -> toErrorMessage(chunk, blockID, d));
+    } finally {
+      span.finish();
     }
   }
 
@@ -377,7 +381,8 @@ public final class ContainerProtocolCalls  {
       DatanodeDetails d) throws IOException {
     ContainerCommandRequestProto.Builder requestBuilder = builder
         .setDatanodeUuid(d.getUuidString());
-    String traceId = TracingUtil.exportCurrentSpan();
+    Span span = GlobalTracer.get().activeSpan();
+    String traceId = TracingUtil.exportSpan(span);
     if (traceId != null) {
       requestBuilder = requestBuilder.setTraceID(traceId);
     }
