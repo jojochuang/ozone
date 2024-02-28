@@ -107,6 +107,7 @@ enum Type {
   StreamWrite = 20;
 
   FinalizeBlock = 21;
+  Echo = 22;
 }
 
 
@@ -215,6 +216,7 @@ message ContainerCommandRequestProto {
   optional   uint32 version = 24;
 
   optional   FinalizeBlockRequestProto finalizeBlock = 25;
+  optional   EchoRequestProto echo = 26;
 }
 
 message ContainerCommandResponseProto {
@@ -247,6 +249,7 @@ message ContainerCommandResponseProto {
   optional   GetCommittedBlockLengthResponseProto getCommittedBlockLength = 21;
 
   optional   FinalizeBlockResponseProto finalizeBlock = 22;
+  optional   EchoResponseProto echo = 23;
 }
 
 message ContainerDataProto {
@@ -388,6 +391,12 @@ message  ListBlockRequestProto {
 
 message  ListBlockResponseProto {
   repeated BlockData blockData = 1;
+}
+
+message  EchoRequestProto {
+}
+
+message  EchoResponseProto {
 }
 
 // Chunk Operations

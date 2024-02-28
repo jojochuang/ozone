@@ -319,6 +319,18 @@ public final class ContainerCommandResponseBuilders {
         .build();
   }
 
+  public static ContainerCommandResponseProto getEchoResponse(
+      ContainerCommandRequestProto msg) {
+
+    ContainerProtos.EchoResponseProto.Builder echo =
+        ContainerProtos.EchoResponseProto.newBuilder()
+            ;
+
+    return getSuccessResponseBuilder(msg)
+        .setEcho(echo)
+        .build();
+  }
+
   private ContainerCommandResponseBuilders() {
     throw new UnsupportedOperationException("no instances");
   }

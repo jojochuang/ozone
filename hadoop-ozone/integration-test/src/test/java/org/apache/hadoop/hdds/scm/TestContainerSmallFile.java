@@ -188,6 +188,29 @@ public class TestContainerSmallFile {
     assertEquals("data123", readData);
     xceiverClientManager.releaseClient(client, false);
   }
+
+  @Test
+  public void testEcho() throws Exception {
+    ContainerWithPipeline container =
+        storageContainerLocationClient.allocateContainer(
+            SCMTestUtils.getReplicationType(ozoneConfig),
+            HddsProtos.ReplicationFactor.ONE, OzoneConsts.OZONE);
+    XceiverClientSpi client = xceiverClientManager
+        .acquireClient(container.getPipeline());
+    ContainerProtocolCalls.createContainer(client,
+        container.getContainerInfo().getContainerID(), null);
+    //ContainerProtocolCalls.createContainer(client,
+    //    container.getContainerInfo().getContainerID(), null);
+
+    //BlockID blockID = ContainerTestHelper.getTestBlockID(
+    //    container.getContainerInfo().getContainerID());
+    ContainerProtos.EchoResponseProto response =
+        ContainerProtocolCalls.echo(client, container.getContainerInfo().getContainerID());
+    /*String readData = response.getData().getDataBuffers().getBuffersList()
+        .get(0).toStringUtf8();
+    assertEquals("data123", readData);*/
+    xceiverClientManager.releaseClient(client, false);
+  }
 }
 
 
