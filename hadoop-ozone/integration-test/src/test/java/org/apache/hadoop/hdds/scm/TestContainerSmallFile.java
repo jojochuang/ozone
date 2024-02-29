@@ -31,6 +31,8 @@ import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.ContainerTestHelper;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -204,8 +206,9 @@ public class TestContainerSmallFile {
 
     //BlockID blockID = ContainerTestHelper.getTestBlockID(
     //    container.getContainerInfo().getContainerID());
+    ByteString byteString = UnsafeByteOperations.unsafeWrap(new byte[0]);
     ContainerProtos.EchoResponseProto response =
-        ContainerProtocolCalls.echo(client, container.getContainerInfo().getContainerID());
+        ContainerProtocolCalls.echo(client, container.getContainerInfo().getContainerID(), byteString, 1);
     /*String readData = response.getData().getDataBuffers().getBuffersList()
         .get(0).toStringUtf8();
     assertEquals("data123", readData);*/

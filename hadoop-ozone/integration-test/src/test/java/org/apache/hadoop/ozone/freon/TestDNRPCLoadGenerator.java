@@ -25,7 +25,6 @@ import org.apache.hadoop.hdds.ratis.conf.RatisClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientManager;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerWithPipeline;
-import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.protocolPB.StorageContainerLocationProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
@@ -39,8 +38,6 @@ import picocli.CommandLine;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests Freon, with MiniOzoneCluster and validate data.
@@ -92,9 +89,6 @@ public class TestDNRPCLoadGenerator {
   @BeforeAll
   public static void init() throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration();
-    /*conf.setBoolean(HddsConfigKeys.HDDS_CONTAINER_PERSISTDATA, false);
-    conf.setBoolean(OzoneConfigKeys.OZONE_UNSAFEBYTEOPERATIONS_ENABLED,
-        false);*/
     startCluster(conf);
   }
 
@@ -104,18 +98,11 @@ public class TestDNRPCLoadGenerator {
   }
 
   @Test
-  public void ratisTestLargeKey() {
+  public void test() {
     DNRPCLoadGenerator randomKeyGenerator =
         new DNRPCLoadGenerator(cluster.getConf());
-    Pipeline
-        pipeline = cluster.getStorageContainerManager().getPipelineManager().getPipelines().get(0);
     CommandLine cmd = new CommandLine(randomKeyGenerator);
-    cmd.execute("--containerID", Long.toString(container.getContainerInfo().getContainerID())
-    );
-
-    /*assertEquals(1, randomKeyGenerator.getNumberOfVolumesCreated());
-    assertEquals(1, randomKeyGenerator.getNumberOfBucketsCreated());
-    assertEquals(1, randomKeyGenerator.getNumberOfKeysAdded());
-    assertEquals(0, randomKeyGenerator.getUnsuccessfulValidationCount());*/
+    int exitCode = cmd.execute("--containerID", Long.toString(container.getContainerInfo().getContainerID()));
+    assertEquals(0, exitCode);
   }
 }

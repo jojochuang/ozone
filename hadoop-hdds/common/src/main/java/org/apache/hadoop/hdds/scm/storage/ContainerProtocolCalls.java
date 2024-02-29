@@ -65,7 +65,6 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.EchoRespon
 import org.apache.hadoop.hdds.scm.XceiverClientReply;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi;
 import org.apache.hadoop.hdds.scm.XceiverClientSpi.Validator;
-import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.common.helpers.BlockNotCommittedException;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerNotOpenException;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
@@ -713,10 +712,13 @@ public final class ContainerProtocolCalls  {
    *
    * @return GetSmallFileResponseProto
    */
-  public static EchoResponseProto echo(XceiverClientSpi client, long containerID) throws IOException {
+  public static EchoResponseProto echo(XceiverClientSpi client, long containerID, ByteString payloadReqBytes,
+      int payloadRespSizeKB) throws IOException {
     ContainerProtos.EchoRequestProto getEcho =
         EchoRequestProto
             .newBuilder()
+            .setPayloadReq(payloadReqBytes)
+            .setPayloadSizeResp(payloadRespSizeKB)
             .build();
     String id = client.getPipeline().getClosestNode().getUuidString();
 

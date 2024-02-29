@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.freon;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.cli.HddsVersionProvider;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -32,6 +33,7 @@ import org.apache.hadoop.hdds.scm.client.ScmClient;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
+import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -57,13 +59,14 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
   private Timer timer;
   private OzoneConfiguration configuration;
   //private OzoneManagerProtocolClientSideTranslatorPB[] clients;
-  ScmClient scmClient;
-  private byte[] payloadReqBytes = new byte[0];
+  private ScmClient scmClient;
+  private ByteString payloadReqBytes;
   private int payloadRespSize;
   private Pipeline pipeline;
   private ContainerInfo containerInfo;
   private XceiverClientSpi client;
   private XceiverClientFactory xceiverClientManager;
+  private ByteString payloadReq;
   @Option(names = {"--payload-req"},
           description =
                   "Specifies the size of payload in KB in RPC request. " +
@@ -122,12 +125,12 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
         .filter(p -> p.getId().equals(containerInfo.getPipelineID()))
         .findFirst()
         .orElse(null);
-    XceiverClientFactory xceiverClientManager = new XceiverClientManager(configuration);
+    xceiverClientManager = new XceiverClientManager(configuration);
     client = xceiverClientManager.acquireClient(pipeline);
 
     init();
-    payloadReqBytes = RandomUtils.nextBytes(
-            calculateMaxPayloadSize(payloadReqSizeKB));
+    payloadReqBytes = UnsafeByteOperations.unsafeWrap(RandomUtils.nextBytes(
+        calculateMaxPayloadSize(payloadReqSizeKB)));
     payloadRespSize = calculateMaxPayloadSize(payloadRespSizeKB);
     timer = getMetrics().timer("rpc-payload");
     try {
@@ -153,7 +156,7 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
   private void sendRPCReq(long l) throws Exception {
     timer.time(() -> {
       ContainerProtos.EchoResponseProto response =
-          ContainerProtocolCalls.echo(client, containerID);
+          ContainerProtocolCalls.echo(client, containerID, payloadReqBytes, payloadRespSizeKB);
       return null;
     });
   }
