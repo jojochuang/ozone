@@ -118,11 +118,24 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
   public BasicOzoneClientAdapterImpl(OzoneConfiguration conf, String volumeStr,
       String bucketStr)
       throws IOException {
-    this(null, -1, conf, volumeStr, bucketStr);
+    this(null, -1, conf, volumeStr, bucketStr, null);
+  }
+
+  @VisibleForTesting
+  public BasicOzoneClientAdapterImpl(OzoneConfiguration conf, String volumeStr,
+      String bucketStr, OzoneClient client)
+      throws IOException {
+    this(null, -1, conf, volumeStr, bucketStr, client);
   }
 
   public BasicOzoneClientAdapterImpl(String omHost, int omPort,
-      ConfigurationSource hadoopConf, String volumeStr, String bucketStr)
+     ConfigurationSource hadoopConf, String volumeStr, String bucketStr)
+      throws IOException {
+    this(omHost, omPort, hadoopConf, volumeStr, bucketStr, null);
+  }
+
+  public BasicOzoneClientAdapterImpl(String omHost, int omPort,
+      ConfigurationSource hadoopConf, String volumeStr, String bucketStr, OzoneClient client)
       throws IOException {
 
     OzoneConfiguration conf = OzoneConfiguration.of(hadoopConf);
@@ -163,7 +176,11 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
     clientConfiguredReplicationConfig =
         OzoneClientUtils.getClientConfiguredReplicationConfig(conf);
 
-    if (OmUtils.isOmHAServiceId(conf, omHost)) {
+    if (client != null) {
+      this.ozoneClient = client;
+      this.config = conf;
+      return;
+    } else if (OmUtils.isOmHAServiceId(conf, omHost)) {
       // omHost is listed as one of the service ids in the config,
       // thus we should treat omHost as omServiceId
       this.ozoneClient =
@@ -437,9 +454,6 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
   @Override
   public Token<OzoneTokenIdentifier> getDelegationToken(String renewer)
       throws IOException {
-    if (!securityEnabled) {
-      return null;
-    }
     Token<OzoneTokenIdentifier> token = ozoneClient.getObjectStore()
         .getDelegationToken(renewer == null ? null : new Text(renewer));
     token.setKind(OzoneTokenIdentifier.KIND_NAME);

@@ -22,6 +22,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageSize;
+import org.apache.hadoop.ozone.client.ObjectStore;
+import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -31,9 +34,12 @@ import java.util.Collection;
 
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SCM_BLOCK_SIZE;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SCM_BLOCK_SIZE_DEFAULT;
+import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SECURITY_ENABLED_KEY;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_SNAPSHOT_INDICATOR;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.INVALID_AUTH_METHOD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.any;
@@ -135,6 +141,39 @@ public class TestBasicOzoneFileSystems {
     } else {
       fail("Test case not implemented for FileSystem: " +
           subject.getClass().getSimpleName());
+    }
+  }
+
+  @ParameterizedTest(autoCloseArguments = false)
+  @MethodSource("data")
+  public void testGetDelegationToken(FileSystem subject) throws IOException {
+    // verifies that an unsecure client gets exception asking for a delegation token
+    // from a secure Ozone cluster, that it doesn't simply silently drop the request.
+    OzoneConfiguration conf = new OzoneConfiguration();
+    conf.setBoolean(OZONE_SECURITY_ENABLED_KEY, false);
+    subject.setConf(conf);
+
+    ObjectStore objectStore = mock(ObjectStore.class);
+    when(objectStore.getDelegationToken(any())).thenThrow(new OMException("blah", INVALID_AUTH_METHOD));
+
+    OzoneClient ozoneClient = mock(OzoneClient.class);
+    when(ozoneClient.getObjectStore()).thenReturn(objectStore);
+    if (subject instanceof BasicRootedOzoneFileSystem) {
+      BasicRootedOzoneClientAdapterImpl adapter = new BasicRootedOzoneClientAdapterImpl(conf, ozoneClient);
+      BasicRootedOzoneFileSystem ofs =
+          spy((BasicRootedOzoneFileSystem) subject);
+      when(ofs.getAdapter()).thenReturn(adapter);
+
+      OMException ome = assertThrows(OMException.class, () -> ofs.getDelegationToken(any()));
+      assertEquals(INVALID_AUTH_METHOD, ome.getResult());
+    } else if (subject instanceof BasicOzoneFileSystem) {
+      BasicOzoneClientAdapterImpl adapter = new BasicOzoneClientAdapterImpl(conf, "vol1", "bucket1", ozoneClient);
+      BasicOzoneFileSystem ofs =
+          spy((BasicOzoneFileSystem) subject);
+      when(ofs.getAdapter()).thenReturn(adapter);
+
+      OMException ome = assertThrows(OMException.class, () -> ofs.getDelegationToken(any()));
+      assertEquals(INVALID_AUTH_METHOD, ome.getResult());
     }
   }
 

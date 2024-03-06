@@ -723,7 +723,7 @@ public class BasicOzoneFileSystem extends FileSystem {
 
   @Override
   public Token<?> getDelegationToken(String renewer) throws IOException {
-    return adapter.getDelegationToken(renewer);
+    return getAdapter().getDelegationToken(renewer);
   }
 
   /**

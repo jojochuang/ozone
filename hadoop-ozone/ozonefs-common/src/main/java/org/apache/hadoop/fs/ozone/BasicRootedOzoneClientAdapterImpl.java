@@ -82,6 +82,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,11 +138,22 @@ public class BasicRootedOzoneClientAdapterImpl
 
   public BasicRootedOzoneClientAdapterImpl(OzoneConfiguration conf)
       throws IOException {
-    this(null, -1, conf);
+    this(null, -1, conf, null);
+  }
+
+  @VisibleForTesting
+  public BasicRootedOzoneClientAdapterImpl(OzoneConfiguration conf, OzoneClient client)
+      throws IOException {
+    this(null, -1, conf, client);
   }
 
   public BasicRootedOzoneClientAdapterImpl(String omHost, int omPort,
       ConfigurationSource hadoopConf) throws IOException {
+    this(omHost, omPort, hadoopConf, null);
+  }
+
+  public BasicRootedOzoneClientAdapterImpl(String omHost, int omPort,
+      ConfigurationSource hadoopConf, OzoneClient client) throws IOException {
 
     ClassLoader contextClassLoader =
         Thread.currentThread().getContextClassLoader();
@@ -182,7 +194,9 @@ public class BasicRootedOzoneClientAdapterImpl
       clientConfiguredReplicationConfig =
           OzoneClientUtils.getClientConfiguredReplicationConfig(conf);
 
-      if (OmUtils.isOmHAServiceId(conf, omHost)) {
+      if (client != null) {
+        this.ozoneClient = client;
+      } else if (OmUtils.isOmHAServiceId(conf, omHost)) {
         // omHost is listed as one of the service ids in the config,
         // thus we should treat omHost as omServiceId
         this.ozoneClient =
@@ -928,9 +942,6 @@ public class BasicRootedOzoneClientAdapterImpl
   @Override
   public Token<OzoneTokenIdentifier> getDelegationToken(String renewer)
       throws IOException {
-    if (!securityEnabled) {
-      return null;
-    }
     Token<OzoneTokenIdentifier> token = ozoneClient.getObjectStore()
         .getDelegationToken(renewer == null ? null : new Text(renewer));
     token.setKind(OzoneTokenIdentifier.KIND_NAME);
