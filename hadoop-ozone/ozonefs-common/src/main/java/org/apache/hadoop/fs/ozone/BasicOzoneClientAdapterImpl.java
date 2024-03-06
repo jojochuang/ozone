@@ -437,9 +437,6 @@ public class BasicOzoneClientAdapterImpl implements OzoneClientAdapter {
   @Override
   public Token<OzoneTokenIdentifier> getDelegationToken(String renewer)
       throws IOException {
-    if (!securityEnabled) {
-      return null;
-    }
     Token<OzoneTokenIdentifier> token = ozoneClient.getObjectStore()
         .getDelegationToken(renewer == null ? null : new Text(renewer));
     token.setKind(OzoneTokenIdentifier.KIND_NAME);
