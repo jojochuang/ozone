@@ -22,6 +22,8 @@ import org.apache.commons.lang3.RandomUtils;
 import org.apache.hadoop.hdds.annotation.InterfaceAudience;
 import org.apache.hadoop.hdds.conf.DefaultConfigManager;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
+import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.ScmConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
@@ -36,6 +38,7 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.io.BlockInputStreamFactory;
 import org.apache.hadoop.ozone.client.io.BlockInputStreamFactoryImpl;
 import org.apache.hadoop.ozone.client.io.KeyInputStream;
+import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.rpc.RpcClient;
 import org.apache.hadoop.ozone.om.OzoneManager;
@@ -126,6 +129,10 @@ public final class TestBlockTokens {
     conf = new OzoneConfiguration();
     conf.set(OZONE_SCM_CLIENT_ADDRESS_KEY, "localhost");
 
+    OzoneClientConfig config = conf.getObject(OzoneClientConfig.class);
+    config.setBytesPerChecksum(16 * 1024);
+    conf.setFromObject(config);
+
     ExitUtils.disableSystemExit();
 
     workDir =
@@ -143,7 +150,7 @@ public final class TestBlockTokens {
   private static void createTestData() throws IOException {
     client.getProxy().createVolume(TEST_VOLUME);
     client.getProxy().createBucket(TEST_VOLUME, TEST_BUCKET);
-    byte[] data = string2Bytes(RandomStringUtils.randomAlphanumeric(1024));
+    byte[] data = string2Bytes(RandomStringUtils.randomAlphanumeric(1024 * 1024));
     OzoneBucket bucket = client.getObjectStore().getVolume(TEST_VOLUME)
         .getBucket(TEST_BUCKET);
     try (OzoneOutputStream out = bucket.createKey(TEST_FILE, data.length)) {
@@ -221,6 +228,21 @@ public final class TestBlockTokens {
         throw new RuntimeException(e);
       }
     });
+  }
+
+  @Test
+  public void expiredBlockTokenRetrySuccessful() throws Exception {
+    // read one chunk at a time, sleep until block token expires, and repeat for 10 times
+    OzoneBucket bucket = client.getObjectStore().getVolume(TEST_VOLUME)
+        .getBucket(TEST_BUCKET);
+    try (OzoneInputStream is = bucket.readKey(TEST_FILE)) {
+      for (int i = 0; i < 10; i++) {
+        byte[] buf = new byte[16*1024];
+        Thread.sleep(EXPIRY_DURATION_IN_MS);
+        //is.seek(0);
+        is.read(buf);
+      }
+    }
   }
 
   @Test
