@@ -57,7 +57,7 @@ class Validator(object):
     def _jar_uniformity_util(self, contents):
         try:
             matches_ozone = re.findall("hdds-.+?.jar|ozone-.+?.jar|ratis-.+?.jar|hadoop-dependency-.+?.jar", contents)
-            matches_others = re.findall("hadoop-[^dependency-][a-zA-Z0-9*.-]*[^-shaded].jar|ranger-[a-zA-Z0-9*.-]*[^-shaded].jar|gcs-[a-zA-Z0-9*.-]*[^-shaded].jar|solr-[a-zA-Z0-9*.-]*[^-shaded].jar", contents)
+            matches_others = re.findall("(?!hadoop-guava-shaded-.+?.jar)(hadoop-[^dependency-][a-zA-Z0-9*.-]*[^-shaded].jar|ranger-[a-zA-Z0-9*.-]*[^-shaded].jar|gcs-[a-zA-Z0-9*.-]*[^-shaded].jar|solr-[a-zA-Z0-9*.-]*[^-shaded].jar)", contents)
             matches_others_shaded = re.findall("hadoop-[^dependency-][a-zA-Z0-9*.-]*-shaded.jar|ranger-[a-zA-Z0-9*.-]*-shaded.jar|gcs-[a-zA-Z0-9*.-]*-shaded.jar|solr-[a-zA-Z0-9*.-]*-shaded.jar", contents)
 
             result1 = result2 = result3 = result4 = True
