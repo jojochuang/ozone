@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ServiceException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -232,10 +233,10 @@ public class SnapshotDeletingService extends AbstractKeyDeletingService {
     }
 
     private void submitSnapshotPurgeRequest(List<String> purgeSnapshotKeys) throws InterruptedException {
-      if (!purgeSnapshotKeys.isEmpty()) {
+      for (String purgeSnapshotKey : purgeSnapshotKeys) {
         SnapshotPurgeRequest snapshotPurgeRequest = SnapshotPurgeRequest
             .newBuilder()
-            .addAllSnapshotDBKeys(purgeSnapshotKeys)
+            .addAllSnapshotDBKeys(Collections.singleton(purgeSnapshotKey))
             .build();
 
         OMRequest omRequest = OMRequest.newBuilder()
