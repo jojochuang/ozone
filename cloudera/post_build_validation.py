@@ -57,22 +57,50 @@ class Validator(object):
     def _jar_uniformity_util(self, contents):
         try:
             matches_ozone = re.findall("hdds-.+?.jar|ozone-.+?.jar|ratis-.+?.jar|hadoop-dependency-.+?.jar", contents)
-            matches_others = re.findall("(?!hadoop-guava-shaded-.+?.jar)(hadoop-[^dependency-][a-zA-Z0-9*.-]*[^-shaded].jar|ranger-[a-zA-Z0-9*.-]*[^-shaded].jar|gcs-[a-zA-Z0-9*.-]*[^-shaded].jar|solr-[a-zA-Z0-9*.-]*[^-shaded].jar)", contents)
+            matches_others = re.findall("hadoop-[^dependency-][^shaded-guava-][a-zA-Z0-9*.-]*[^-shaded].jar|ranger-[a-zA-Z0-9*.-]*[^-shaded].jar|gcs-[a-zA-Z0-9*.-]*[^-shaded].jar|solr-[a-zA-Z0-9*.-]*[^-shaded].jar", contents)
             matches_others_shaded = re.findall("hadoop-[^dependency-][a-zA-Z0-9*.-]*-shaded.jar|ranger-[a-zA-Z0-9*.-]*-shaded.jar|gcs-[a-zA-Z0-9*.-]*-shaded.jar|solr-[a-zA-Z0-9*.-]*-shaded.jar", contents)
 
             result1 = result2 = result3 = result4 = True
 
             if matches_ozone:
-                result1 = all(re.search('-([a-zA-Z0-9*]*).jar', i).group(1) == re.search('-([a-zA-Z0-9*]*).jar', matches_ozone[0]).group(1) for i in matches_ozone)
+                try:
+                    result1 = all(re.search('-([a-zA-Z0-9*]*).jar', i).group(1) == re.search('-([a-zA-Z0-9*]*).jar', matches_ozone[0]).group(1) for i in matches_ozone)
+                    if not result1:
+                        logging.info("result1 is false. matches_ozone:", matches_ozone)
+                except AttributeError as e:
+                    logging.info("AttributeError:", e)
+                    logging.info("matches_ozone:", matches_ozone)
+                    sys.exit(1)
 
             if matches_others:
-                result2 = all(re.search('-([a-zA-Z0-9*]*).jar', i).group(1) == re.search('-([a-zA-Z0-9*]*).jar', matches_others[0]).group(1) for i in matches_others)
+                try:
+                    result2 = all(re.search('-([a-zA-Z0-9*]*).jar', i).group(1) == re.search('-([a-zA-Z0-9*]*).jar', matches_others[0]).group(1) for i in matches_others)
+                    if not result2:
+                        logging.info("result2 is false. matches_others:", matches_others)
+                except AttributeError as e:
+                    logging.info("AttributeError:", e)
+                    logging.info("matches_others:", matches_others)
+                    sys.exit(1)
 
             if matches_others_shaded:
-                result3 = all(re.search('-([a-zA-Z0-9*]*)-shaded.jar', i).group(1) == re.search('-([a-zA-Z0-9*]*)-shaded.jar', matches_others_shaded[0]).group(1) for i in matches_others_shaded)
+                try:
+                    result3 = all(re.search('-([a-zA-Z0-9*]*)-shaded.jar', i).group(1) == re.search('-([a-zA-Z0-9*]*)-shaded.jar', matches_others_shaded[0]).group(1) for i in matches_others_shaded)
+                    if not result3:
+                        logging.info("result3 is false. matches_others_shaded:", matches_others_shaded)
+                except AttributeError as e:
+                    logging.info("AttributeError:", e)
+                    logging.info("matches_others_shaded:", matches_others_shaded)
+                    sys.exit(1)
 
             if (matches_others and matches_others_shaded):
-                result4 = re.search('-([a-zA-Z0-9*]*).jar', matches_others[0]).group(1) == re.search('-([a-zA-Z0-9*]*)-shaded.jar', matches_others_shaded[0]).group(1)
+                try:
+                    result4 = re.search('-([a-zA-Z0-9*]*).jar', matches_others[0]).group(1) == re.search('-([a-zA-Z0-9*]*)-shaded.jar', matches_others_shaded[0]).group(1)
+                    if not result4:
+                        logging.info("result4 is false. matches_others[0]: {}, matches_others_shaded[0]: {}".format(matches_others[0], matches_others_shaded[0]))
+                except AttributeError as e:
+                    logging.info("AttributeError:", e)
+                    logging.info("matches_others[0]: {}, matches_others_shaded[0]: {}".format(matches_others[0], matches_others_shaded[0]))
+                    sys.exit(1)
 
             if result1 and result2 and result3 and result4:
                 return True
