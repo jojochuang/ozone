@@ -452,10 +452,7 @@ public class BlockOutputStream extends OutputStream {
     if (future == null) {
       future = waitOnFlushFutures();
     } else {
-      future.thenApplyAsync(r -> {
-        waitOnFlushFutures();
-        return r;
-      });
+      future = future.thenCompose( r -> waitOnFlushFutures());
     }
 
     // ExecutionException and InterruptedException are no longer handled at this level
@@ -689,9 +686,8 @@ public class BlockOutputStream extends OutputStream {
       }
     }
 
-    final CompletableFuture<Void> d = new CompletableFuture<>();
-    return d.thenApplyAsync(r -> {
-      waitOnFlushFutures();
+    final CompletableFuture<Void> f = waitOnFlushFutures();
+    return f.thenApplyAsync(r -> {
       try {
         watchForCommit(false);
         // just check again if the exception is hit while waiting for the
