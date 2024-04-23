@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static org.apache.hadoop.ozone.common.PayloadUtils.generatePayloadBytes;
+import static org.apache.hadoop.ozone.util.PayloadUtils.generatePayload;
 
 /**
  * Utility to generate RPC request to DN.
@@ -139,7 +139,7 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
     }
 
     init();
-    payloadReqBytes = UnsafeByteOperations.unsafeWrap(generatePayloadBytes(payloadReqSizeKB));
+    payloadReqBytes = UnsafeByteOperations.unsafeWrap(generatePayload(payloadSizeInBytes(payloadReqSizeKB)));
     payloadRespSize = calculateMaxPayloadSize(payloadRespSizeKB);
     timer = getMetrics().timer("rpc-payload");
     try {
@@ -162,6 +162,10 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
               MAX_SIZE_KB);
     }
     return 0;
+  }
+
+  private int payloadSizeInBytes(int payloadSizeKB) {
+    return payloadSizeKB > 0 ? payloadSizeKB * 1024 : 0;
   }
 
   private void sendRPCReq(long l) throws Exception {
