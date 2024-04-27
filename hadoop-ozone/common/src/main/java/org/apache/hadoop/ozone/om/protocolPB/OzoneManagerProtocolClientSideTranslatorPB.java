@@ -699,7 +699,8 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     KeyArgs.Builder keyArgs = KeyArgs.newBuilder()
         .setVolumeName(args.getVolumeName())
         .setBucketName(args.getBucketName())
-        .setKeyName(args.getKeyName());
+        .setKeyName(args.getKeyName())
+        .setOwnerName(args.getOwner());
 
     if (args.getAcls() != null) {
       keyArgs.addAllAcls(args.getAcls().stream().distinct().map(a ->
@@ -1614,6 +1615,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         .setBucketName(omKeyArgs.getBucketName())
         .setKeyName(omKeyArgs.getKeyName())
         .addAllMetadata(KeyValueUtil.toProtobuf(omKeyArgs.getMetadata()))
+        .setOwnerName(omKeyArgs.getOwner())
         .addAllAcls(omKeyArgs.getAcls().stream().map(a ->
             OzoneAcl.toProtobuf(a)).collect(Collectors.toList()));
 
@@ -1689,6 +1691,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         .setKeyName(omKeyArgs.getKeyName())
         .addAllAcls(omKeyArgs.getAcls().stream().map(a ->
             OzoneAcl.toProtobuf(a)).collect(Collectors.toList()))
+        .setOwnerName(omKeyArgs.getOwner())
         .setMultipartUploadID(omKeyArgs.getMultipartUploadID());
 
     multipartUploadCompleteRequest.setKeyArgs(keyArgs.build());
@@ -2095,6 +2098,7 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         .setKeyName(args.getKeyName())
         .addAllAcls(args.getAcls().stream().map(a ->
             OzoneAcl.toProtobuf(a)).collect(Collectors.toList()))
+        .setOwnerName(args.getOwner())
         .build();
     CreateDirectoryRequest request = CreateDirectoryRequest.newBuilder()
         .setKeyArgs(keyArgs)
@@ -2260,7 +2264,8 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
         .setKeyName(args.getKeyName())
         .setDataSize(args.getDataSize())
         .addAllAcls(args.getAcls().stream().map(a ->
-            OzoneAcl.toProtobuf(a)).collect(Collectors.toList()));
+            OzoneAcl.toProtobuf(a)).collect(Collectors.toList()))
+        .setOwnerName(args.getOwner());
     if (args.getReplicationConfig() != null) {
       if (args.getReplicationConfig() instanceof ECReplicationConfig) {
         keyArgsBuilder.setEcReplicationConfig(
