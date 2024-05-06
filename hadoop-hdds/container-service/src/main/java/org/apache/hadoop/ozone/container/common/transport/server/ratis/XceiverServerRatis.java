@@ -159,6 +159,8 @@ public final class XceiverServerRatis implements XceiverServerSpi {
   private int adminPort;
   private int clientPort;
   private int dataStreamPort;
+  private int asyncRequestThreadPoolSize;
+  private int grpcThreadPoolSize;
   private final RaftServer server;
   private final List<ThreadPoolExecutor> chunkExecutors;
   private final ContainerDispatcher dispatcher;
@@ -188,6 +190,10 @@ public final class XceiverServerRatis implements XceiverServerSpi {
     datanodeDetails = dd;
     ratisServerConfig = conf.getObject(DatanodeRatisServerConfig.class);
     assignPorts();
+    this.asyncRequestThreadPoolSize = conf.getInt(
+        "hdds.datanode.ratis.server.async.request.thread.pool.size", 32);
+    this.grpcThreadPoolSize = conf.getInt(
+        "hdds.datanode.ratis.server.grpc.thread.pool.size", 32);
     this.streamEnable = conf.getBoolean(
         OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_ENABLED,
         OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_ENABLED_DEFAULT);
@@ -322,6 +328,10 @@ public final class XceiverServerRatis implements XceiverServerSpi {
       GrpcConfigKeys.Admin.setPort(properties, adminPort);
       GrpcConfigKeys.Client.setPort(properties, clientPort);
       GrpcConfigKeys.Server.setPort(properties, serverPort);
+      GrpcConfigKeys.Server.setAsyncRequestThreadPoolSize(properties,
+          asyncRequestThreadPoolSize);
+      GrpcConfigKeys.Server.setGrpcRequestThreadPoolSize(properties,
+          grpcThreadPoolSize);
     } else if (rpc == SupportedRpcType.NETTY) {
       NettyConfigKeys.Server.setPort(properties, serverPort);
     }
