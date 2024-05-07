@@ -330,8 +330,8 @@ public final class XceiverServerRatis implements XceiverServerSpi {
       GrpcConfigKeys.Server.setPort(properties, serverPort);
       GrpcConfigKeys.Server.setAsyncRequestThreadPoolSize(properties,
           asyncRequestThreadPoolSize);
-      GrpcConfigKeys.Server.setGrpcRequestThreadPoolSize(properties,
-          grpcThreadPoolSize);
+      //GrpcConfigKeys.Server.setGrpcRequestThreadPoolSize(properties,
+      //    grpcThreadPoolSize);
     } else if (rpc == SupportedRpcType.NETTY) {
       NettyConfigKeys.Server.setPort(properties, serverPort);
     }
