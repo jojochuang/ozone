@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.DatanodeRatisGrpcConfig;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -86,6 +87,7 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
   private ThreadPoolExecutor readExecutors;
   private EventLoopGroup eventLoopGroup;
   private Class<? extends ServerChannel> channelType;
+  private int flowControlWindow;
 
   /**
    * Constructs a Grpc server class.
@@ -137,6 +139,8 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
     final boolean zeroCopyEnabled = conf.getBoolean(
         OZONE_EC_GRPC_ZERO_COPY_ENABLED,
         OZONE_EC_GRPC_ZERO_COPY_ENABLED_DEFAULT);
+    flowControlWindow = conf.getObject(DatanodeRatisGrpcConfig.class)
+        .getFlowControlWindow();
 
     LOG.info("GrpcServer channel type {}", channelType.getSimpleName());
     GrpcXceiverService xceiverService = new GrpcXceiverService(dispatcher,
@@ -147,6 +151,7 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
         .workerEventLoopGroup(eventLoopGroup)
         .channelType(channelType)
         .executor(readExecutors)
+        .flowControlWindow(flowControlWindow)
         .addService(ServerInterceptors.intercept(
             xceiverService.bindServiceWithZeroCopy(),
             new GrpcServerInterceptor()));

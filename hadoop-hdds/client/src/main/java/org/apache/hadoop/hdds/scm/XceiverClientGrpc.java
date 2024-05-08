@@ -103,6 +103,7 @@ public class XceiverClientGrpc extends XceiverClientSpi {
   private final Map<DatanodeBlockID, DatanodeDetails> getBlockDNcache;
 
   private boolean closed = false;
+  private int flowControlWindow;
 
   /**
    * Constructs a client that can communicate with the Container framework on
@@ -133,6 +134,8 @@ public class XceiverClientGrpc extends XceiverClientSpi {
         OzoneConfigKeys.OZONE_NETWORK_TOPOLOGY_AWARE_READ_DEFAULT);
     this.trustManager = trustManager;
     this.getBlockDNcache = new ConcurrentHashMap<>();
+    this.flowControlWindow = config.getInt("hdds.ratis.raft.grpc.flow.control.window",
+        1 * 1024 * 1024); //config.getObject(DatanodeRatisGrpcConfig.class);
   }
 
   /**
@@ -190,6 +193,7 @@ public class XceiverClientGrpc extends XceiverClientSpi {
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forAddress(dn.getIpAddress(), port).usePlaintext()
             .maxInboundMessageSize(OzoneConsts.OZONE_SCM_CHUNK_MAX_SIZE)
+            .flowControlWindow(flowControlWindow)
             .intercept(new GrpcClientInterceptor());
     if (secConfig.isSecurityEnabled() && secConfig.isGrpcTlsEnabled()) {
       SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();

@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.hadoop.hdds.DatanodeVersion;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.DatanodeRatisGrpcConfig;
 import org.apache.hadoop.hdds.conf.DatanodeRatisServerConfig;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.HddsConfigKeys;
@@ -180,6 +181,7 @@ public final class XceiverServerRatis implements XceiverServerSpi {
   private final boolean shouldDeleteRatisLogDirectory;
   private final boolean streamEnable;
   private final DatanodeRatisServerConfig ratisServerConfig;
+  private final int flowControlWindow;
 
   private XceiverServerRatis(DatanodeDetails dd,
       ContainerDispatcher dispatcher, ContainerController containerController,
@@ -219,6 +221,8 @@ public final class XceiverServerRatis implements XceiverServerSpi {
         HddsConfigKeys.HDDS_DATANODE_RATIS_SERVER_REQUEST_TIMEOUT,
         HddsConfigKeys.HDDS_DATANODE_RATIS_SERVER_REQUEST_TIMEOUT_DEFAULT,
         TimeUnit.MILLISECONDS);
+    this.flowControlWindow =
+        conf.getObject(DatanodeRatisGrpcConfig.class).getFlowControlWindow();
   }
 
   private void assignPorts() {
@@ -332,6 +336,7 @@ public final class XceiverServerRatis implements XceiverServerSpi {
           asyncRequestThreadPoolSize);
       //GrpcConfigKeys.Server.setGrpcRequestThreadPoolSize(properties,
       //    grpcThreadPoolSize);
+      GrpcConfigKeys.setFlowControlWindow(properties, SizeInBytes.valueOf(flowControlWindow));
     } else if (rpc == SupportedRpcType.NETTY) {
       NettyConfigKeys.Server.setPort(properties, serverPort);
     }
