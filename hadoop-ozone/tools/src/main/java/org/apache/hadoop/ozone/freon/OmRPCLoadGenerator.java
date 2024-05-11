@@ -28,8 +28,6 @@ import org.apache.hadoop.ozone.util.PayloadUtils;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import static org.apache.hadoop.ozone.common.PayloadUtils.generatePayloadBytes;
-
 /**
  * Utility to generate RPC request to OM with or without payload.
  */
