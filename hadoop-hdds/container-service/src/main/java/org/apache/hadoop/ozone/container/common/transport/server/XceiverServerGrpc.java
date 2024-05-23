@@ -113,6 +113,8 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
         HddsServerUtil.getDatanodeStorageDirs(conf).size();
     final int poolSize = threadCountPerDisk * numberOfDisks;
 
+    final int eventPoolSize = conf.getObject(DatanodeConfiguration.class).getNumGrpcEventLoopThreads();
+
     readExecutors = new ThreadPoolExecutor(poolSize, poolSize,
         60, TimeUnit.SECONDS,
         new LinkedBlockingQueue<>(),
@@ -128,10 +130,10 @@ public final class XceiverServerGrpc implements XceiverServerSpi {
         .build();
 
     if (Epoll.isAvailable()) {
-      eventLoopGroup = new EpollEventLoopGroup(poolSize / 10, factory);
+      eventLoopGroup = new EpollEventLoopGroup(eventPoolSize, factory);
       channelType = EpollServerSocketChannel.class;
     } else {
-      eventLoopGroup = new NioEventLoopGroup(poolSize / 10, factory);
+      eventLoopGroup = new NioEventLoopGroup(eventPoolSize, factory);
       channelType = NioServerSocketChannel.class;
     }
     final boolean zeroCopyEnabled = conf.getBoolean(

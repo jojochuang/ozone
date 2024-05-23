@@ -122,6 +122,17 @@ public class DatanodeConfiguration extends ReconfigurableConfig {
   )
   private int numReadThreadPerVolume = 10;
 
+  /**
+   * Thread pool size for DataNode GRPC event loop group.
+   */
+  @Config(key = "grpc.eventloop.threadpool.size",
+      type = ConfigType.INT,
+      defaultValue = "4",
+      tags = {DATANODE},
+      description = "Number of threads for DataNode GRPC event loop group."
+  )
+  private int numGrpcEventLoopThreads = 4;
+
   static final int CONTAINER_DELETE_THREADS_DEFAULT = 2;
   static final int CONTAINER_CLOSE_THREADS_DEFAULT = 3;
   static final int BLOCK_DELETE_THREADS_DEFAULT = 5;
@@ -829,6 +840,14 @@ public class DatanodeConfiguration extends ReconfigurableConfig {
 
   public int getNumReadThreadPerVolume() {
     return numReadThreadPerVolume;
+  }
+
+  public void setNumGrpcEventLoopThreads(int threads) {
+    this.numGrpcEventLoopThreads = threads;
+  }
+
+  public int getNumGrpcEventLoopThreads() {
+    return numGrpcEventLoopThreads;
   }
 
   public boolean getContainerSchemaV3Enabled() {
