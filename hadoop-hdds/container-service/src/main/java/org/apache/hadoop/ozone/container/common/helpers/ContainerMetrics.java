@@ -55,7 +55,6 @@ public class ContainerMetrics {
   @Metric private MutableCounterLong numReadStateMachine;
   @Metric private MutableCounterLong bytesReadStateMachine;
 
-
   private MutableCounterLong[] numOpsArray;
   private MutableCounterLong[] opsBytesArray;
   private MutableRate[] opsLatency;
