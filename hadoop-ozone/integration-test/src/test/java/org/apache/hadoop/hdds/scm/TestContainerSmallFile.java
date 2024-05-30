@@ -195,15 +195,15 @@ public class TestContainerSmallFile {
   public void testEcho() throws Exception {
     ContainerWithPipeline container =
         storageContainerLocationClient.allocateContainer(
-            SCMTestUtils.getReplicationType(ozoneConfig),
-            HddsProtos.ReplicationFactor.ONE, OzoneConsts.OZONE);
+            HddsProtos.ReplicationType.RATIS,
+            HddsProtos.ReplicationFactor.THREE, OzoneConsts.OZONE);
     XceiverClientSpi client = xceiverClientManager
         .acquireClient(container.getPipeline());
     ContainerProtocolCalls.createContainer(client,
         container.getContainerInfo().getContainerID(), null);
     ByteString byteString = UnsafeByteOperations.unsafeWrap(new byte[0]);
     ContainerProtos.EchoResponseProto response =
-        ContainerProtocolCalls.echo(client, "", container.getContainerInfo().getContainerID(), byteString, 1, 0, true);
+        ContainerProtocolCalls.echo(client, "", container.getContainerInfo().getContainerID(), byteString, 1, 0, true, true);
     assertEquals(1, response.getPayload().size());
     xceiverClientManager.releaseClient(client, false);
   }

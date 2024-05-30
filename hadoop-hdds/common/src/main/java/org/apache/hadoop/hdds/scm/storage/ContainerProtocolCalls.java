@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
 import io.opentracing.Scope;
@@ -731,8 +732,10 @@ public final class ContainerProtocolCalls  {
    * @return EchoResponseProto
    */
   public static EchoResponseProto echo(XceiverClientSpi client, String encodedContainerID,
-      long containerID, ByteString payloadReqBytes, int payloadRespSizeKB, int sleepTimeMs, boolean readOnly)
-      throws IOException {
+      long containerID, ByteString payloadReqBytes, int payloadRespSizeKB, int sleepTimeMs,
+      boolean readOnly, boolean waitForCommit)
+      throws IOException, ExecutionException, InterruptedException,
+      TimeoutException {
     ContainerProtos.EchoRequestProto getEcho =
         EchoRequestProto
             .newBuilder()
@@ -757,9 +760,16 @@ public final class ContainerProtocolCalls  {
       builder.setTraceID(traceId);
     }
     ContainerCommandRequestProto request = builder.build();
-    ContainerCommandResponseProto response =
-        client.sendCommand(request, getValidatorList());
-    return response.getEcho();
+    if (waitForCommit) {
+      XceiverClientReply reply = client.sendCommandAsync(request);
+      XceiverClientReply replyAfterCommit =
+          client.watchForCommit(reply.getLogIndex());
+      return reply.getResponse().get().getEcho();
+    } else {
+      ContainerCommandResponseProto response =
+          client.sendCommand(request, getValidatorList());
+      return response.getEcho();
+    }
   }
 
   /**

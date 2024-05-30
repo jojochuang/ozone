@@ -107,6 +107,11 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
       defaultValue = "false")
   private boolean ratis = false;
 
+  @Option(names = {"--wait-for-commit"},
+      description = "if Ratis, wait for commit or not",
+      defaultValue = "false")
+  private boolean waitForCommit = false;
+
   @CommandLine.ParentCommand
   private Freon freon;
 
@@ -198,7 +203,7 @@ public class DNRPCLoadGenerator extends BaseFreonGenerator
       int clientIndex = (numClients == 1) ? 0 : (int)l % numClients;
       ContainerProtos.EchoResponseProto response =
           ContainerProtocolCalls.echo(clients.get(clientIndex), encodedContainerToken,
-              containerID, payloadReqBytes, payloadRespSize, sleepTimeMs, readOnly);
+              containerID, payloadReqBytes, payloadRespSize, sleepTimeMs, readOnly, waitForCommit);
       return null;
     });
   }
