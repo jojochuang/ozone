@@ -42,8 +42,10 @@ import org.apache.hadoop.crypto.CryptoOutputStream;
 import org.apache.hadoop.crypto.Encryptor;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileAlreadyExistsException;
+import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.scm.storage.BlockOutputStream;
+import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
@@ -64,6 +66,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StreamCapabilities;
 
 import org.apache.hadoop.ozone.ClientConfigForTesting;
+import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -73,13 +76,18 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.BlockOutputStreamEntry;
 import org.apache.hadoop.ozone.client.io.ECKeyOutputStream;
 import org.apache.hadoop.ozone.client.io.KeyOutputStream;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.container.common.helpers.BlockData;
+import org.apache.hadoop.ozone.container.common.interfaces.Container;
+import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueHandler;
 import org.apache.hadoop.ozone.container.keyvalue.impl.BlockManagerImpl;
 import org.apache.hadoop.ozone.container.metadata.AbstractDatanodeStore;
+import org.apache.hadoop.ozone.container.ozoneimpl.OzoneContainer;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
@@ -108,6 +116,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerType.KeyValueContainer;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_CHUNK_LIST_INCREMENTAL;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.OZONE_SCM_RATIS_PIPELINE_LIMIT;
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
@@ -203,11 +212,12 @@ public class TestHSync {
     bucket = TestDataUtil.createVolumeAndBucket(client, layout);
 
     // Enable DEBUG level logging for relevant classes
-    GenericTestUtils.setLogLevel(BlockManagerImpl.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(AbstractDatanodeStore.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(BlockOutputStream.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(BlockInputStream.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(KeyValueHandler.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(BlockManagerImpl.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(AbstractDatanodeStore.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(BlockOutputStream.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(BlockInputStream.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(KeyValueHandler.LOG, Level.DEBUG);
+    //GenericTestUtils.setLogLevel(ContainerProtocolCalls.LOG, Level.DEBUG);
 
     openKeyCleanupService =
         (OpenKeyCleanupService) cluster.getOzoneManager().getKeyManager().getOpenKeyCleanupService();
@@ -605,7 +615,9 @@ public class TestHSync {
     }
 
     void writeAndHsync(byte[] data) throws IOException {
+      LOG.info("write {} bytes. current length={}", data.length, length);
       out.write(data);
+      LOG.info("hsync. current length={}", length);
       out.hsync();
       length += data.length;
     }
@@ -626,8 +638,73 @@ public class TestHSync {
     ThreadLocalRandom.current().nextBytes(data);
     out.writeAndHsync(data);
 
+    boolean inconsistent = true;
+    for (int tryCount = 0; tryCount < 5; tryCount++) {
+      try {
+        List<BlockOutputStreamEntry> streamEntries =
+            ((CapableOzoneFSOutputStream) out.out.getWrappedStream())
+                .getWrappedOutputStream().getKeyOutputStream()
+                .getStreamEntries();
+        BlockID blockID =
+            streamEntries.get(streamEntries.size() - 1).getBlockID();
+        for (HddsDatanodeService dn : cluster.getHddsDatanodes()) {
+          if (!streamEntries.get(streamEntries.size() - 1).getPipeline().getNodes().contains(dn.getDatanodeDetails())) {
+            continue;
+          }
+          final DatanodeStateMachine dnStateMachine =
+              dn.getDatanodeStateMachine();
+          OzoneContainer ozoneContainer = dnStateMachine.getContainer();
+          KeyValueHandler keyValueHandler =
+              (KeyValueHandler) dn.getDatanodeStateMachine().getContainer()
+                  .getDispatcher().getHandler(KeyValueContainer);
+          Container container =
+              ozoneContainer.getContainerSet()
+                  .getContainer(blockID.getContainerID());
+          if (container != null) {
+            BlockData blockData =
+                keyValueHandler.getBlockManager().getBlock(container, blockID);
+      /*for (ContainerProtos.ChunkInfo chunkInfo : blockData.getChunks()) {
+
+      }*/
+            // for each chunks in blockData, print its offset and length
+            StringBuilder sb = new StringBuilder();
+            blockData.getChunks().forEach(
+                chunkInfo -> sb.append(chunkInfo.getChunkName())
+                    .append(" -> offset: ").append(chunkInfo.getOffset())
+                    .append(" len: ").append(chunkInfo.getLen())
+                    .append("\n")
+            );
+            LOG.info("DN {} last block chunk list: {}", dn, sb);
+            ContainerProtos.ChunkInfo chunkInfo =
+                blockData.getChunks().get(blockData.getChunks().size() - 1);
+            if (chunkInfo.getLen() + chunkInfo.getOffset() !=
+                (dataSize + length) % BLOCK_SIZE) {
+              LOG.error(
+                  "DN {} BlockID: {}, ChunkInfo: {} last chunk offset+length={} != (dataSize {} +length {}) % BLOCK_SIZE = {}",
+                  dn, blockID, chunkInfo,
+                  chunkInfo.getLen() + chunkInfo.getOffset(), dataSize, length,
+                  (dataSize + length) % BLOCK_SIZE);
+              fail("ChunkInfo length mismatch");
+            }
+            //LOG.info("DN {} BlockID: {}, ChunkInfo: {}", dn, blockID,
+            //    blockData.getChunks().get(blockData.getChunks().size()-1));
+          }
+        }
+        inconsistent = false;
+      } catch (Throwable e) {
+        LOG.error("try count {}", tryCount, e);
+        Thread.sleep(1000);
+      }
+    }
+    if (inconsistent) {
+      fail("Inconsistent chunk list");
+    }
+
+    // file length is length + dataSize
+
     final byte[] buffer = new byte[4 << 10];
     int offset = 0;
+    LOG.info("Open file {}", file);
     try (FSDataInputStream in = fs.open(file)) {
       final long skipped = in.skip(length);
       assertEquals(length, skipped);

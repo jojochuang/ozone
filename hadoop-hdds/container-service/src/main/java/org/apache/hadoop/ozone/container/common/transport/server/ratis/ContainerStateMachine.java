@@ -886,6 +886,8 @@ public class ContainerStateMachine extends BaseStateMachine {
       appliedIndex = i;
     }
     if (appliedTerm != null) {
+      LOG.info("{}: updateLastApplied appliedTerm={} appliedIndex={}",
+          gid, appliedTerm, appliedIndex);
       updateLastAppliedTermIndex(appliedTerm, appliedIndex);
     }
   }

@@ -469,6 +469,7 @@ public final class XceiverClientRatis extends XceiverClientSpi {
               UUID serverId = RatisHelper.toDatanodeId(reply.getReplierId());
               addDatanodetoReply(serverId, asyncReply);  // add replier node to XceiverClientReply
             }
+            LOG.info("Received log index {} {}", reply.getLogIndex(), reply.isSuccess());
             return response;
           } catch (InvalidProtocolBufferException e) {
             throw new CompletionException(e);
