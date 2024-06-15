@@ -25,6 +25,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.ozone.RootedOzoneFileSystem;
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.client.ReplicationFactor;
+import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -207,12 +209,13 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   public void testFileRecovery(boolean forceRecovery) throws Exception {
+    OzoneConfiguration conf = getCluster().getConf();
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
 
     String value = "sample value";
-    store.createVolume(volumeName);
-    OzoneVolume volume = store.getVolume(volumeName);
+    getStore().createVolume(volumeName);
+    OzoneVolume volume = getStore().getVolume(volumeName);
     volume.createBucket(bucketName,
         new BucketArgs.Builder().setBucketLayout(FILE_SYSTEM_OPTIMIZED).build());
     OzoneBucket bucket = volume.getBucket(bucketName);
@@ -256,6 +259,8 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
   @ParameterizedTest
   @ValueSource(ints = {1 << 24, (1 << 24) + 1, (1 << 24) - 1})
   public void testPreallocateFileRecovery(long dataSize) throws Exception {
+    OzoneManager ozoneManager = getCluster().getOzoneManager();
+    OzoneConfiguration conf = getCluster().getConf();
     cleanupDeletedTable(ozoneManager);
     String volumeName = UUID.randomUUID().toString();
     String bucketName = UUID.randomUUID().toString();
@@ -263,8 +268,8 @@ class TestSecureOzoneRpcClient extends OzoneRpcClientTests {
     final byte[] data = new byte[(int) dataSize];
     ThreadLocalRandom.current().nextBytes(data);
 
-    store.createVolume(volumeName);
-    OzoneVolume volume = store.getVolume(volumeName);
+    getStore().createVolume(volumeName);
+    OzoneVolume volume = getStore().getVolume(volumeName);
     long nsQuota = 100;
     long spaceQuota = 1 * 1024 * 1024 * 1024;
     volume.createBucket(bucketName, new BucketArgs.Builder().setBucketLayout(FILE_SYSTEM_OPTIMIZED)
