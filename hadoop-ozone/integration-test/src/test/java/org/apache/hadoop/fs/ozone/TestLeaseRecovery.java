@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
@@ -32,15 +33,25 @@ import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineNotFoundException;
 import org.apache.hadoop.hdds.scm.server.StorageContainerManager;
+import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.utils.IOUtils;
+import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.ClientConfigForTesting;
+import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.OzoneTestUtils;
 import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
+import org.apache.hadoop.ozone.client.io.KeyInputStream;
+import org.apache.hadoop.ozone.client.io.OzoneInputStream;
+import org.apache.hadoop.ozone.container.common.helpers.BlockData;
+import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
+import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
+import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueHandler;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.utils.FaultInjectorImpl;
@@ -51,6 +62,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
 import java.io.FileNotFoundException;
@@ -75,6 +88,8 @@ import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_RATIS_ENABLE_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -83,7 +98,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Timeout(300)
 public class TestLeaseRecovery {
-
+  private static final Logger LOG =
+      LoggerFactory.getLogger(TestLeaseRecovery.class);
   private MiniOzoneCluster cluster;
   private OzoneBucket bucket;
 
@@ -124,6 +140,7 @@ public class TestLeaseRecovery {
     conf.set(OzoneConfigKeys.OZONE_OM_LEASE_SOFT_LIMIT, "0s");
     // make sure flush will write data to DN
     conf.setBoolean("ozone.client.stream.buffer.flush.delay", false);
+    conf.setBoolean("ozone.client.incremental.chunk.list", true);
 
     ClientConfigForTesting.newBuilder(StorageUnit.BYTES)
         .setBlockSize(blockSize)
@@ -596,7 +613,8 @@ public class TestLeaseRecovery {
     verifyData(data, (blockSize / 2 - 1) * 2, file, fs);
   }
 
-  private void verifyData(byte[] data, int dataSize, Path filePath, RootedOzoneFileSystem fs) throws IOException {
+  private void verifyData(byte[] data, int dataSize, Path filePath, RootedOzoneFileSystem fs)
+      throws Exception {
     try (FSDataInputStream fdis = fs.open(filePath)) {
       int bufferSize = dataSize > data.length ? dataSize / 2 : dataSize;
       while (dataSize > 0) {
@@ -607,6 +625,46 @@ public class TestLeaseRecovery {
         dataSize -= bufferSize;
       }
     }
+    verifyContainerData("file");
+  }
+
+  public void verifyContainerData(String keyName) throws Exception {
+    // get the list of blocks of file
+    try (OzoneInputStream is = bucket.readKey(keyName)) {
+      for (BlockExtendedInputStream blockInputStream : ((KeyInputStream) is.getInputStream()).getPartStreams()) {
+        BlockID blockID = blockInputStream.getBlockID();
+        verifyContainerData(blockID);
+      }
+    }
+  }
+
+  public void verifyContainerData(BlockID blockID)
+      throws IOException {
+    LOG.info("verify for block {}", blockID);
+    int replicas = 0;
+    for (HddsDatanodeService dn : cluster.getHddsDatanodes()) {
+      KeyValueContainer
+          container = (KeyValueContainer)dn.getDatanodeStateMachine().getContainer()
+          .getContainerSet().getContainer(blockID.getContainerID());
+      if (container == null) {
+        continue;
+      }
+      replicas++;
+      KeyValueContainerData containerData = container.getContainerData();
+      LOG.info("DN {} has container {}", dn, containerData.getContainerID());
+      try (DBHandle db = BlockUtils.getDB(containerData, cluster.getConf())) {
+        // the block data table should have the key
+        Table<String, BlockData> blockDataTable = db.getStore().getBlockDataTable();
+        // get block key
+        String blockKey = containerData.getBlockKey(blockID.getLocalID());
+        assertNotNull(blockDataTable.get(blockKey));
+        // the last chunk info table should not have the key
+        Table<String, BlockData> lastChunkInfoTable = db.getStore().getLastChunkInfoTable();
+        assertNull(lastChunkInfoTable.get(blockKey));
+      }
+    }
+    // Expect three container replica.
+    assertEquals(3, replicas);
   }
 
   private byte[] getData(int dataSize) {
