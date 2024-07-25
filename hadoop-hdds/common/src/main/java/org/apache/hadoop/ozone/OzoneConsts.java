@@ -111,6 +111,7 @@ public final class OzoneConsts {
    * level DB names used by SCM and data nodes.
    */
   public static final String CONTAINER_DB_SUFFIX = "container.db";
+  public static final String PIPELINE_DB_SUFFIX = "pipeline.db";
   public static final String DN_CONTAINER_DB = "-dn-" + CONTAINER_DB_SUFFIX;
   public static final String OM_DB_NAME = "om.db";
   public static final String SCM_DB_NAME = "scm.db";

@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.recon.heatmap;
 
 import org.apache.hadoop.ozone.recon.api.types.EntityReadAccessHeatMapResponse;
+import org.apache.hadoop.ozone.recon.api.types.HealthCheckResponse;
 
 /**
  * This is an abstract class for implementation of access to HeatMap Service.
@@ -25,4 +26,6 @@ import org.apache.hadoop.ozone.recon.api.types.EntityReadAccessHeatMapResponse;
 public abstract class HeatMapService {
   public abstract EntityReadAccessHeatMapResponse retrieveData(
       String path, String entityType, String startDate) throws Exception;
+
+  public abstract HealthCheckResponse doHeatMapHealthCheck();
 }
