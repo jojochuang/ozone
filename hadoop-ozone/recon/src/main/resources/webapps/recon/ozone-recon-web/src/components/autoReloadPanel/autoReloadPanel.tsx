@@ -34,7 +34,6 @@ interface IAutoReloadPanelProps extends RouteComponentProps<object> {
   omStatus: string;
   togglePolling: (isEnabled: boolean) => void;
   omSyncLoad: () => void;
-  heatmapHealthCheck: boolean;
 }
 
 class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
@@ -44,28 +43,27 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
   };
 
   render() {
-    const {onReload, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull, isLoading, omSyncLoad, omStatus, heatmapHealthCheck} = this.props;
+    const { onReload, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull, isLoading, omSyncLoad, omStatus} = this.props;
     const autoReloadEnabled = sessionStorage.getItem('autoReloadEnabled') === 'false' ? false : true;
-// Uncomment when SOLR team gives fix for OPSAPS-71477
-    // const content = (
-    //   <div>
-    //     {heatmapHealthCheck ?
-    //       <Alert
-    //         message="Solr is Healthy."
-    //         description="Heatmap will be Accessible"
-    //         type="success"
-    //         showIcon /> :
-    //       <Alert
-    //         message="Solr is UnHealthy."
-    //         description="Heatmap will not be accessible."
-    //         type="warning"
-    //         showIcon
-    //       />}
-    //   </div>
-    // );
+    const heatmapHealthCheck = sessionStorage.getItem('heatmapHealthCheck') === 'false' ? false : true;
+    const content = (
+      <div>
+        {heatmapHealthCheck ?
+          <Alert
+            message="Solr is Healthy."
+            description="Heatmap will be Accessible"
+            type="success"
+            showIcon /> :
+          <Alert
+            message="Solr is UnHealthy."
+            description="Heatmap will not be accessible."
+            type="warning"
+            showIcon
+          />}
+      </div>
+    );
 
-
-     const lastRefreshedText = lastRefreshed === 0 || lastRefreshed === undefined ? 'NA' :
+    const lastRefreshedText = lastRefreshed === 0 || lastRefreshed === undefined ? 'NA' :
       (
         <Tooltip
           placement='bottom' title={moment(lastRefreshed).format('ll LTS')}
@@ -95,35 +93,22 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
       );
 
     const lastUpdatedDeltaFullText = lastUpdatedOMDBDelta === 0 || lastUpdatedOMDBDelta === undefined || lastUpdatedOMDBFull === 0 || lastUpdatedOMDBFull === undefined ? '' :
-      //omSyncLoad should be clickable at all times. If the response from the dbsync is false it will show DB update is already running else show triggered sync
       (
         <>
           &nbsp; | DB Synced at {lastUpdatedDeltaFullToolTip}
-          &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} />
+          &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} disabled={omStatus === '' ? false : true} />
         </>
       );
 
     return (
       <div className='auto-reload-panel' data-testid='autoreload-panel'>
-         {/* Alert : <Popover style={{ width: 500 }} content={content} title="Alert Notifications" trigger="hover" placement='bottom'>
-          <span style={{ color: heatmapHealthCheck ? '#1DA57A' : '#f83437' }}>1</span></Popover> */}
-        &nbsp; Auto Refresh
-        &nbsp;
-        <Switch
-          defaultChecked={autoReloadEnabled}
-          size='small'
-          className='toggle-switch'
-          onChange={this.autoReloadToggleHandler}
-          data-testid='autoreload-panel-switch' />
+        Alert :
+        <Popover style={{ width: 500 }} content={content} title="Alert Notifications" trigger="hover" placement='bottom'>
+          <span style={{ color: heatmapHealthCheck ? '#1DA57A' : '#f83437' }}>1</span>
+        </Popover>
+        &nbsp; | &nbsp; Auto Refresh &nbsp; <Switch defaultChecked={autoReloadEnabled} size='small' className='toggle-switch' onChange={this.autoReloadToggleHandler}/>
         &nbsp; | Refreshed at {lastRefreshedText}
-        &nbsp;
-        <Button
-          shape='circle'
-          icon={<ReloadOutlined />}
-          size='small'
-          loading={isLoading}
-          onClick={onReload}
-          data-testid='autoreload-panel-refresh' />
+        &nbsp; <Button shape='circle' icon={<ReloadOutlined />} size='small' loading={isLoading} onClick={onReload} />
         {lastUpdatedDeltaFullText}
       </div>
     );
