@@ -102,12 +102,23 @@ public class ChunkInputStream extends InputStream
 
   private static final int EOF = -1;
   private final List<Validator> validators;
+  private BlockInputStream.CompactChecksumInfo compactChecksumInfo;
 
   ChunkInputStream(ChunkInfo chunkInfo, BlockID blockId,
-      XceiverClientFactory xceiverClientFactory,
-      Supplier<Pipeline> pipelineSupplier,
-      boolean verifyChecksum,
-      Supplier<Token<?>> tokenSupplier) {
+                   XceiverClientFactory xceiverClientFactory,
+                   Supplier<Pipeline> pipelineSupplier,
+                   boolean verifyChecksum,
+                   Supplier<Token<?>> tokenSupplier) {
+    this(chunkInfo, blockId, xceiverClientFactory, pipelineSupplier,
+        verifyChecksum, tokenSupplier, null);
+  }
+
+  ChunkInputStream(ChunkInfo chunkInfo, BlockID blockId,
+                   XceiverClientFactory xceiverClientFactory,
+                   Supplier<Pipeline> pipelineSupplier,
+                   boolean verifyChecksum,
+                   Supplier<Token<?>> tokenSupplier,
+                   BlockInputStream.CompactChecksumInfo compactChecksumInfo) {
     this.chunkInfo = chunkInfo;
     this.length = chunkInfo.getLen();
     this.blockID = blockId;
@@ -116,6 +127,7 @@ public class ChunkInputStream extends InputStream
     this.verifyChecksum = verifyChecksum;
     this.tokenSupplier = tokenSupplier;
     validators = ContainerProtocolCalls.toValidatorList(this::validateChunk);
+    this.compactChecksumInfo = compactChecksumInfo;
   }
 
   public synchronized long getRemaining() {
@@ -491,8 +503,16 @@ public class ChunkInputStream extends InputStream
     }
 
     if (verifyChecksum) {
-      ChecksumData checksumData = ChecksumData.getFromProtoBuf(
-          chunkInfo.getChecksumData());
+      ChecksumData checksumData;
+      if (compactChecksumInfo != null && compactChecksumInfo.isCompact()) {
+        checksumData = new ChecksumData(
+            compactChecksumInfo.getChecksumType(),
+            compactChecksumInfo.getBytesPerChecksum(),
+            chunkInfo.getChecksumData().getChecksumsList());
+      } else {
+        checksumData = ChecksumData.getFromProtoBuf(
+            chunkInfo.getChecksumData());
+      }
 
       // ChecksumData stores checksum for each 'numBytesPerChecksum'
       // number of bytes in a list. Compute the index of the first

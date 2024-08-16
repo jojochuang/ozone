@@ -32,6 +32,7 @@ import java.util.function.Function;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerCommandResponseProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.BlockData;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ChunkInfo;
@@ -56,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.hadoop.hdds.client.ReplicationConfig.getLegacyFactor;
+import static org.apache.hadoop.ozone.container.common.helpers.BlockData.COMPACT_CHUNK_LIST_KV;
 
 /**
  * An {@link InputStream} called from KeyInputStream to read a block from the
@@ -115,6 +117,9 @@ public class BlockInputStream extends BlockExtendedInputStream {
 
   private final Function<BlockID, BlockLocationInfo> refreshFunction;
 
+  private ContainerProtos.ChecksumType checksumType;
+  private int checksumSize;
+
   public BlockInputStream(
       BlockLocationInfo blockInfo,
       Pipeline pipeline,
@@ -145,6 +150,31 @@ public class BlockInputStream extends BlockExtendedInputStream {
         pipeline, token, xceiverClientFactory, null, config);
   }
 
+  public static class CompactChecksumInfo {
+    private boolean isCompact = false;
+    private ContainerProtos.ChecksumType checksumType;
+    private int bytesPerChecksum;
+    public CompactChecksumInfo(BlockData blockData) {
+      if (blockData.getMetadataList().contains(COMPACT_CHUNK_LIST_KV)) {
+        this.isCompact = true;
+        this.checksumType = blockData.getChecksumType();
+        this.bytesPerChecksum = blockData.getBytesPerChecksum();
+      }
+    }
+
+    public boolean isCompact() {
+      return isCompact;
+    }
+
+    public ContainerProtos.ChecksumType getChecksumType() {
+      return checksumType;
+    }
+
+    public int getBytesPerChecksum() {
+      return bytesPerChecksum;
+    }
+  }
+
   /**
    * Initialize the BlockInputStream. Get the BlockData (list of chunks) from
    * the Container and create the ChunkInputStreams for each Chunk in the Block.
@@ -159,9 +189,13 @@ public class BlockInputStream extends BlockExtendedInputStream {
     BlockData blockData = null;
     List<ChunkInfo> chunks = null;
     IOException catchEx = null;
+
+    CompactChecksumInfo compactChecksumInfo = null;
     do {
       try {
         blockData = getBlockData();
+        compactChecksumInfo = new CompactChecksumInfo(blockData);
+
         chunks = blockData.getChunksList();
         if (blockInfo != null && blockInfo.isUnderConstruction()) {
           // use the block length from DN if block is under construction.
@@ -201,7 +235,7 @@ public class BlockInputStream extends BlockExtendedInputStream {
 
       this.chunkStreams = new ArrayList<>(chunks.size());
       for (int i = 0; i < chunks.size(); i++) {
-        addStream(chunks.get(i));
+        addStream(chunks.get(i), compactChecksumInfo);
         chunkOffsets[i] = tempOffset;
         tempOffset += chunks.get(i).getLen();
       }
@@ -358,13 +392,13 @@ public class BlockInputStream extends BlockExtendedInputStream {
    * ChunkInputStream is only created here. The chunk will be read from the
    * Datanode only when a read operation is performed on for that chunk.
    */
-  protected synchronized void addStream(ChunkInfo chunkInfo) {
-    chunkStreams.add(createChunkInputStream(chunkInfo));
+  protected synchronized void addStream(ChunkInfo chunkInfo, CompactChecksumInfo compactChecksumInfo) {
+    chunkStreams.add(createChunkInputStream(chunkInfo, compactChecksumInfo));
   }
 
-  protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
+  protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo, CompactChecksumInfo compactChecksumInfo) {
     return new ChunkInputStream(chunkInfo, blockID,
-        xceiverClientFactory, pipelineRef::get, verifyChecksum, tokenRef::get);
+        xceiverClientFactory, pipelineRef::get, verifyChecksum, tokenRef::get, compactChecksumInfo);
   }
 
   @Override

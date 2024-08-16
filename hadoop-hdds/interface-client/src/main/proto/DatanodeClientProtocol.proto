@@ -338,6 +338,8 @@ message BlockData {
   repeated KeyValue metadata = 3;
   repeated ChunkInfo chunks = 4;
   optional int64 size = 5;
+  optional ChecksumType checksumType = 6;
+  optional uint32 bytesPerChecksum = 7;
 }
 
 // Block Messages.
@@ -413,6 +415,7 @@ message ChunkInfo {
   repeated KeyValue metadata = 4;
   required ChecksumData checksumData =5;
   optional bytes stripeChecksum = 6;
+  repeated bytes checksums = 7;
 }
 
 message ChunkInfoList {

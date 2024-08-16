@@ -67,7 +67,7 @@ class DummyBlockInputStream extends BlockInputStream {
   }
 
   @Override
-  protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
+  protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo, CompactChecksumInfo checksumInfo) {
     return new DummyChunkInputStream(
         chunkInfo, null, null, false,
         chunkDataMap.get(chunkInfo.getChunkName()).clone(), null);

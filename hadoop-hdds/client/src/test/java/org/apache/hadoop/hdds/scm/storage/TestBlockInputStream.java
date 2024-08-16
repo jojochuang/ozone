@@ -369,7 +369,7 @@ public class TestBlockInputStream {
     return new DummyBlockInputStream(blockID, blockSize, pipeline, null,
         null, refreshFunction, chunks, null, clientConfig) {
       @Override
-      protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
+      protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo, CompactChecksumInfo checksumInfo) {
         return stream;
       }
     };
@@ -426,7 +426,7 @@ public class TestBlockInputStream {
         pipeline, null, clientFactory, refreshFunction,
         clientConfig) {
       @Override
-      protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
+      protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo, CompactChecksumInfo checksumInfo) {
         return stream;
       }
 

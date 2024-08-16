@@ -61,6 +61,7 @@ import static org.apache.hadoop.hdds.DatanodeVersion.COMBINED_PUTBLOCK_WRITECHUN
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.putBlockAsync;
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls.writeChunkAsync;
 import static org.apache.hadoop.ozone.OzoneConsts.INCREMENTAL_CHUNK_LIST;
+import static org.apache.hadoop.ozone.container.common.helpers.BlockData.COMPACT_CHUNK_LIST_KV;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -189,6 +190,11 @@ public class BlockOutputStream extends OutputStream {
     }
     this.containerBlockData = BlockData.newBuilder().setBlockID(
         blkIDBuilder.build()).addMetadata(keyValue);
+    if (config.getCompactChunkInfo()) {
+      this.containerBlockData.setChecksumType(config.getChecksumType())
+          .setBytesPerChecksum(config.getBytesPerChecksum())
+          .addMetadata(COMPACT_CHUNK_LIST_KV);
+    }
     // tell DataNode I will send incremental chunk list
     if (config.getIncrementalChunkList()) {
       this.containerBlockData.addMetadata(INCREMENTAL_CHUNK_LIST_KV);
@@ -833,12 +839,18 @@ public class BlockOutputStream extends OutputStream {
     final ByteString data = chunk.toByteString(
         bufferPool.byteStringConversion());
     ChecksumData checksumData = checksum.computeChecksum(chunk);
-    ChunkInfo chunkInfo = ChunkInfo.newBuilder()
+    ChunkInfo.Builder chunkInfoBuilder = ChunkInfo.newBuilder()
         .setChunkName(blockID.get().getLocalID() + "_chunk_" + ++chunkIndex)
         .setOffset(offset)
-        .setLen(effectiveChunkSize)
-        .setChecksumData(checksumData.getProtoBufMessage())
-        .build();
+        .setLen(effectiveChunkSize);
+
+    if (config.getCompactChunkInfo()) {
+      chunkInfoBuilder.addAllChecksums(checksumData.getChecksums());
+    } else {
+      chunkInfoBuilder.setChecksumData(checksumData.getProtoBufMessage());
+    }
+
+    ChunkInfo chunkInfo = chunkInfoBuilder.build();
 
     long flushPos = totalWriteChunkLength;
 
@@ -1072,8 +1084,14 @@ public class BlockOutputStream extends OutputStream {
     ChunkInfo.Builder revisedChunkInfo = ChunkInfo.newBuilder()
         .setChunkName(blockID.get().getLocalID() + "_chunk_" + chunkID)
         .setOffset(lastPartialChunkOffset)
-        .setLen(revisedChunkSize)
-        .setChecksumData(revisedChecksumData.getProtoBufMessage());
+        .setLen(revisedChunkSize);
+
+    if (config.getCompactChunkInfo()) {
+      revisedChunkInfo.addAllChecksums(revisedChecksumData.getChecksums());
+    } else {
+      revisedChunkInfo.setChecksumData(revisedChecksumData.getProtoBufMessage());
+    }
+
     // if full chunk
     if (revisedChunkSize == config.getStreamBufferSize()) {
       revisedChunkInfo.addMetadata(FULL_CHUNK_KV);

@@ -264,6 +264,13 @@ public class OzoneClientConfig {
           tags = ConfigTag.CLIENT)
   private boolean enablePutblockPiggybacking = false;
 
+  @Config(key = "chunkinfo.compact",
+      defaultValue = "true",
+      type = ConfigType.BOOLEAN,
+      description = "Use compact chunkinfo format in PutBlock request.",
+      tags = ConfigTag.CLIENT)
+  private boolean compactChunkInfo = true;
+
   @PostConstruct
   public void validate() {
     Preconditions.checkState(streamBufferSize > 0);
@@ -484,5 +491,13 @@ public class OzoneClientConfig {
 
   public boolean getIncrementalChunkList() {
     return this.incrementalChunkList;
+  }
+
+  public void setCompactChunkInfo(boolean enable) {
+    this.compactChunkInfo = enable;
+  }
+
+  public boolean getCompactChunkInfo() {
+    return this.compactChunkInfo;
   }
 }

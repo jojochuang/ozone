@@ -31,6 +31,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.ArrayList;
 
+import static org.apache.hadoop.ozone.OzoneConsts.COMPACT_CHUNK_LIST;
+import static org.apache.hadoop.ozone.OzoneConsts.INCREMENTAL_CHUNK_LIST;
+
 /**
  * Helper class to convert Protobuf to Java classes.
  */
@@ -66,6 +69,12 @@ public class BlockData {
    * total size of the key.
    */
   private long size;
+
+  private int checksumType;
+  private int bytesPerChecksum;
+
+  public static final ContainerProtos.KeyValue COMPACT_CHUNK_LIST_KV =
+      ContainerProtos.KeyValue.newBuilder().setKey(COMPACT_CHUNK_LIST).build();
 
   /**
    * Constructs a BlockData Object.
@@ -105,6 +114,10 @@ public class BlockData {
     if (data.hasSize()) {
       Preconditions.checkArgument(data.getSize() == blockData.getSize());
     }
+    if (blockData.isCompact()) {
+      blockData.setChecksumType(data.getChecksumType().ordinal());
+      blockData.setBytesPerChecksum(data.getBytesPerChecksum());
+    }
     return blockData;
   }
 
@@ -124,6 +137,11 @@ public class BlockData {
     }
     builder.addAllChunks(getChunks());
     builder.setSize(size);
+    if (isCompact()) {
+      builder.setChecksumType(
+          ContainerProtos.ChecksumType.forNumber(checksumType));
+      builder.setBytesPerChecksum(bytesPerChecksum);
+    }
     return builder.build();
   }
 
@@ -144,6 +162,10 @@ public class BlockData {
 
   public synchronized Map<String, String> getMetadata() {
     return Collections.unmodifiableMap(this.metadata);
+  }
+
+  public boolean isCompact() {
+    return metadata.containsKey(COMPACT_CHUNK_LIST);
   }
 
   @SuppressWarnings("unchecked")
@@ -265,6 +287,22 @@ public class BlockData {
    */
   public long getSize() {
     return size;
+  }
+
+  public void setChecksumType(int checksumType) {
+    this.checksumType = checksumType;
+  }
+
+  public int getChecksumType() {
+    return checksumType;
+  }
+
+  public void setBytesPerChecksum(int bytesPerChecksum) {
+    this.bytesPerChecksum = bytesPerChecksum;
+  }
+
+  public int getBytesPerChecksum() {
+    return bytesPerChecksum;
   }
 
   @Override
