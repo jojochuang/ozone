@@ -76,6 +76,7 @@ interface IOverviewState {
   decommissionInfoCount: number | string;
   scmServiceId: string;
   omServiceId: string;
+  heatmapHealthCheck: boolean;
 }
 
 let cancelOverviewSignal: AbortController;
@@ -113,7 +114,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       deletePendingSummarytotalUnrepSize: 0,
       deletePendingSummarytotalRepSize: 0,
       deletePendingSummarytotalDeletedKeys: 0,
-      decommissionInfoCount: 0
+      decommissionInfoCount: 0,
+      heatmapHealthCheck:false
     };
     this.autoReload = new AutoReloadHelper(this._loadData);
   }
@@ -134,7 +136,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       '/api/v1/task/status',
       '/api/v1/keys/open/summary',
       '/api/v1/keys/deletePending/summary',
-      '/api/v1/datanodes/decommission/info'
+      '/api/v1/datanodes/decommission/info',
+      '/api/v1/heatmap/healthCheck'
     ], cancelOverviewSignal);
     cancelOverviewSignal = controller;
 
@@ -143,7 +146,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       taskstatusResponse: Awaited<Promise<any>>,
       openResponse: Awaited<Promise<any>>,
       deletePendingResponse: Awaited<Promise<any>>,
-      decommissionResponse: Awaited<Promise<any>>
+      decommissionResponse: Awaited<Promise<any>>,
+      healthCheckResponse: Awaited<Promise<any>>
     ) => {
       let responseError = [
         clusterStateResponse,
@@ -192,8 +196,9 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       }];
       const missingContainersCount = clusterState.missingContainers;
       const omDBDeltaObject = taskStatus && taskStatus.find((item:any) => item.taskName === 'OmDeltaRequest');
-      const omDBFullObject = taskStatus && taskStatus.find((item:any) => item.taskName === 'OmSnapshotRequest');
-
+      const omDBFullObject = taskStatus && taskStatus.find((item: any) => item.taskName === 'OmSnapshotRequest');
+      const healthcheckStatus = healthCheckResponse?.data?.message ?? '';
+    
       this.setState({
         loading: false,
         datanodes: clusterState.healthyDatanodes !== 'N/A'
@@ -219,7 +224,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
         deletePendingSummarytotalDeletedKeys: deletePendingResponse.value?.data?.totalDeletedKeys,
         decommissionInfoCount: decommissionResponse.value?.data?.DatanodesDecommissionInfo.length,
         scmServiceId: clusterState.scmServiceId,
-        omServiceId: clusterState.omServiceId
+        omServiceId: clusterState.omServiceId,
+        heatmapHealthCheck: healthcheckStatus === 'Healthy' ? true :false
       });
     })).catch(error => {
       this.setState({
@@ -270,10 +276,14 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
   }
 
   render() {
-    const { loading, datanodes, pipelines, storageReport, containers, volumes, buckets, openSummarytotalUnrepSize, openSummarytotalRepSize, openSummarytotalOpenKeys,
+    const {
+      loading, datanodes, pipelines,
+      storageReport, containers, volumes, buckets,
+      openSummarytotalUnrepSize, openSummarytotalRepSize, openSummarytotalOpenKeys,
       deletePendingSummarytotalUnrepSize, deletePendingSummarytotalRepSize, deletePendingSummarytotalDeletedKeys,
-      keys, missingContainersCount, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull,
-      omStatus, openContainers, deletedContainers, scmServiceId, omServiceId, decommissionInfoCount } = this.state;
+      keys, missingContainersCount, lastRefreshed,
+      lastUpdatedOMDBDelta, lastUpdatedOMDBFull, omStatus, openContainers, deletedContainers, scmServiceId, omServiceId,
+      decommissionInfoCount, heatmapHealthCheck } = this.state;
 
     let openKeysError: boolean = false;
     let pendingDeleteKeysError: boolean = false;
@@ -373,7 +383,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
           Overview
           <AutoReloadPanel isLoading={loading} lastRefreshed={lastRefreshed}
             lastUpdatedOMDBDelta={lastUpdatedOMDBDelta} lastUpdatedOMDBFull={lastUpdatedOMDBFull}
-            togglePolling={this.autoReload.handleAutoReloadToggle} onReload={this._loadData} omSyncLoad={this.omSyncData} omStatus={omStatus} />
+            togglePolling={this.autoReload.handleAutoReloadToggle} onReload={this._loadData}
+            omSyncLoad={this.omSyncData} omStatus={omStatus}  heatmapHealthCheck={heatmapHealthCheck} />
         </div>
         <Row gutter={[10, 20]}>
           <Col xs={24} sm={18} md={12} lg={12} xl={6}>

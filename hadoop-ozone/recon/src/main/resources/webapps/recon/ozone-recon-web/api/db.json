@@ -6866,5 +6866,9 @@
     "selectedRowKeys": [
       "b5907812-a5f2-11ea-bb37-0242ac130011"
     ]
+  },
+  "heatmapHealthCheck": {
+    "message": "Healthy",
+    "status": 200
   }
 }
