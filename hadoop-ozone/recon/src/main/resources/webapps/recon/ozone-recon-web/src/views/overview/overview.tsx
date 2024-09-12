@@ -137,7 +137,9 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       '/api/v1/keys/open/summary',
       '/api/v1/keys/deletePending/summary',
       '/api/v1/datanodes/decommission/info',
-      '/api/v1/heatmap/healthCheck'
+      // Should not access Heatmap APIs till SOLR team gives a fix
+      // Ref: OPSAPS-71477
+      // '/api/v1/heatmap/healthCheck'
     ], cancelOverviewSignal);
     cancelOverviewSignal = controller;
 
@@ -147,7 +149,9 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       openResponse: Awaited<Promise<any>>,
       deletePendingResponse: Awaited<Promise<any>>,
       decommissionResponse: Awaited<Promise<any>>,
-      healthCheckResponse: Awaited<Promise<any>>
+      // Should uncomment when SOLR team provides fix for
+      // OPSAPS-71477
+      // healthCheckResponse: Awaited<Promise<any>>
     ) => {
       let responseError = [
         clusterStateResponse,
@@ -197,7 +201,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       const missingContainersCount = clusterState.missingContainers;
       const omDBDeltaObject = taskStatus && taskStatus.find((item:any) => item.taskName === 'OmDeltaRequest');
       const omDBFullObject = taskStatus && taskStatus.find((item: any) => item.taskName === 'OmSnapshotRequest');
-      const healthcheckStatus = healthCheckResponse?.data?.message ?? '';
+      // const healthcheckStatus = healthCheckResponse?.data?.message ?? '';
+      const healthcheckStatus = 'Unhealthy' as string;
     
       this.setState({
         loading: false,

@@ -88,7 +88,9 @@ class NavBar extends React.Component<INavBarProps> {
 
   render() {
     const { location } = this.props;
-    const { isHeatmapEnabled } = this.state;
+    // Commented till OPSAPS-71477 is fixed
+    // const { isHeatmapEnabled } = this.state;
+    const isHeatmapEnabled = false;
     const menuItems = [(
       <Menu.Item key='/Overview'
         icon={<DashboardOutlined />}>
@@ -147,18 +149,16 @@ class NavBar extends React.Component<INavBarProps> {
         <Link to='/DiskUsage' />
       </Menu.Item>
     ), (
-      isHeatmapEnabled
-        ? <>
-          <Menu.Item key='/Heatmap'
-            icon={<LayoutOutlined />}>
-            <span>Heatmap</span>
-            <Link to={{
-              pathname: '/Heatmap',
-              state: { isHeatmapEnabled: true }
-            }}
-            />
-          </Menu.Item></>
-        : <></>
+      isHeatmapEnabled && 
+        <Menu.Item key='/Heatmap'
+          icon={<LayoutOutlined />}>
+          <span>Heatmap</span>
+          <Link to={{
+            pathname: '/Heatmap',
+            state: { isHeatmapEnabled: true }
+          }}
+          />
+        </Menu.Item>
     )]
     return (
       <Sider
