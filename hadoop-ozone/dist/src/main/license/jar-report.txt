@@ -14,6 +14,7 @@ share/ozone/lib/aws-java-sdk-core.jar
 share/ozone/lib/aws-java-sdk-kms.jar
 share/ozone/lib/aws-java-sdk-s3.jar
 share/ozone/lib/bcpkix-jdk18on.jar
+share/ozone/lib/bcprov-jdk15on.jar
 share/ozone/lib/bcprov-jdk18on.jar
 share/ozone/lib/bcutil-jdk18on.jar
 share/ozone/lib/bonecp.RELEASE.jar
@@ -63,7 +64,7 @@ share/ozone/lib/hadoop-common.jar
 share/ozone/lib/hadoop-hdfs-client.jar
 share/ozone/lib/hadoop-hdfs.jar
 share/ozone/lib/hadoop-shaded-guava.jar
-share/ozone/lib/hadoop-shaded-protobuf_3_25.jar
+share/ozone/lib/hadoop-shaded-protobuf_3_21.jar
 share/ozone/lib/hdds-annotation-processing.jar
 share/ozone/lib/hdds-client.jar
 share/ozone/lib/hdds-common.jar

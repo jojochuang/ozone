@@ -54,7 +54,6 @@ import org.apache.hadoop.tools.DistCpConstants;
 import org.apache.hadoop.tools.DistCpOptions;
 import org.apache.hadoop.tools.SimpleCopyListing;
 import org.apache.hadoop.tools.mapred.CopyMapper;
-import org.apache.hadoop.tools.util.DistCpTestUtils;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.hadoop.util.functional.RemoteIterators;
 
