@@ -164,6 +164,10 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <artifactId>bcprov-jdk15on</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk15on</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-api</artifactId>
       <exclusions>
