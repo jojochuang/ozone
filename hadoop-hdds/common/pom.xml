@@ -118,6 +118,12 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <dependency>
       <artifactId>ratis-server-api</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.bouncycastle</groupId>
+          <artifactId>bcprov-jdk15on</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <artifactId>ratis-metrics-dropwizard3</artifactId>
@@ -163,7 +169,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk18on</artifactId>
+      <artifactId>bcpkix-jdk15on</artifactId>
       <version>${bouncycastle.version}</version>
     </dependency>
     <dependency>
