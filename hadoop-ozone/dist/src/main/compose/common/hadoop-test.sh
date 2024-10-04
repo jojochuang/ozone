@@ -45,8 +45,10 @@ source "$COMPOSE_DIR/../testlib.sh"
 for HADOOP_VERSION in ${hadoop2.version} 3.1.2 ${hadoop.version}; do
   export HADOOP_VERSION
   export HADOOP_MAJOR_VERSION=${HADOOP_VERSION%%.*}
-  if [[ "${HADOOP_VERSION}" == "${hadoop2.version}" ]] || [[ "${HADOOP_VERSION}" == "${hadoop.version}" ]]; then
+  if [[ "${HADOOP_VERSION}" == "${hadoop2.version}" ]]; then
     export HADOOP_IMAGE=apache/hadoop
+  elif [[ "${HADOOP_VERSION}" == "${hadoop.version}" ]]; then
+    export HADOOP_IMAGE=weichiu/hadoop
   else
     export HADOOP_IMAGE=flokkr/hadoop
   fi
