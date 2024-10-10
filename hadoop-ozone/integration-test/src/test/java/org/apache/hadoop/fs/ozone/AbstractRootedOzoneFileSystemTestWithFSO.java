@@ -89,6 +89,7 @@ abstract class AbstractRootedOzoneFileSystemTestWithFSO extends AbstractRootedOz
     getFs().rename(source, getBucketPath());
     assertTrue(getFs().exists(new Path(getBucketPath(), "key1")),
         "Key rename failed");
+    assertFalse(getFs().exists(new Path(getBucketPath(), "key2")));
     // cleanup
     getFs().delete(dest, true);
   }

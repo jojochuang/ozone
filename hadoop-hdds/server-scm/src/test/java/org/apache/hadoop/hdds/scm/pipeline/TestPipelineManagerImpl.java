@@ -923,6 +923,86 @@ public class TestPipelineManagerImpl {
     pipelineManager.close();
   }
 
+  @Test
+  public void testWaitForAllocatedPipelineAndThenStale()
+      throws IOException, TimeoutException {
+    //SCMHADBTransactionBuffer buffer =
+    //    new SCMHADBTransactionBufferStub(dbStore);
+    PipelineManagerImpl pipelineManager =
+        //createPipelineManager(true, buffer);
+        createPipelineManager(true);
+
+    PipelineManagerImpl pipelineManagerSpy = spy(pipelineManager);
+    ReplicationConfig repConfig =
+        RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.THREE);
+    PipelineChoosePolicy pipelineChoosingPolicy
+        = new HealthyPipelineChoosePolicy();
+    ContainerManager containerManager
+        = mock(ContainerManager.class);
+
+    WritableContainerProvider<ReplicationConfig> provider;
+    String owner = "TEST";
+    Pipeline allocatedPipeline;
+
+    // Throw on pipeline creates, so no new pipelines can be created
+    doThrow(SCMException.class).when(pipelineManagerSpy)
+        .createPipeline(any(), any(), anyList());
+    provider = new WritableRatisContainerProvider(
+        conf, pipelineManagerSpy, containerManager, pipelineChoosingPolicy);
+
+    // Add a single pipeline to manager, (in the allocated state)
+    allocatedPipeline = pipelineManager.createPipeline(repConfig);
+    pipelineManager.getStateManager()
+        .updatePipelineState(allocatedPipeline.getId()
+            .getProtobuf(), HddsProtos.PipelineState.PIPELINE_ALLOCATED);
+
+    // Assign a container to that pipeline
+    ContainerInfo container = HddsTestUtils.
+        getContainer(HddsProtos.LifeCycleState.OPEN,
+            allocatedPipeline.getId());
+
+    pipelineManager.addContainerToPipeline(
+        allocatedPipeline.getId(), container.containerID());
+    doReturn(container).when(containerManager).getMatchingContainer(anyLong(),
+        anyString(), eq(allocatedPipeline), any());
+
+
+    assertTrue(pipelineManager.getPipelines(repConfig,  OPEN)
+        .isEmpty(), "No open pipelines exist");
+    assertTrue(pipelineManager.getPipelines(repConfig,  ALLOCATED)
+        .contains(allocatedPipeline), "An allocated pipeline exists");
+
+    // Instrument waitOnePipelineReady to open pipeline a bit after it is called
+    Runnable r = () -> {
+      try {
+        Thread.sleep(100);
+        pipelineManager.closePipeline(allocatedPipeline.getId());
+      } catch (Exception e) {
+        fail("exception on opening pipeline", e);
+      }
+    };
+    doAnswer(call -> {
+      new Thread(r).start();
+      return call.callRealMethod();
+    }).when(pipelineManagerSpy).waitOnePipelineReady(any(), anyLong());
+
+
+    ContainerInfo c = provider.getContainer(1, repConfig,
+        owner, new ExcludeList());
+    assertEquals(c, container, "Expected container was returned");
+
+    // Confirm that waitOnePipelineReady was called on allocated pipelines
+    ArgumentCaptor<Collection<PipelineID>> captor =
+        ArgumentCaptor.forClass(Collection.class);
+    verify(pipelineManagerSpy, times(1))
+        .waitOnePipelineReady(captor.capture(), anyLong());
+    Collection<PipelineID> coll = captor.getValue();
+    assertThat(coll)
+        .withFailMessage("waitOnePipelineReady() was called on allocated pipeline")
+        .contains(allocatedPipeline.getId());
+    pipelineManager.close();
+  }
+
   public void testCreatePipelineForRead() throws IOException {
     PipelineManager pipelineManager = createPipelineManager(true);
     List<DatanodeDetails> dns = nodeManager
