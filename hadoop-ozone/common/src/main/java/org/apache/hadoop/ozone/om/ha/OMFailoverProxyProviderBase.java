@@ -192,6 +192,13 @@ public abstract class OMFailoverProxyProviderBase<T> implements
             }
 
             selectNextOmProxy();
+            if (suggestedNodeId == null && suggestedLeaderAddress == null) {
+              // The OM is not leader, and leader is not known,
+              // failover to the next OM but do not retry.
+              // See HDDS-11558 for details.
+              // Bubble up the exception to the application.
+              return RetryAction.FAIL;
+            }
             return getRetryAction(RetryDecision.FAILOVER_AND_RETRY, failovers);
           }
 
