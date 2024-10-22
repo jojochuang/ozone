@@ -336,6 +336,8 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.thirdparty.io.netty.util.internal.logging.InternalLoggerFactory;
+import org.apache.ratis.thirdparty.io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JvmPauseMonitor;
@@ -513,6 +515,9 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     super(OzoneVersionInfo.OZONE_VERSION_INFO);
     Preconditions.checkNotNull(conf);
     setConfiguration(conf);
+    InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
+    io.netty.util.internal.logging.InternalLoggerFactory.setDefaultFactory(
+        io.netty.util.internal.logging.Slf4JLoggerFactory.INSTANCE);
     // Load HA related configurations
     OMHANodeDetails omhaNodeDetails =
         OMHANodeDetails.loadOMHAConfig(configuration);

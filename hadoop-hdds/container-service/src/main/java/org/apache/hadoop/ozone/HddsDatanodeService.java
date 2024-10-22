@@ -84,6 +84,8 @@ import static org.apache.hadoop.security.UserGroupInformation.getCurrentUser;
 import static org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration.HDDS_DATANODE_BLOCK_DELETE_THREAD_MAX;
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
+import org.apache.ratis.thirdparty.io.netty.util.internal.logging.InternalLoggerFactory;
+import org.apache.ratis.thirdparty.io.netty.util.internal.logging.Slf4JLoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
@@ -210,6 +212,10 @@ public class HddsDatanodeService extends GenericCli implements ServicePlugin {
   }
 
   public void start() {
+    InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
+    io.netty.util.internal.logging.InternalLoggerFactory.setDefaultFactory(
+        io.netty.util.internal.logging.Slf4JLoggerFactory.INSTANCE);
+
     serviceRuntimeInfo.setStartTime();
 
     ratisReporterList = RatisDropwizardExports
