@@ -1215,6 +1215,16 @@ public class ContainerStateMachine extends BaseStateMachine {
   }
 
   @Override
+  public void pause() {
+    final LifeCycle lc = getLifeCycle();
+    LOG.info("{}: Try to pause from current LifeCycle state {}", getId(), lc);
+    if (lc.getCurrentState() != LifeCycle.State.NEW) {
+      lc.transition(LifeCycle.State.PAUSING);
+      lc.transition(LifeCycle.State.PAUSED);
+    }
+  }
+
+  @Override
   public String toStateMachineLogEntryString(StateMachineLogEntryProto proto) {
     return smProtoToString(getGroupId(), containerController, proto);
   }
