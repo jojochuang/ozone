@@ -91,7 +91,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-hadoop-dependency-server</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.0</version>
       </dependency>
 
       <dependency>
@@ -158,7 +158,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.0</version>
       </dependency>
 
       <dependency>
@@ -197,7 +197,7 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>hdds-container-service</artifactId>
-        <version>${hdds.version}</version>
+        <version>1.2.0</version>
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
