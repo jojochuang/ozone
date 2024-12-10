@@ -17,15 +17,52 @@
  */
 package com.google.protobuf;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
 /** Utilities for protobuf v2. */
 public final class Proto2Utils {
+  private static Constructor<?> constructor = null;
+  static {
+    Class<?> literalByteStringClass = null;
+    for (Class<?> innerClass : ByteString.class.getDeclaredClasses()) {
+      if (innerClass.getSimpleName().equals("LiteralByteString")) {
+        literalByteStringClass = innerClass;
+        break;
+      }
+    }
+
+    // Make the class accessible
+    //Field moduleField = null;
+    try {
+      /*moduleField = Class.class.getDeclaredField("module");
+      moduleField.setAccessible(true);
+      moduleField.set(ByteString.class, literalByteStringClass.getModule());*/
+
+      // Access the private constructor
+      constructor = literalByteStringClass.getDeclaredConstructor(byte[].class);
+      constructor.setAccessible(true);
+    } catch (NoSuchMethodException e) {
+      throw new RuntimeException(e);
+    }
+
+  }
   /**
    * Similar to {@link ByteString#copyFrom(byte[])} except that this method does not copy.
    * This method is safe only if the content of the array remains unchanged.
    * Otherwise, it violates the immutability of {@link ByteString}.
    */
   public static ByteString unsafeByteString(byte[] array) {
-    return array != null && array.length > 0 ? new LiteralByteString(array) : ByteString.EMPTY;
+    try {
+      return array != null && array.length > 0 ?
+          (ByteString) constructor.newInstance(array) : ByteString.EMPTY;
+    } catch (InstantiationException e) {
+      throw new RuntimeException(e);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    } catch (InvocationTargetException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private Proto2Utils() { }

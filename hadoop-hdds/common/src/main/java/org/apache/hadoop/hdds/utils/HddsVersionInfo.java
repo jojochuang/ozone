@@ -45,8 +45,7 @@ public final class HddsVersionInfo {
         "Source code repository " + HDDS_VERSION_INFO.getUrl() + " -r " +
             HDDS_VERSION_INFO.getRevision());
     System.out.println(
-        "Compiled with protoc " + HDDS_VERSION_INFO.getHadoopProtoc2Version() +
-            ", " + HDDS_VERSION_INFO.getGrpcProtocVersion() +
+        "Compiled with protoc " + HDDS_VERSION_INFO.getGrpcProtocVersion() +
             " and " + HDDS_VERSION_INFO.getHadoopProtoc3Version());
     System.out.println(
         "From source with checksum " + HDDS_VERSION_INFO.getSrcChecksum());
