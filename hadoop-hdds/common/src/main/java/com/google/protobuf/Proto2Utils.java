@@ -19,6 +19,7 @@ package com.google.protobuf;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Objects;
 
 /** Utilities for protobuf v2. */
 public final class Proto2Utils {
@@ -40,7 +41,7 @@ public final class Proto2Utils {
       moduleField.set(ByteString.class, literalByteStringClass.getModule());*/
 
       // Access the private constructor
-      constructor = literalByteStringClass.getDeclaredConstructor(byte[].class);
+      constructor = Objects.requireNonNull(literalByteStringClass).getDeclaredConstructor(byte[].class);
       constructor.setAccessible(true);
     } catch (NoSuchMethodException e) {
       throw new RuntimeException(e);
