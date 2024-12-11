@@ -56,7 +56,7 @@ public final class PayloadUtils {
     return result;
   }
 
-  public static com.google.protobuf.ByteString generatePayloadProto2(int payloadSizeBytes) {
+  public static org.apache.hadoop.thirdparty.protobuf.ByteString generatePayloadProto2(int payloadSizeBytes) {
     return Proto2Utils.unsafeByteString(generatePayload(payloadSizeBytes));
   }
 

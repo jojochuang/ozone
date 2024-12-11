@@ -17,7 +17,7 @@
  */
 package org.apache.hadoop.ozone.protocolPB;
 
-import com.google.protobuf.ByteString;
+import org.apache.hadoop.thirdparty.protobuf.ByteString;
 import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
 import org.apache.hadoop.ozone.client.checksum.CompositeCrcFileChecksum;
@@ -56,8 +56,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 
-import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getByteString;
-import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getFixedByteString;
+import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getHadoopThirdpartyByteString;
+import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.getHadoopThirdpartyFixedByteString;
 
 /**
  * Utilities for converting protobuf classes.
@@ -94,10 +94,10 @@ public final class OMPBHelper {
     }
 
     return TokenProto.newBuilder()
-        .setIdentifier(getByteString(token.getIdentifier()))
-        .setPassword(getByteString(token.getPassword()))
-        .setKindBytes(getFixedByteString(token.getKind()))
-        .setServiceBytes(getByteString(token.getService().getBytes()))
+        .setIdentifier(getHadoopThirdpartyByteString(token.getIdentifier()))
+        .setPassword(getHadoopThirdpartyByteString(token.getPassword()))
+        .setKindBytes(getHadoopThirdpartyFixedByteString(token.getKind()))
+        .setServiceBytes(getHadoopThirdpartyByteString(token.getService().getBytes()))
         .build();
   }
 
@@ -143,8 +143,8 @@ public final class OMPBHelper {
     return OzoneManagerProtocolProtos.FileEncryptionInfoProto.newBuilder()
         .setSuite(convert(info.getCipherSuite()))
         .setCryptoProtocolVersion(convert(info.getCryptoProtocolVersion()))
-        .setKey(getByteString(info.getEncryptedDataEncryptionKey()))
-        .setIv(getByteString(info.getIV()))
+        .setKey(getHadoopThirdpartyByteString(info.getEncryptedDataEncryptionKey()))
+        .setIv(getHadoopThirdpartyByteString(info.getIV()))
         .setEzKeyVersionName(info.getEzKeyVersionName())
         .setKeyName(info.getKeyName())
         .build();

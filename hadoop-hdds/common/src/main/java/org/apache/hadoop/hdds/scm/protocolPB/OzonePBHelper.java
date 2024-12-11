@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdds.scm.protocolPB;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.UnsafeByteOperations;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.TokenProto;
 import org.apache.hadoop.security.token.Token;
@@ -48,6 +49,9 @@ public final class OzonePBHelper {
   private static final Map<Object, ByteString>
       FIXED_BYTE_STRING_CACHE = new ConcurrentHashMap<>();
 
+  private static final Map<Object, org.apache.hadoop.thirdparty.protobuf.ByteString>
+      FIXED_HADOOP_THIRDPARTY_BYTE_STRING_CACHE = new ConcurrentHashMap<>();
+
   /**
    * Get the ByteString for frequently used fixed and small set strings.
    *
@@ -58,9 +62,20 @@ public final class OzonePBHelper {
         k -> ByteString.copyFromUtf8(k.toString()));
   }
 
+  public static org.apache.hadoop.thirdparty.protobuf.ByteString getHadoopThirdpartyFixedByteString(Text key) {
+    return FIXED_HADOOP_THIRDPARTY_BYTE_STRING_CACHE.computeIfAbsent(key,
+        k -> org.apache.hadoop.thirdparty.protobuf.ByteString.copyFromUtf8(k.toString()));
+  }
+
   public static ByteString getByteString(byte[] bytes) {
     // return singleton to reduce object allocation
     return (bytes.length == 0) ? ByteString.EMPTY : ByteString.copyFrom(bytes);
+  }
+
+  public static org.apache.hadoop.thirdparty.protobuf.ByteString getHadoopThirdpartyByteString(byte[] bytes) {
+    // return singleton to reduce object allocation
+    return (bytes.length == 0) ? org.apache.hadoop.thirdparty.protobuf.ByteString.EMPTY :
+        org.apache.hadoop.thirdparty.protobuf.ByteString.copyFrom(bytes);
   }
 
   /**
@@ -80,10 +95,18 @@ public final class OzonePBHelper {
    */
   public static TokenProto protoFromToken(Token<?> token) {
     return TokenProto.newBuilder()
-        .setIdentifier(getByteString(token.getIdentifier()))
-        .setPassword(getByteString(token.getPassword()))
-        .setKindBytes(getFixedByteString(token.getKind()))
-        .setServiceBytes(getByteString(token.getService().getBytes()))
+        .setIdentifier(getHadoopThirdpartyByteString(token.getIdentifier()))
+        .setPassword(getHadoopThirdpartyByteString(token.getPassword()))
+        .setKindBytes(getHadoopThirdpartyFixedByteString(token.getKind()))
+        .setServiceBytes(getHadoopThirdpartyByteString(token.getService().getBytes()))
         .build();
+  }
+
+  public static ByteString toUnshadedByteString(org.apache.hadoop.thirdparty.protobuf.ByteString byteString) {
+    return UnsafeByteOperations.unsafeWrap(byteString.asReadOnlyByteBuffer().array());
+  }
+
+  public static org.apache.hadoop.thirdparty.protobuf.ByteString toShadedHadoopByteString(ByteString byteString) {
+    return org.apache.hadoop.thirdparty.protobuf.UnsafeByteOperations.unsafeWrap(byteString.asReadOnlyByteBuffer().array());
   }
 }

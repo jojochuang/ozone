@@ -26,7 +26,7 @@ public final class Proto2Utils {
   private static Constructor<?> constructor = null;
   static {
     Class<?> literalByteStringClass = null;
-    for (Class<?> innerClass : ByteString.class.getDeclaredClasses()) {
+    for (Class<?> innerClass : org.apache.hadoop.thirdparty.protobuf.ByteString.class.getDeclaredClasses()) {
       if (innerClass.getSimpleName().equals("LiteralByteString")) {
         literalByteStringClass = innerClass;
         break;
@@ -53,10 +53,11 @@ public final class Proto2Utils {
    * This method is safe only if the content of the array remains unchanged.
    * Otherwise, it violates the immutability of {@link ByteString}.
    */
-  public static ByteString unsafeByteString(byte[] array) {
+  public static org.apache.hadoop.thirdparty.protobuf.ByteString unsafeByteString(byte[] array) {
     try {
       return array != null && array.length > 0 ?
-          (ByteString) constructor.newInstance(array) : ByteString.EMPTY;
+          (org.apache.hadoop.thirdparty.protobuf.ByteString) constructor.newInstance(array) :
+          org.apache.hadoop.thirdparty.protobuf.ByteString.EMPTY;
     } catch (InstantiationException e) {
       throw new RuntimeException(e);
     } catch (IllegalAccessException e) {

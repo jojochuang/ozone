@@ -51,6 +51,8 @@ import org.apache.hadoop.ozone.ClientVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.toShadedHadoopByteString;
+import static org.apache.hadoop.hdds.scm.protocolPB.OzonePBHelper.toUnshadedByteString;
 import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.HADOOP_PRC_PORTS_IN_DATANODEDETAILS;
 import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.WEBUI_PORTS_IN_DATANODEDETAILS;
 import static org.apache.hadoop.hdds.upgrade.HDDSLayoutFeature.RATIS_DATASTREAM_PORT_IN_DATANODEDETAILS;
@@ -400,10 +402,10 @@ public class DatanodeDetails extends NodeImpl implements
     }
 
     if (datanodeDetailsProto.hasIpAddress()) {
-      builder.setIpAddress(datanodeDetailsProto.getIpAddress(), datanodeDetailsProto.getIpAddressBytes());
+      builder.setIpAddress(datanodeDetailsProto.getIpAddress(), toUnshadedByteString(datanodeDetailsProto.getIpAddressBytes()));
     }
     if (datanodeDetailsProto.hasHostName()) {
-      builder.setHostName(datanodeDetailsProto.getHostName(), datanodeDetailsProto.getHostNameBytes());
+      builder.setHostName(datanodeDetailsProto.getHostName(), toUnshadedByteString(datanodeDetailsProto.getHostNameBytes()));
     }
     if (datanodeDetailsProto.hasCertSerialId()) {
       builder.setCertSerialId(datanodeDetailsProto.getCertSerialId());
@@ -417,11 +419,11 @@ public class DatanodeDetails extends NodeImpl implements
     }
     if (datanodeDetailsProto.hasNetworkName()) {
       builder.setNetworkName(
-          datanodeDetailsProto.getNetworkName(), datanodeDetailsProto.getNetworkNameBytes());
+          datanodeDetailsProto.getNetworkName(), toUnshadedByteString(datanodeDetailsProto.getNetworkNameBytes()));
     }
     if (datanodeDetailsProto.hasNetworkLocation()) {
       builder.setNetworkLocation(
-          datanodeDetailsProto.getNetworkLocation(), datanodeDetailsProto.getNetworkLocationBytes());
+          datanodeDetailsProto.getNetworkLocation(), toUnshadedByteString(datanodeDetailsProto.getNetworkLocationBytes()));
     }
     if (datanodeDetailsProto.hasLevel()) {
       builder.setLevel(datanodeDetailsProto.getLevel());
@@ -517,22 +519,22 @@ public class DatanodeDetails extends NodeImpl implements
         HddsProtos.DatanodeDetailsProto.newBuilder()
             .setUuid128(uuid128);
 
-    builder.setUuidBytes(uuidString.getBytes());
+    builder.setUuidBytes(toShadedHadoopByteString(uuidString.getBytes()));
 
     if (ipAddress != null) {
-      builder.setIpAddressBytes(ipAddress.getBytes());
+      builder.setIpAddressBytes(toShadedHadoopByteString(ipAddress.getBytes()));
     }
     if (hostName != null) {
-      builder.setHostNameBytes(hostName.getBytes());
+      builder.setHostNameBytes(toShadedHadoopByteString(hostName.getBytes()));
     }
     if (certSerialId != null) {
       builder.setCertSerialId(certSerialId);
     }
     if (!Strings.isNullOrEmpty(getNetworkName())) {
-      builder.setNetworkNameBytes(getNetworkNameAsByteString().getBytes());
+      builder.setNetworkNameBytes(toShadedHadoopByteString(getNetworkNameAsByteString().getBytes()));
     }
     if (!Strings.isNullOrEmpty(getNetworkLocation())) {
-      builder.setNetworkLocationBytes(getNetworkLocationAsByteString().getBytes());
+      builder.setNetworkLocationBytes(toShadedHadoopByteString(getNetworkLocationAsByteString().getBytes()));
     }
     if (getLevel() > 0) {
       builder.setLevel(getLevel());

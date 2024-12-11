@@ -28,6 +28,7 @@
     <docker.image>apache/ozone:${project.version}</docker.image>
   </properties>
   <modules>
+    <module>thirdparty</module>
     <module>interface-client</module>
     <module>interface-storage</module>
     <module>common</module>
@@ -52,6 +53,11 @@
   <dependencyManagement>
 
     <dependencies>
+      <dependency>
+        <groupId>org.apache.ozone</groupId>
+        <artifactId>thirdparty</artifactId>
+        <version>${ozone.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.apache.ozone</groupId>
         <artifactId>ozone-common</artifactId>

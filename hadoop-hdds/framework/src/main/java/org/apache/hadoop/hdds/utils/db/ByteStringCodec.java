@@ -18,7 +18,7 @@
 
 package org.apache.hadoop.hdds.utils.db;
 
-import com.google.protobuf.ByteString;
+import org.apache.hadoop.thirdparty.protobuf.ByteString;
 
 import jakarta.annotation.Nonnull;
 

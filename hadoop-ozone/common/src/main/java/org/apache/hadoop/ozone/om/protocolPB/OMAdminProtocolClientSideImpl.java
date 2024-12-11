@@ -17,8 +17,8 @@
  */
 package org.apache.hadoop.ozone.om.protocolPB;
 
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
+import org.apache.hadoop.thirdparty.protobuf.RpcController;
+import org.apache.hadoop.thirdparty.protobuf.ServiceException;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;

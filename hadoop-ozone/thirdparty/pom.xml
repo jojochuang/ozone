@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.apache.ozone</groupId>
+        <artifactId>ozone</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+    </parent>
+    <groupId>org.apache.ozone</groupId>
+    <artifactId>thirdparty</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+    <description>Apache Ozone Thirdparty</description>
+    <name>Apache Ozone Thirdparty</name>
+    <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-api</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+    <plugins>
+    <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <executions>
+    <execution>
+    <phase>package</phase>
+    <goals>
+        <goal>shade</goal>
+    </goals>
+    <configuration>
+    <shadeSourcesContent>true</shadeSourcesContent>
+    <createSourcesJar>true</createSourcesJar>
+    <!-- Replace the original artifact which is no good on its own -->
+    <shadedArtifactAttached>false</shadedArtifactAttached>
+    <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+    <relocations>
+    <relocation>
+        <pattern>com.google.protobuf</pattern>
+        <shadedPattern>org.apache.hadoop.thirdparty.protobuf</shadedPattern>
+    </relocation>
+    <!--<relocation>
+        <pattern>io.grpc</pattern>
+        <shadedPattern>${ratis.thirdparty.shaded.prefix}.io.grpc</shadedPattern>
+    </relocation>-->
+    </relocations>
+        <artifactSet>
+            <includes>
+                <!-- Package all listed dependencies -->
+                <include>*:*</include>
+            </includes>
+            <excludes>
+                <exclude>com.google.protobuf:protobuf-java</exclude>
+            </excludes>
+        </artifactSet>
+        <transformers>
+            <!-- There are transformers for LICENSE and NOTICE, but none of our dependencies have proper upstream
+                 L&N files, so we can just manage it ourselves with less pain and more correctness. -->
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+        </transformers>
+    </configuration>
+    </execution>
+    </executions>
+    </plugin>
+    </plugins>
+    </build>
+</project>

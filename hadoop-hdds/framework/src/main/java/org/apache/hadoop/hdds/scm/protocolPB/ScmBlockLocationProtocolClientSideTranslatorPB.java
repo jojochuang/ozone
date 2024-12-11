@@ -30,6 +30,7 @@ import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.StandaloneReplicationConfig;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.SCMBlockLocationRequest;
@@ -59,7 +60,6 @@ import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.protocol.ScmBlockLocationProtocol;
 import org.apache.hadoop.hdds.scm.proxy.SCMBlockLocationFailoverProxyProvider;
 import org.apache.hadoop.hdds.tracing.TracingUtil;
-import org.apache.hadoop.io.retry.RetryProxy;
 import org.apache.hadoop.ipc.ProtobufHelper;
 import org.apache.hadoop.ipc.ProtocolTranslator;
 import org.apache.hadoop.ozone.ClientVersion;
@@ -67,8 +67,8 @@ import org.apache.hadoop.ozone.common.BlockGroup;
 import org.apache.hadoop.ozone.common.DeleteBlockGroupResult;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
+import org.apache.hadoop.thirdparty.protobuf.RpcController;
+import org.apache.hadoop.thirdparty.protobuf.ServiceException;
 
 import static org.apache.hadoop.hdds.protocol.proto.ScmBlockLocationProtocolProtos.Status.OK;
 
@@ -96,12 +96,22 @@ public final class ScmBlockLocationProtocolClientSideTranslatorPB
    * failover proxy provider.
    */
   public ScmBlockLocationProtocolClientSideTranslatorPB(
-      SCMBlockLocationFailoverProxyProvider proxyProvider) {
+      SCMBlockLocationFailoverProxyProvider proxyProvider, OzoneConfiguration conf) {
     Preconditions.checkState(proxyProvider != null);
     this.failoverProxyProvider = proxyProvider;
-    this.rpcProxy = (ScmBlockLocationProtocolPB) RetryProxy.create(
+    //RPC.setProtocolEngine(OzoneConfiguration.of(conf),
+    //    ScmBlockLocationProtocolPB.class, ProtobufRpcEngine2.class);
+    /*this.rpcProxy = (ScmBlockLocationProtocolPB) RetryProxy.create(
         ScmBlockLocationProtocolPB.class, failoverProxyProvider,
-        failoverProxyProvider.getSCMBlockLocationRetryPolicy());
+        failoverProxyProvider.getSCMBlockLocationRetryPolicy());*/
+    this.rpcProxy = (ScmBlockLocationProtocolPB) proxyProvider.getProxy().proxy;
+
+    /*this.rpcProxy = RPC.getProtocolProxy(
+            ReconfigureProtocolOmPB.class,
+            RPC.getProtocolVersion(ReconfigureProtocolOmPB.class),
+            addr, ugi, hadoopConf,
+            NetUtils.getDefaultSocketFactory(hadoopConf))
+        .getProxy();*/
   }
 
   /**

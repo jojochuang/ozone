@@ -140,7 +140,7 @@ public final class ManagedSecretKey {
         .setCreationTime(this.creationTime.toEpochMilli())
         .setExpiryTime(this.expiryTime.toEpochMilli())
         .setAlgorithm(this.secretKey.getAlgorithm())
-        .setEncoded(ByteString.copyFrom(this.secretKey.getEncoded()))
+        .setEncoded(org.apache.hadoop.thirdparty.protobuf.ByteString.copyFrom(this.secretKey.getEncoded()))
         .build();
   }
 

@@ -19,7 +19,7 @@ package org.apache.hadoop.ozone.protocol.commands;
 
 import java.util.UUID;
 
-import com.google.protobuf.Message;
+import org.apache.hadoop.thirdparty.protobuf.Message;
 import org.apache.hadoop.hdds.server.events.IdentifiableEventPayload;
 
 /**

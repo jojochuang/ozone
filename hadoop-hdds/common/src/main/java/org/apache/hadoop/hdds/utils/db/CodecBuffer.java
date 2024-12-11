@@ -223,6 +223,12 @@ public class CodecBuffer implements UncheckedAutoCloseable {
         Unpooled.wrappedBuffer(bytes.asReadOnlyByteBuffer()), bytes);
   }
 
+  /** Wrap the given {@link ByteString}. */
+  public static CodecBuffer wrap(org.apache.hadoop.thirdparty.protobuf.ByteString bytes) {
+    return Factory.newCodecBuffer(
+        Unpooled.wrappedBuffer(bytes.asReadOnlyByteBuffer()), bytes);
+  }
+
   private static final AtomicInteger LEAK_COUNT = new AtomicInteger();
 
   /** Assert the number of leak detected is zero. */

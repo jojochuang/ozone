@@ -17,9 +17,9 @@
  */
 package org.apache.hadoop.hdds.utils.db;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.MessageLite;
-import com.google.protobuf.Parser;
+import org.apache.hadoop.thirdparty.protobuf.InvalidProtocolBufferException;
+import org.apache.hadoop.thirdparty.protobuf.MessageLite;
+import org.apache.hadoop.thirdparty.protobuf.Parser;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import jakarta.annotation.Nonnull;

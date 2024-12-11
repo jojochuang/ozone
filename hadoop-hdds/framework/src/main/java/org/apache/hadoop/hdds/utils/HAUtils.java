@@ -134,7 +134,7 @@ public final class HAUtils {
       OzoneConfiguration conf) {
     ScmBlockLocationProtocolClientSideTranslatorPB scmBlockLocationClient =
         new ScmBlockLocationProtocolClientSideTranslatorPB(
-            new SCMBlockLocationFailoverProxyProvider(conf));
+            new SCMBlockLocationFailoverProxyProvider(conf), conf);
     return TracingUtil
         .createProxy(scmBlockLocationClient, ScmBlockLocationProtocol.class,
             conf);

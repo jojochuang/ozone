@@ -163,6 +163,11 @@ https://maven.apache.org/xsd/maven-4.0.0.xsd">
                 </replace>
                 <replace token="com.google.protobuf"
                          value="org.apache.hadoop.thirdparty.protobuf"
+
+                         dir="target/generated-sources/java/org/apache/hadoop/hdds/protocol/proto">
+                </replace>
+                <replace token="com.google.protobuf"
+                         value="org.apache.hadoop.thirdparty.protobuf"
                          dir="target/generated-sources/java/proto3/org/apache/hadoop/hdds/protocol/proto">
                 </replace>
                 <move file="target/generated-sources/java/proto3/org/apache/hadoop/hdds/protocol/proto"

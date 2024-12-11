@@ -112,8 +112,8 @@ public class OzoneSecretKey implements Writable {
     SecretKeyProto token = SecretKeyProto.newBuilder()
         .setKeyId(getKeyId())
         .setExpiryDate(getExpiryDate())
-        .setPrivateKeyBytes(ByteString.copyFrom(getEncodedPrivateKey()))
-        .setPublicKeyBytes(ByteString.copyFrom(getEncodedPubliceKey()))
+        .setPrivateKeyBytes(org.apache.hadoop.thirdparty.protobuf.ByteString.copyFrom(getEncodedPrivateKey()))
+        .setPublicKeyBytes(org.apache.hadoop.thirdparty.protobuf.ByteString.copyFrom(getEncodedPubliceKey()))
         .build();
     out.write(token.toByteArray());
   }
