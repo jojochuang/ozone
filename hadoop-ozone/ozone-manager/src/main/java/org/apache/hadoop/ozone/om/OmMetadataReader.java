@@ -19,7 +19,7 @@ package org.apache.hadoop.ozone.om;
 
 import java.io.IOException;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.ipc.ProtobufRpcEngine2;
+import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -488,10 +488,10 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
           OzoneAclUtils.accessIdToUserPrincipal(getS3Auth().getAccessId());
       user = UserGroupInformation.createRemoteUser(principal);
     } else {
-      user = ProtobufRpcEngine2.Server.getRemoteUser();
+      user = ProtobufRpcEngine.Server.getRemoteUser();
     }
 
-    InetAddress remoteIp = ProtobufRpcEngine2.Server.getRemoteIp();
+    InetAddress remoteIp = ProtobufRpcEngine.Server.getRemoteIp();
     String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
     String bucketOwner = ozoneManager.getBucketOwner(vol, bucket, acl, resType);
 
@@ -523,12 +523,12 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
           OzoneAclUtils.accessIdToUserPrincipal(getS3Auth().getAccessId());
       user = UserGroupInformation.createRemoteUser(principal);
     } else {
-      user = ProtobufRpcEngine2.Server.getRemoteUser();
+      user = ProtobufRpcEngine.Server.getRemoteUser();
     }
 
     String vol = resolvedBucket.realVolume();
     String bucket = resolvedBucket.realBucket();
-    InetAddress remoteIp = ProtobufRpcEngine2.Server.getRemoteIp();
+    InetAddress remoteIp = ProtobufRpcEngine.Server.getRemoteIp();
     String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
     String bucketOwner = resolvedBucket.bucketOwner();
 
