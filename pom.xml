@@ -1050,6 +1050,11 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
         <version>${proto3.hadooprpc.protobuf.version}</version>
       </dependency>
       <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java-util</artifactId>
+        <version>${proto3.hadooprpc.protobuf.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.apache.hadoop.thirdparty</groupId>
         <artifactId>hadoop-shaded-protobuf_3_25</artifactId>
         <version>${hadoop-thirdparty.version}</version>
