@@ -948,6 +948,8 @@ public class TestOzoneShellHA {
   }
 
   @Test
+  // Make sure this test runs first so it does not count the containers created by other tests.
+  @Order(1)
   public void testOzoneAdminCmdListAllContainer()
       throws UnsupportedEncodingException {
     String[] args = new String[] {"container", "create", "--scm",
