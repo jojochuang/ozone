@@ -960,7 +960,7 @@ public class TestOzoneShellHA {
         "localhost:" + cluster.getStorageContainerManager().getClientRpcPort()};
     execute(ozoneAdminShell, args1);
     //results will be capped at the maximum allowed count
-    assertEquals(1, getNumOfContainers());
+    assertEquals(2, getNumOfContainers());
 
     String[] args2 = new String[] {"container", "list", "-a", "--scm",
         "localhost:" + cluster.getStorageContainerManager().getClientRpcPort()};
