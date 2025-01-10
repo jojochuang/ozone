@@ -100,16 +100,8 @@ public class ContainerOperationClient implements ScmClient {
     secretKeyClient = newSecretKeyClient(conf);
     containerSizeB = (int) conf.getStorageSize(OZONE_SCM_CONTAINER_SIZE,
         OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-    boolean useRatis = conf.getBoolean(
-        ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_KEY,
-        ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_DEFAULT);
-    if (useRatis) {
-      replicationFactor = HddsProtos.ReplicationFactor.THREE;
-      replicationType = HddsProtos.ReplicationType.RATIS;
-    } else {
-      replicationFactor = HddsProtos.ReplicationFactor.ONE;
-      replicationType = HddsProtos.ReplicationType.STAND_ALONE;
-    }
+    replicationFactor = HddsProtos.ReplicationFactor.THREE;
+    replicationType = HddsProtos.ReplicationType.RATIS;
     containerTokenEnabled = conf.getBoolean(HDDS_CONTAINER_TOKEN_ENABLED,
         HDDS_CONTAINER_TOKEN_ENABLED_DEFAULT);
     maxCountOfContainerList = conf

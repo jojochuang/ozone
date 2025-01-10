@@ -339,8 +339,6 @@ public class OzoneConfiguration extends Configuration
             OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_PORT),
         new DeprecationDelta("dfs.container.ratis.datastream.random.port",
             OzoneConfigKeys.HDDS_CONTAINER_RATIS_DATASTREAM_RANDOM_PORT),
-        new DeprecationDelta("dfs.container.ratis.enabled",
-            ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_KEY),
         new DeprecationDelta("dfs.container.ratis.ipc",
             OzoneConfigKeys.HDDS_CONTAINER_RATIS_IPC_PORT),
         new DeprecationDelta("dfs.container.ratis.ipc.random.port",

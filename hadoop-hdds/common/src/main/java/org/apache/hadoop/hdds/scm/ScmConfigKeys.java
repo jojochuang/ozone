@@ -40,11 +40,6 @@ public final class ScmConfigKeys {
   // SCM DB directory permission
   public static final String OZONE_SCM_DB_DIRS_PERMISSIONS =
       "ozone.scm.db.dirs.permissions";
-
-  public static final String HDDS_CONTAINER_RATIS_ENABLED_KEY
-      = "hdds.container.ratis.enabled";
-  public static final boolean HDDS_CONTAINER_RATIS_ENABLED_DEFAULT
-      = false;
   public static final String HDDS_CONTAINER_RATIS_RPC_TYPE_KEY
       = "hdds.container.ratis.rpc.type";
   public static final String HDDS_CONTAINER_RATIS_RPC_TYPE_DEFAULT

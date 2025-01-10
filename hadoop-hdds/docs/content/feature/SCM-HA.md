@@ -239,3 +239,4 @@ SCM HA can be turned on on any Ozone cluster. First enable Ratis (`ozone.scm.rat
 Start the cluster and test if it works well.
 
 If everything is fine, you can extend the cluster configuration with multiple nodes, restart SCM node, and initialize the additional nodes with `scm --bootstrap` command.
+****

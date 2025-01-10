@@ -50,8 +50,6 @@ public class TestScmAdminHA {
         .setNumOfOzoneManagers(numOfOMs)
         .build();
     conf.setQuietMode(false);
-    // enable ratis for Scm.
-    conf.setBoolean(ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_KEY, true);
     cluster.waitForClusterToBeReady();
   }
 

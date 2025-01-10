@@ -141,22 +141,11 @@ public final class SCMTestUtils {
 
   public static HddsProtos.ReplicationType getReplicationType(
       ConfigurationSource conf) {
-    return isUseRatis(conf) ?
-        HddsProtos.ReplicationType.RATIS :
-        HddsProtos.ReplicationType.STAND_ALONE;
+    return HddsProtos.ReplicationType.RATIS;
   }
 
   public static HddsProtos.ReplicationFactor getReplicationFactor(
       ConfigurationSource conf) {
-    return isUseRatis(conf) ?
-        HddsProtos.ReplicationFactor.THREE :
-        HddsProtos.ReplicationFactor.ONE;
+    return HddsProtos.ReplicationFactor.THREE;
   }
-
-  private static boolean isUseRatis(ConfigurationSource c) {
-    return c.getBoolean(
-        ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_KEY,
-        ScmConfigKeys.HDDS_CONTAINER_RATIS_ENABLED_DEFAULT);
-  }
-
 }
