@@ -232,15 +232,6 @@
     </description>
   </property>
   <property>
-    <name>hdds.container.ratis.enabled</name>
-    <value>false</value>
-    <tag>OZONE, MANAGEMENT, PIPELINE, RATIS</tag>
-    <description>Ozone supports different kinds of replication pipelines. Ratis
-      is one of
-      the replication pipeline supported by ozone.
-    </description>
-  </property>
-  <property>
     <name>hdds.container.ratis.ipc.port</name>
     <value>9858</value>
     <tag>OZONE, CONTAINER, PIPELINE, RATIS</tag>

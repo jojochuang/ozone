@@ -29,6 +29,7 @@ import org.apache.hadoop.hdds.scm.protocolPB.StorageContainerLocationProtocolCli
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.container.common.SCMTestUtils;
+import org.apache.ozone.test.GenericTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -216,10 +218,10 @@ public class TestXceiverClientManager {
       assertNull(nonExistent);
 
       // Any container operation should now fail
-      Throwable t = assertThrows(IOException.class,
+      Throwable t = assertThrows(NullPointerException.class,
           () -> ContainerProtocolCalls.createContainer(client1,
               container1.getContainerInfo().getContainerID(), null));
-      assertThat(t.getMessage()).contains("This channel is not connected");
+      assertThat(t.getMessage()).contains("client is null");
 
       clientManager.releaseClient(client2, false);
     }
