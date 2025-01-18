@@ -37,6 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.validation.constraints.Null;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -167,10 +168,10 @@ public class TestXceiverClientManager {
       clientManager.releaseClient(client1, false);
 
       // Create container should throw exception on closed client
-      Throwable t = assertThrows(IOException.class,
+      Throwable t = assertThrows(NullPointerException.class,
           () -> ContainerProtocolCalls.createContainer(client1,
               container1.getContainerInfo().getContainerID(), null));
-      assertThat(t.getMessage()).contains("This channel is not connected");
+      assertThat(t.getMessage()).contains("client is null");
 
       clientManager.releaseClient(client2, false);
     }
