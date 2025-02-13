@@ -163,6 +163,10 @@ public final class DBStoreBuilder {
         OZONE_OM_DELTA_UPDATE_DATA_SIZE_MAX_LIMIT_DEFAULT, StorageUnit.BYTES);
   }
 
+  public RocksDBConfiguration getRocksDBConfiguration() {
+    return rocksDBConfiguration;
+  }
+
   public static File getDBDirPath(DBDefinition definition,
                                   ConfigurationSource configuration) {
     // Set metadata dirs.
@@ -356,7 +360,7 @@ public final class DBStoreBuilder {
     return tableConfigs;
   }
 
-  private ManagedColumnFamilyOptions getDefaultCfOptions() {
+  public ManagedColumnFamilyOptions getDefaultCfOptions() {
     return Optional.ofNullable(defaultCfOptions)
         .orElseGet(defaultCfProfile::getColumnFamilyOptions);
   }

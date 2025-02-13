@@ -85,6 +85,41 @@ public class RocksDBConfiguration {
           + "Default 0 means no limit.")
   private long walSizeLimit = 0;
 
+  @Config(key = "rocksdb.ttl",
+      type = ConfigType.LONG,
+      defaultValue = "2592000",
+      tags = {OM},
+      description = "Column Family TTL in seconds. Default 2592000 seconds."
+          + "This is currently used by fileTable and keyTable only.")
+  private long ttl = 2592000;
+
+  @Config(key = "rocksdb.periodic_compaction_seconds",
+      type = ConfigType.LONG,
+      defaultValue = "0",
+      tags = {OM},
+      description = "Column Family periodic_compaction_seconds in seconds."
+          + " Default 0 second. This is currently used by fileTable and "
+          + "keyTable only.")
+  private long periodicCompactionSeconds = 0;
+
+  @Config(key = "rocksdb.max_bytes_for_level_multiplier",
+      type = ConfigType.DOUBLE,
+      defaultValue = "10.0",
+      tags = {OM},
+      description = "Column Family max_bytes_for_level_multiplier."
+          + " Default 10.0. This is currently used by fileTable and "
+          + "keyTable only.")
+  private double maxBytesForLevelMultiplier = 10.0;
+
+  @Config(key = "rocksdb.compaction_pri",
+      type = ConfigType.STRING,
+      defaultValue = "MinOverlappingRatio",
+      tags = {OM},
+      description = "Column Family max_bytes_for_level_multiplier."
+          + " Default MinOverlappingRatio. This is currently used by fileTable"
+          + " and keyTable only.")
+  private String compactionPriority = "MinOverlappingRatio";
+
   public void setRocksdbLoggingEnabled(boolean enabled) {
     this.rocksdbLogEnabled = enabled;
   }
@@ -115,6 +150,38 @@ public class RocksDBConfiguration {
 
   public long getWalTTL() {
     return walTTL;
+  }
+
+  public void setTTL(long ttl) {
+    this.ttl = ttl;
+  }
+
+  public long getTTL() {
+    return ttl;
+  }
+
+  public void setPeriodicCompactionSeconds(long periodicCompactionSeconds) {
+    this.periodicCompactionSeconds = periodicCompactionSeconds;
+  }
+
+  public long getPeriodicCompactionSeconds() {
+    return periodicCompactionSeconds;
+  }
+
+  public void setMaxBytesForLevelMultiplier(long maxBytesForLevelMultiplier) {
+    this.maxBytesForLevelMultiplier = maxBytesForLevelMultiplier;
+  }
+
+  public double getMaxBytesForLevelMultiplier() {
+    return maxBytesForLevelMultiplier;
+  }
+
+  public void setCompactionPriority(String compactionPriority) {
+    this.compactionPriority = compactionPriority;
+  }
+
+  public String getCompactionPriority() {
+    return compactionPriority;
   }
 
   public void setWalSizeLimit(long limit) {

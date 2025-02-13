@@ -53,6 +53,7 @@ import org.apache.hadoop.hdds.utils.db.TableIterator;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.hdds.utils.db.cache.TableCache.CacheType;
+import org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -101,6 +102,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
+
+import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_DB_PROFILE;
+import static org.apache.hadoop.hdds.utils.db.DBStoreBuilder.HDDS_DEFAULT_DB_PROFILE;
 import static org.apache.hadoop.ozone.OzoneConsts.DB_TRANSIENT_MARKER;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
@@ -124,6 +128,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.ozone.compaction.log.CompactionLogEntry;
 import org.apache.ratis.util.ExitUtils;
 import org.eclipse.jetty.util.StringUtil;
+import org.rocksdb.CompactionPriority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -608,10 +613,19 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
 
   public static DBStoreBuilder addOMTablesAndCodecs(DBStoreBuilder builder) {
 
+    // Get global ColumnFamilyOptions first.
+    ManagedColumnFamilyOptions fileTableOptions = builder.getDefaultCfOptions();
+    RocksDBConfiguration rocksDBConfiguration = builder.getRocksDBConfiguration();
+    fileTableOptions
+        .setPeriodicCompactionSeconds(rocksDBConfiguration.getPeriodicCompactionSeconds())
+        .setTtl(rocksDBConfiguration.getTTL())
+        .setMaxBytesForLevelMultiplier(rocksDBConfiguration.getMaxBytesForLevelMultiplier())
+        .setCompactionPriority(CompactionPriority.valueOf(rocksDBConfiguration.getCompactionPriority()));
+
     return builder.addTable(USER_TABLE)
         .addTable(VOLUME_TABLE)
         .addTable(BUCKET_TABLE)
-        .addTable(KEY_TABLE)
+        .addTable(KEY_TABLE, fileTableOptions)
         .addTable(DELETED_TABLE)
         .addTable(OPEN_KEY_TABLE)
         .addTable(MULTIPARTINFO_TABLE)
@@ -619,7 +633,7 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
         .addTable(S3_SECRET_TABLE)
         .addTable(PREFIX_TABLE)
         .addTable(DIRECTORY_TABLE)
-        .addTable(FILE_TABLE)
+        .addTable(FILE_TABLE, fileTableOptions)
         .addTable(OPEN_FILE_TABLE)
         .addTable(DELETED_DIR_TABLE)
         .addTable(TRANSACTION_INFO_TABLE)
