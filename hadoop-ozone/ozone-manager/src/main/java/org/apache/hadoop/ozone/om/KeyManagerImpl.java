@@ -1711,26 +1711,21 @@ public class KeyManagerImpl implements KeyManager {
     String keyArgs = OzoneFSUtils.addTrailingSlashIfNeeded(
         metadataManager.getOzoneKey(volumeName, bucketName, keyName));
 
-    TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>> iterator;
     Table<String, OmKeyInfo> keyTable;
     metadataManager.getLock().acquireReadLock(BUCKET_LOCK, volumeName,
         bucketName);
     try {
       keyTable = metadataManager.getKeyTable(
           getBucketLayout(metadataManager, volumeName, bucketName));
-      iterator = getIteratorForKeyInTableCache(recursive, startKey,
+      getIteratorForKeyInTableCache(recursive, startKey,
           volumeName, bucketName, cacheKeyMap, keyArgs, keyTable);
     } finally {
       metadataManager.getLock().releaseReadLock(BUCKET_LOCK, volumeName,
           bucketName);
     }
 
-    try {
-      findKeyInDbWithIterator(recursive, startKey, numEntries, volumeName,
-          bucketName, keyName, cacheKeyMap, keyArgs, keyTable, iterator);
-    } finally {
-      iterator.close();
-    }
+    findKeyInKeyTable(recursive, startKey, numEntries, volumeName,
+        bucketName, keyName, cacheKeyMap, keyArgs, keyTable);
 
     int countEntries;
 
@@ -1768,12 +1763,10 @@ public class KeyManagerImpl implements KeyManager {
     return fileStatusList;
   }
 
-  private TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>>
-      getIteratorForKeyInTableCache(
+  private void getIteratorForKeyInTableCache(
       boolean recursive, String startKey, String volumeName, String bucketName,
       TreeMap<String, OzoneFileStatus> cacheKeyMap, String keyArgs,
       Table<String, OmKeyInfo> keyTable) throws IOException {
-    TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>> iterator;
     Iterator<Map.Entry<CacheKey<String>, CacheValue<OmKeyInfo>>>
         cacheIter = keyTable.cacheIterator();
     String startCacheKey = metadataManager.getOzoneKey(volumeName, bucketName, startKey);
@@ -1781,24 +1774,24 @@ public class KeyManagerImpl implements KeyManager {
     // First, find key in TableCache
     listStatusFindKeyInTableCache(cacheIter, keyArgs, startCacheKey,
         recursive, cacheKeyMap);
-    iterator = keyTable.iterator();
-    return iterator;
   }
 
   @SuppressWarnings("parameternumber")
-  private void findKeyInDbWithIterator(boolean recursive, String startKey,
-      long numEntries, String volumeName, String bucketName, String keyName,
-      TreeMap<String, OzoneFileStatus> cacheKeyMap, String keyArgs,
-      Table<String, OmKeyInfo> keyTable,
-      TableIterator<String,
-          ? extends Table.KeyValue<String, OmKeyInfo>> iterator)
-      throws IOException {
+  private void findKeyInKeyTable(boolean recursive, String startKey,
+                                 long numEntries, String volumeName, String bucketName, String keyName,
+                                 TreeMap<String, OzoneFileStatus> cacheKeyMap, String keyArgs,
+                                 Table<String, OmKeyInfo> keyTable) throws IOException {
     // Then, find key in DB
     String seekKeyInDb =
         metadataManager.getOzoneKey(volumeName, bucketName, startKey);
-    Table.KeyValue<String, OmKeyInfo> entry = iterator.seek(seekKeyInDb);
-    int countEntries = 0;
-    if (iterator.hasNext()) {
+    try (TableIterator<String,
+        ? extends Table.KeyValue<String, OmKeyInfo>> iterator = keyTable.iterator(seekKeyInDb)) {
+
+      int countEntries = 0;
+      if (!iterator.hasNext()) {
+        return;
+      }
+      Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
       if (entry.getKey().equals(keyArgs)) {
         // Skip the key itself, since we are listing inside the directory
         iterator.next();
