@@ -21,6 +21,8 @@ package org.apache.hadoop.hdds.utils.db.managed;
 import org.apache.ratis.util.UncheckedAutoCloseable;
 import org.rocksdb.BloomFilter;
 
+import java.util.Objects;
+
 import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils.track;
 
 /**
@@ -41,5 +43,10 @@ public class ManagedBloomFilter extends BloomFilter {
   @Override
   public boolean equals(Object o) {
     return super.equals(o);
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode();
   }
 }
