@@ -24,6 +24,9 @@ import org.rocksdb.Env;
 
 import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils.track;
 
+/**
+ * Managed ConfigOptions.
+ */
 public class ManagedConfigOptions extends ConfigOptions {
   private final UncheckedAutoCloseable leakTracker = track(this);
 

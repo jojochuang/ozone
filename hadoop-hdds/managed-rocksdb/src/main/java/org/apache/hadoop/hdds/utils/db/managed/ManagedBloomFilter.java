@@ -37,4 +37,9 @@ public class ManagedBloomFilter extends BloomFilter {
       leakTracker.close();
     }
   }
+
+  @Override
+  public boolean equals(Object o) {
+    return super.equals(o);
+  }
 }
