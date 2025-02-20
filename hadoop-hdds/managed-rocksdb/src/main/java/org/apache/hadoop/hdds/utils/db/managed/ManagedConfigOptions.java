@@ -18,38 +18,30 @@
  */
 package org.apache.hadoop.hdds.utils.db.managed;
 
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.ratis.util.UncheckedAutoCloseable;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Logger;
-import org.rocksdb.LoggerInterface;
+import org.rocksdb.ConfigOptions;
+import org.rocksdb.Env;
 
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils.LOG;
 import static org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils.track;
 
-/**
- * Managed DBOptions.
- */
-public class ManagedDBOptions extends DBOptions {
-
+public class ManagedConfigOptions extends ConfigOptions {
   private final UncheckedAutoCloseable leakTracker = track(this);
-  private final AtomicReference<Logger> loggerRef = new AtomicReference<>();
 
-  public DBOptions setLogger(LoggerInterface logger) {
-    if (logger instanceof Logger) {
-      IOUtils.close(LOG, loggerRef.getAndSet((Logger) logger));
-    } else {
-      throw new IllegalArgumentException("Unsupported logger type: " + logger);
-    }
-    return super.setLogger(logger);
+  public ManagedConfigOptions() {
+    super();
+  }
+
+  public ManagedConfigOptions setIgnoreUnknownOptions(final boolean ignore) {
+    return (ManagedConfigOptions)super.setIgnoreUnknownOptions(ignore);
+  }
+
+  public ManagedConfigOptions setEnv(final Env env) {
+    return (ManagedConfigOptions)super.setEnv(env);
   }
 
   @Override
   public void close() {
     try {
-      IOUtils.close(LOG, loggerRef.getAndSet(null));
       super.close();
     } finally {
       leakTracker.close();
