@@ -156,6 +156,7 @@ enum Type {
   PutObjectTagging = 140;
   GetObjectTagging = 141;
   DeleteObjectTagging = 142;
+  Compact = 143;
 }
 
 enum SafeMode {
@@ -303,6 +304,7 @@ message OMRequest {
   optional GetObjectTaggingRequest          getObjectTaggingRequest        = 140;
   optional PutObjectTaggingRequest          putObjectTaggingRequest        = 141;
   optional DeleteObjectTaggingRequest       deleteObjectTaggingRequest     = 142;
+  optional CompactRequest                   compactRequest                 = 143;
 }
 
 message OMResponse {
@@ -436,6 +438,7 @@ message OMResponse {
   optional GetObjectTaggingResponse          getObjectTaggingResponse      = 140;
   optional PutObjectTaggingResponse          putObjectTaggingResponse      = 141;
   optional DeleteObjectTaggingResponse       deleteObjectTaggingResponse   = 142;
+  optional CompactResponse                   compactResponse               = 143;
 }
 
 enum Status {
@@ -2292,6 +2295,13 @@ message DeleteObjectTaggingRequest {
 }
 
 message DeleteObjectTaggingResponse {
+}
+
+message CompactRequest {
+  required string columnFamily = 1;
+}
+
+message CompactResponse {
 }
 
 /**

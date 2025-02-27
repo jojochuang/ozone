@@ -1182,4 +1182,6 @@ public interface OzoneManagerProtocol
    * @throws IOException
    */
   void startQuotaRepair(List<String> buckets) throws IOException;
+
+  void compact(String columnFamily) throws IOException;
 }

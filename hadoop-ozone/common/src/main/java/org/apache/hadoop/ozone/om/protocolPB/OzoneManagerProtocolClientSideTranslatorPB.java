@@ -2658,6 +2658,17 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     handleError(omResponse);
   }
 
+  @Override
+  public void compact(String columnFamily) throws IOException {
+    OzoneManagerProtocolProtos.CompactRequest compactRequest =
+        OzoneManagerProtocolProtos.CompactRequest.newBuilder()
+            .setColumnFamily(columnFamily)
+            .build();
+    OMRequest omRequest = createOMRequest(Type.Compact)
+        .setCompactRequest(compactRequest).build();
+    handleError(submitRequest(omRequest));
+  }
+
   private SafeMode toProtoBuf(SafeModeAction action) {
     switch (action) {
     case ENTER:
