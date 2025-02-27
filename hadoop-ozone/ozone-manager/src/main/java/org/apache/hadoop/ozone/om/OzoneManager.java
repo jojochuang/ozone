@@ -107,6 +107,7 @@ import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.s3.S3SecretCacheProvider;
 import org.apache.hadoop.ozone.om.s3.S3SecretStoreProvider;
+import org.apache.hadoop.ozone.om.service.CompactTask;
 import org.apache.hadoop.ozone.om.service.OMRangerBGSyncService;
 import org.apache.hadoop.ozone.om.service.QuotaRepairTask;
 import org.apache.hadoop.ozone.om.snapshot.OmSnapshotUtils;
@@ -5020,5 +5021,11 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
     if (disabledFeatures.contains(feature.name())) {
       throw new OMException("Feature disabled: " + feature, OMException.ResultCodes.NOT_SUPPORTED_OPERATION);
     }
+  }
+
+  @Override
+  public void compact(String columnFamily) throws IOException {
+    checkAdminUserPrivilege("compact column family " + columnFamily);
+    new CompactTask(this).compact(columnFamily);
   }
 }

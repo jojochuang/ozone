@@ -402,6 +402,10 @@ public class OzoneManagerRequestHandler implements RequestHandler {
         OzoneManagerProtocolProtos.GetObjectTaggingResponse getObjectTaggingResponse =
             getObjectTagging(request.getGetObjectTaggingRequest());
         responseBuilder.setGetObjectTaggingResponse(getObjectTaggingResponse);
+      case Compact:
+        OzoneManagerProtocolProtos.CompactResponse compactResponse = compact(request.getCompactRequest());
+        responseBuilder
+            .setCompactResponse(compactResponse);
         break;
       default:
         responseBuilder.setSuccess(false);
@@ -417,6 +421,15 @@ public class OzoneManagerRequestHandler implements RequestHandler {
       }
     }
     return responseBuilder.build();
+  }
+
+  private OzoneManagerProtocolProtos.CompactResponse compact(
+      OzoneManagerProtocolProtos.CompactRequest compactRequest)
+      throws IOException {
+    impl.compact(
+        compactRequest.getColumnFamily());
+    return OzoneManagerProtocolProtos.CompactResponse.newBuilder()
+        .build();
   }
 
   @Override
