@@ -58,6 +58,12 @@ public class Compact implements Callable<Void> {
   private String omServiceId;
 
   @CommandLine.Option(
+      names = {"-host", "--service-host"},
+      description = "Ozone Manager Host"
+  )
+  private String omHost;
+
+  @CommandLine.Option(
       names = {"-cf", "--column-family"},
       description = "Column family to be compacted.",
       defaultValue = "")
@@ -65,7 +71,7 @@ public class Compact implements Callable<Void> {
 
   @Override
   public Void call() throws Exception {
-    OzoneManagerProtocol client = parent.createOmClient(omServiceId);
+    OzoneManagerProtocol client = parent.createOmClient(omServiceId, omHost, false);
     System.out.println("Compacting column family [" + columnFamily + "]...");
 
     client.compact(columnFamily);

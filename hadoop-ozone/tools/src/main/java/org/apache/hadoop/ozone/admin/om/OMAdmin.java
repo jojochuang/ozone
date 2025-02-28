@@ -60,7 +60,8 @@ import java.util.Collection;
         UpdateRangerSubcommand.class,
         TransferOmLeaderSubCommand.class,
         FetchKeySubCommand.class,
-        LeaseSubCommand.class
+        LeaseSubCommand.class,
+        Compact.class
     })
 @MetaInfServices(AdminSubcommand.class)
 public class OMAdmin implements AdminSubcommand {
