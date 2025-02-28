@@ -438,6 +438,25 @@ public class TypedTable<KEY, VALUE> implements Table<KEY, VALUE> {
   }
 
   @Override
+  public Table.KeyValueIterator<KEY, VALUE> iteratorWithUpperBound(KEY prefix, KEY upperBound)
+      throws IOException {
+    if (supportCodecBuffer) {
+      final CodecBuffer prefixBuffer = encodeKeyCodecBuffer(prefix);
+      try {
+        return newCodecBufferTableIterator(rawTable.iteratorWithUpperBound(prefixBuffer, encodeKey(upperBound)));
+      } catch (Throwable t) {
+        if (prefixBuffer != null) {
+          prefixBuffer.release();
+        }
+        throw t;
+      }
+    } else {
+      final byte[] prefixBytes = encodeKey(prefix);
+      return new TypedTableIterator(rawTable.iterator(prefixBytes));
+    }
+  }
+
+  @Override
   public String getName() {
     return rawTable.getName();
   }

@@ -227,9 +227,22 @@ class RDBTable implements Table<byte[], byte[]> {
         prefix);
   }
 
+  @Override
+  public TableIterator<byte[], KeyValue<byte[], byte[]>> iteratorWithUpperBound(byte[] prefix, byte[] upperBound)
+      throws IOException {
+    return new RDBStoreByteArrayIterator(db.newIteratorWithUpperBound(family, false, upperBound), this,
+        prefix);
+  }
+
   TableIterator<CodecBuffer, KeyValue<CodecBuffer, CodecBuffer>> iterator(
       CodecBuffer prefix) throws IOException {
     return new RDBStoreCodecBufferIterator(db.newIterator(family, false),
+        this, prefix);
+  }
+
+  TableIterator<CodecBuffer, KeyValue<CodecBuffer, CodecBuffer>> iteratorWithUpperBound(
+      CodecBuffer prefix, byte[] upperBound) throws IOException {
+    return new RDBStoreCodecBufferIterator(db.newIteratorWithUpperBound(family, false, upperBound),
         this, prefix);
   }
 

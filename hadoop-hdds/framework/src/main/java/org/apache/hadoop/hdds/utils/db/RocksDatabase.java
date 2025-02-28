@@ -20,6 +20,7 @@ package org.apache.hadoop.hdds.utils.db;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
+import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedCheckpoint;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedCompactRangeOptions;
@@ -31,6 +32,7 @@ import org.apache.hadoop.hdds.utils.db.managed.ManagedReadOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksDB;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksObjectUtils;
+import org.apache.hadoop.hdds.utils.db.managed.ManagedSlice;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedTransactionLogIterator;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteBatch;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedWriteOptions;
@@ -766,6 +768,17 @@ public final class RocksDatabase implements Closeable {
     try (UncheckedAutoCloseable ignored = acquire();
          ManagedReadOptions readOptions = new ManagedReadOptions()) {
       readOptions.setFillCache(fillCache);
+      return managed(db.get().newIterator(family.getHandle(), readOptions));
+    }
+  }
+
+  public ManagedRocksIterator newIteratorWithUpperBound(ColumnFamily family,
+      boolean fillCache, byte[] upperBound) throws IOException {
+    try (UncheckedAutoCloseable ignored = acquire();
+         ManagedReadOptions readOptions = new ManagedReadOptions();
+         ManagedSlice slice = new ManagedSlice(upperBound)) {
+      readOptions.setFillCache(fillCache)
+          .setIterateUpperBound(slice);
       return managed(db.get().newIterator(family.getHandle(), readOptions));
     }
   }

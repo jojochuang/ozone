@@ -176,6 +176,14 @@ public interface Table<KEY, VALUE> extends AutoCloseable {
       throws IOException;
 
   /**
+   * Returns a prefixed iterator for this metadata store, with upper bound.
+   * @param prefix
+   * @return MetaStoreIterator
+   */
+  TableIterator<KEY, ? extends KeyValue<KEY, VALUE>> iteratorWithUpperBound(KEY prefix, KEY upperBound)
+      throws IOException;
+
+  /**
    * Returns the Name of this Table.
    * @return - Table Name.
    * @throws IOException on failure.

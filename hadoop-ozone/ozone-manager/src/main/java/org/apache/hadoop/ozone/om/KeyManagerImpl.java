@@ -2076,12 +2076,13 @@ public class KeyManagerImpl implements KeyManager {
       OmKeyInfo parentInfo, long remainingBufLimit) throws IOException {
     String seekDirInDB = metadataManager.getOzonePathKey(volumeId, bucketId,
         parentInfo.getObjectID(), "");
+    String upperBound = seekDirInDB.substring(0, seekDirInDB.length() - 2)+ ("/" + 1);
     long countEntries = 0;
 
     Table<String, OmDirectoryInfo> dirTable = metadataManager.getDirectoryTable();
     try (TableIterator<String,
         ? extends Table.KeyValue<String, OmDirectoryInfo>>
-        iterator = dirTable.iterator(seekDirInDB)) {
+        iterator = dirTable.iteratorWithUpperBound(seekDirInDB, upperBound)) {
       return gatherSubDirsWithIterator(parentInfo, countEntries, iterator, remainingBufLimit);
     }
 
@@ -2134,12 +2135,13 @@ public class KeyManagerImpl implements KeyManager {
     List<OmKeyInfo> files = new ArrayList<>();
     String seekFileInDB = metadataManager.getOzonePathKey(volumeId, bucketId,
         parentInfo.getObjectID(), "");
+    String upperBound = seekFileInDB.substring(0, seekFileInDB.length() - 2)+ ("/" + 1);
     long consumedSize = 0;
     boolean processedSubFiles = false;
 
     Table fileTable = metadataManager.getFileTable();
     try (TableIterator<String, ? extends Table.KeyValue<String, OmKeyInfo>>
-        iterator = fileTable.iterator(seekFileInDB)) {
+        iterator = fileTable.iteratorWithUpperBound(seekFileInDB, upperBound)) {
 
       while (iterator.hasNext() && remainingBufLimit > 0) {
         Table.KeyValue<String, OmKeyInfo> entry = iterator.next();
