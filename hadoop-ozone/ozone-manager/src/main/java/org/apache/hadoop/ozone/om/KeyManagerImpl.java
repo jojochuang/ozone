@@ -2076,7 +2076,7 @@ public class KeyManagerImpl implements KeyManager {
       OmKeyInfo parentInfo, long remainingBufLimit) throws IOException {
     String seekDirInDB = metadataManager.getOzonePathKey(volumeId, bucketId,
         parentInfo.getObjectID(), "");
-    String upperBound = seekDirInDB.substring(0, seekDirInDB.length() - 2)+ ("/" + 1);
+    String upperBound = seekDirInDB.substring(0, seekDirInDB.length() - 2) + ("/" + 1);
     long countEntries = 0;
 
     Table<String, OmDirectoryInfo> dirTable = metadataManager.getDirectoryTable();
@@ -2135,7 +2135,7 @@ public class KeyManagerImpl implements KeyManager {
     List<OmKeyInfo> files = new ArrayList<>();
     String seekFileInDB = metadataManager.getOzonePathKey(volumeId, bucketId,
         parentInfo.getObjectID(), "");
-    String upperBound = seekFileInDB.substring(0, seekFileInDB.length() - 2)+ ("/" + 1);
+    String upperBound = seekFileInDB.substring(0, seekFileInDB.length() - 2) + ("/" + 1);
     long consumedSize = 0;
     boolean processedSubFiles = false;
 

@@ -20,7 +20,6 @@ package org.apache.hadoop.hdds.utils.db;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.hdds.StringUtils;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
-import org.apache.hadoop.hdds.utils.IOUtils;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedCheckpoint;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedColumnFamilyOptions;
 import org.apache.hadoop.hdds.utils.db.managed.ManagedCompactRangeOptions;

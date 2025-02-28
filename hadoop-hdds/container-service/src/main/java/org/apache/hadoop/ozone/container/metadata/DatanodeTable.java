@@ -92,6 +92,14 @@ public class DatanodeTable<KEY, VALUE> implements Table<KEY, VALUE> {
   }
 
   @Override
+  public TableIterator<KEY, ? extends KeyValue<KEY, VALUE>> iteratorWithUpperBound(
+      KEY prefix, KEY upperBound) throws IOException {
+    throw new UnsupportedOperationException("Iterating tables directly is not" +
+        " supported for datanode containers due to differing schema " +
+        "version.");
+  }
+
+  @Override
   public String getName() throws IOException {
     return table.getName();
   }

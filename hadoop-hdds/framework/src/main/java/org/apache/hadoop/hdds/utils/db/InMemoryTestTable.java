@@ -93,6 +93,12 @@ public final class InMemoryTestTable<KEY, VALUE> implements Table<KEY, VALUE> {
   }
 
   @Override
+  public TableIterator<KEY, ? extends KeyValue<KEY, VALUE>> iteratorWithUpperBound(
+      KEY prefix, KEY upperBound) throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public String getName() {
     return "";
   }
