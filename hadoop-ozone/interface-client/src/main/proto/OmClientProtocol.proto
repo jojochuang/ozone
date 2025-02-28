@@ -153,6 +153,10 @@ enum Type {
   GetQuotaRepairStatus = 135;
   StartQuotaRepair = 136;
   SnapshotMoveTableKeys = 137;
+  PutObjectTagging = 140;
+  GetObjectTagging = 141;
+  DeleteObjectTagging = 142;
+  Compact = 143;
 }
 
 enum SafeMode {
@@ -292,9 +296,15 @@ message OMRequest {
   optional RenameSnapshotRequest            RenameSnapshotRequest          = 129;
   optional ListOpenFilesRequest             ListOpenFilesRequest           = 130;
   optional QuotaRepairRequest               QuotaRepairRequest             = 131;
+
   optional GetQuotaRepairStatusRequest      GetQuotaRepairStatusRequest    = 133;
   optional StartQuotaRepairRequest          StartQuotaRepairRequest        = 134;
   optional SnapshotMoveTableKeysRequest     SnapshotMoveTableKeysRequest   = 135;
+
+  optional GetObjectTaggingRequest          getObjectTaggingRequest        = 140;
+  optional PutObjectTaggingRequest          putObjectTaggingRequest        = 141;
+  optional DeleteObjectTaggingRequest       deleteObjectTaggingRequest     = 142;
+  optional CompactRequest                   compactRequest                 = 143;
 }
 
 message OMResponse {
@@ -424,6 +434,11 @@ message OMResponse {
   optional QuotaRepairResponse            QuotaRepairResponse        = 134;
   optional GetQuotaRepairStatusResponse      GetQuotaRepairStatusResponse   = 136;
   optional StartQuotaRepairResponse          StartQuotaRepairResponse       = 137;
+
+  optional GetObjectTaggingResponse          getObjectTaggingResponse      = 140;
+  optional PutObjectTaggingResponse          putObjectTaggingResponse      = 141;
+  optional DeleteObjectTaggingResponse       deleteObjectTaggingResponse   = 142;
+  optional CompactResponse                   compactResponse               = 143;
 }
 
 enum Status {
@@ -1457,7 +1472,8 @@ message OMTokenProto {
     optional string accessKeyId    = 12;
     optional string signature      = 13;
     optional string strToSign      = 14;
-    optional string omServiceId    = 15;
+    optional string omServiceId    = 15 [deprecated = true];
+    optional string secretKeyId    = 16;
 }
 
 message SecretKeyProto {
@@ -2257,6 +2273,35 @@ message OMLockDetailsProto {
   optional uint64 waitLockNanos    = 2;
   optional uint64 readLockNanos    = 3;
   optional uint64 writeLockNanos   = 4;
+}
+
+message PutObjectTaggingRequest {
+  required KeyArgs keyArgs = 1;
+}
+
+message PutObjectTaggingResponse {
+}
+
+message GetObjectTaggingRequest {
+  required KeyArgs keyArgs = 1;
+}
+
+message GetObjectTaggingResponse {
+  repeated hadoop.hdds.KeyValue tags = 1;
+}
+
+message DeleteObjectTaggingRequest {
+  required KeyArgs keyArgs = 1;
+}
+
+message DeleteObjectTaggingResponse {
+}
+
+message CompactRequest {
+  required string columnFamily = 1;
+}
+
+message CompactResponse {
 }
 
 /**

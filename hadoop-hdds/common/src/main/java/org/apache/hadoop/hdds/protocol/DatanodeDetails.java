@@ -19,8 +19,10 @@
 package org.apache.hadoop.hdds.protocol;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -84,8 +86,7 @@ public class DatanodeDetails extends NodeImpl implements
   /**
    * DataNode's unique identifier in the cluster.
    */
-  private final UUID uuid;
-  private final StringWithByteString uuidString;
+  private final DatanodeID id;
   private final String threadNamePrefix;
   private StringWithByteString ipAddress;
   private StringWithByteString hostName;
@@ -101,9 +102,8 @@ public class DatanodeDetails extends NodeImpl implements
 
   private DatanodeDetails(Builder b) {
     super(b.hostName, b.networkLocation, NetConstants.NODE_COST_DEFAULT);
-    uuid = b.id;
-    uuidString = StringWithByteString.valueOf(uuid.toString());
-    threadNamePrefix = HddsUtils.threadNamePrefix(uuidString);
+    id = b.id;
+    threadNamePrefix = HddsUtils.threadNamePrefix(id.toString());
     ipAddress = b.ipAddress;
     hostName = b.hostName;
     ports = b.ports;
@@ -127,9 +127,8 @@ public class DatanodeDetails extends NodeImpl implements
     super(datanodeDetails.getHostNameAsByteString(), datanodeDetails.getNetworkLocationAsByteString(),
         datanodeDetails.getParent(), datanodeDetails.getLevel(),
         datanodeDetails.getCost());
-    this.uuid = datanodeDetails.uuid;
-    this.uuidString = datanodeDetails.uuidString;
-    threadNamePrefix = HddsUtils.threadNamePrefix(uuidString);
+    this.id = datanodeDetails.id;
+    threadNamePrefix = HddsUtils.threadNamePrefix(id.toString());
     this.ipAddress = datanodeDetails.ipAddress;
     this.hostName = datanodeDetails.hostName;
     this.ports = datanodeDetails.ports;
@@ -146,13 +145,19 @@ public class DatanodeDetails extends NodeImpl implements
     this.currentVersion = datanodeDetails.getCurrentVersion();
   }
 
+  public DatanodeID getID() {
+    return id;
+  }
+
   /**
    * Returns the DataNode UUID.
    *
    * @return UUID of DataNode
    */
+  // TODO: Remove this in follow-up Jira (HDDS-12015)
+  @Deprecated
   public UUID getUuid() {
-    return uuid;
+    return id.getUuid();
   }
 
   /**
@@ -161,7 +166,7 @@ public class DatanodeDetails extends NodeImpl implements
    * @return UUID of DataNode
    */
   public String getUuidString() {
-    return uuidString.getString();
+    return id.toString();
   }
 
   /**
@@ -232,6 +237,18 @@ public class DatanodeDetails extends NodeImpl implements
 
   public synchronized void setPort(Name name, int port) {
     setPort(new Port(name, port));
+  }
+
+  public void setRatisPort(int port) {
+    setPort(Name.RATIS, port);
+  }
+
+  public void setRestPort(int port) {
+    setPort(Name.REST, port);
+  }
+
+  public void setStandalonePort(int port) {
+    setPort(Name.STANDALONE, port);
   }
 
   /**
@@ -324,19 +341,51 @@ public class DatanodeDetails extends NodeImpl implements
    * @return Port
    */
   public synchronized Port getPort(Port.Name name) {
+    Port ratisPort = null;
     for (Port port : ports) {
       if (port.getName().equals(name)) {
         return port;
       }
+      if (port.getName().equals(Name.RATIS)) {
+        ratisPort = port;
+      }
     }
-    // if no separate admin/server/datastream port, return single Ratis one for
-    // compat
+    // if no separate admin/server/datastream port,
+    // return single Ratis one for compatibility
     if (name == Name.RATIS_ADMIN || name == Name.RATIS_SERVER ||
         name == Name.RATIS_DATASTREAM) {
-      return getPort(Name.RATIS);
+      return ratisPort;
     }
     return null;
   }
+
+  /**
+   * Helper method to get the Ratis port.
+   * 
+   * @return Port
+   */
+  public Port getRatisPort() {
+    return getPort(Name.RATIS);
+  }
+
+  /**
+   * Helper method to get the REST port.
+   *
+   * @return Port
+   */
+  public Port getRestPort() {
+    return getPort(Name.REST);
+  }
+
+  /**
+   * Helper method to get the Standalone port.
+   *
+   * @return Port
+   */
+  public Port getStandalonePort() {
+    return getPort(Name.STANDALONE);
+  }
+
 
   /**
    * Starts building a new DatanodeDetails from the protobuf input.
@@ -346,11 +395,16 @@ public class DatanodeDetails extends NodeImpl implements
   public static DatanodeDetails.Builder newBuilder(
       HddsProtos.DatanodeDetailsProto datanodeDetailsProto) {
     DatanodeDetails.Builder builder = newBuilder();
-    if (datanodeDetailsProto.hasUuid128()) {
+
+    if (datanodeDetailsProto.hasId()) {
+      builder.setID(DatanodeID.fromProto(datanodeDetailsProto.getId()));
+      // The else parts are for backward compatibility.
+    } else if (datanodeDetailsProto.hasUuid128()) {
       HddsProtos.UUID uuid = datanodeDetailsProto.getUuid128();
-      builder.setUuid(new UUID(uuid.getMostSigBits(), uuid.getLeastSigBits()));
+      builder.setID(DatanodeID.of(new UUID(
+          uuid.getMostSigBits(), uuid.getLeastSigBits())));
     } else if (datanodeDetailsProto.hasUuid()) {
-      builder.setUuid(UUID.fromString(datanodeDetailsProto.getUuid()));
+      builder.setID(DatanodeID.fromUuidString(datanodeDetailsProto.getUuid()));
     }
 
     if (datanodeDetailsProto.hasIpAddress()) {
@@ -443,22 +497,32 @@ public class DatanodeDetails extends NodeImpl implements
   }
 
   public HddsProtos.DatanodeDetailsProto toProto(int clientVersion) {
-    return toProtoBuilder(clientVersion).build();
+    return toProtoBuilder(clientVersion, Collections.emptySet()).build();
   }
 
+  public HddsProtos.DatanodeDetailsProto toProto(int clientVersion, Set<Port.Name> filterPorts) {
+    return toProtoBuilder(clientVersion, filterPorts).build();
+  }
+
+  /**
+   * Converts the current DatanodeDetails instance into a proto {@link HddsProtos.DatanodeDetailsProto.Builder} object.
+   *
+   * @param clientVersion - The client version.
+   * @param filterPorts   - A set of {@link Port.Name} specifying ports to include.
+   *                        If empty, all available ports will be included.
+   * @return A {@link HddsProtos.DatanodeDetailsProto.Builder} Object.
+   */
   public HddsProtos.DatanodeDetailsProto.Builder toProtoBuilder(
-      int clientVersion) {
+      int clientVersion, Set<Port.Name> filterPorts) {
 
-    HddsProtos.UUID uuid128 = HddsProtos.UUID.newBuilder()
-        .setMostSigBits(uuid.getMostSignificantBits())
-        .setLeastSigBits(uuid.getLeastSignificantBits())
-        .build();
+    final HddsProtos.DatanodeIDProto idProto = id.toProto();
+    final HddsProtos.DatanodeDetailsProto.Builder builder =
+        HddsProtos.DatanodeDetailsProto.newBuilder();
 
-    HddsProtos.DatanodeDetailsProto.Builder builder =
-        HddsProtos.DatanodeDetailsProto.newBuilder()
-            .setUuid128(uuid128);
-
-    builder.setUuidBytes(uuidString.getBytes());
+    builder.setId(idProto);
+    // Both are deprecated.
+    builder.setUuid128(idProto.getUuid());
+    builder.setUuidBytes(id.getByteString());
 
     if (ipAddress != null) {
       builder.setIpAddressBytes(ipAddress.getBytes());
@@ -486,14 +550,24 @@ public class DatanodeDetails extends NodeImpl implements
     final boolean handlesUnknownPorts =
         ClientVersion.fromProtoValue(clientVersion)
         .compareTo(VERSION_HANDLES_UNKNOWN_DN_PORTS) >= 0;
+    final int requestedPortCount = filterPorts.size();
+    final boolean maySkip = requestedPortCount > 0;
     for (Port port : ports) {
-      if (handlesUnknownPorts || Name.V0_PORTS.contains(port.getName())) {
+      if (maySkip && !filterPorts.contains(port.getName())) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Skip adding {} port {} to proto message",
+                  port.getName(), port.getValue());
+        }
+      } else if (handlesUnknownPorts || Name.V0_PORTS.contains(port.getName())) {
         builder.addPorts(port.toProto());
       } else {
         if (LOG.isDebugEnabled()) {
           LOG.debug("Skip adding {} port {} to proto message for client v{}",
-              port.getName(), port.getValue(), clientVersion);
+                  port.getName(), port.getValue(), clientVersion);
         }
+      }
+      if (maySkip && builder.getPortsCount() == requestedPortCount) {
+        break;
       }
     }
 
@@ -550,11 +624,11 @@ public class DatanodeDetails extends NodeImpl implements
 
   @Override
   public String toString() {
-    return uuidString + "(" + hostName + "/" + ipAddress + ")";
+    return id + "(" + hostName + "/" + ipAddress + ")";
   }
 
   public String toDebugString() {
-    return uuid.toString() + "{" +
+    return id + "{" +
         "ip: " +
         ipAddress +
         ", host: " +
@@ -570,18 +644,32 @@ public class DatanodeDetails extends NodeImpl implements
 
   @Override
   public int compareTo(DatanodeDetails that) {
-    return this.getUuid().compareTo(that.getUuid());
+    return this.id.compareTo(that.id);
   }
 
   @Override
   public boolean equals(Object obj) {
     return obj instanceof DatanodeDetails &&
-        uuid.equals(((DatanodeDetails) obj).uuid);
+        id.equals(((DatanodeDetails) obj).id);
+  }
+
+
+  /**
+   * Checks hostname, ipAddress and port of the 2 nodes are the same.
+   * @param datanodeDetails dnDetails object to compare with.
+   * @return true if the values match otherwise false.
+   */
+  public boolean compareNodeValues(DatanodeDetails datanodeDetails) {
+    if (this == datanodeDetails || super.equals(datanodeDetails)) {
+      return true;
+    }
+    return Objects.equals(ipAddress, datanodeDetails.ipAddress)
+        && Objects.equals(hostName, datanodeDetails.hostName) && Objects.equals(ports, datanodeDetails.ports);
   }
 
   @Override
   public int hashCode() {
-    return uuid.hashCode();
+    return id.hashCode();
   }
 
   /**
@@ -602,7 +690,7 @@ public class DatanodeDetails extends NodeImpl implements
    * Builder class for building DatanodeDetails.
    */
   public static final class Builder {
-    private UUID id;
+    private DatanodeID id;
     private StringWithByteString ipAddress;
     private StringWithByteString hostName;
     private StringWithByteString networkName;
@@ -633,7 +721,7 @@ public class DatanodeDetails extends NodeImpl implements
      * @return DatanodeDetails.Builder
      */
     public Builder setDatanodeDetails(DatanodeDetails details) {
-      this.id = details.getUuid();
+      this.id = details.id;
       this.ipAddress = details.getIpAddressAsByteString();
       this.hostName = details.getHostNameAsByteString();
       this.networkName = details.getHostNameAsByteString();
@@ -657,7 +745,12 @@ public class DatanodeDetails extends NodeImpl implements
      * @return DatanodeDetails.Builder
      */
     public Builder setUuid(UUID uuid) {
-      this.id = uuid;
+      this.id = DatanodeID.of(uuid);
+      return this;
+    }
+
+    public Builder setID(DatanodeID dnId) {
+      this.id = dnId;
       return this;
     }
 
@@ -864,6 +957,36 @@ public class DatanodeDetails extends NodeImpl implements
   }
 
   /**
+   * Constructs a new Ratis Port with the given port number.
+   *
+   * @param portNumber Port number
+   * @return the {@link Port} instance
+   */
+  public static Port newRatisPort(Integer portNumber) {
+    return newPort(Name.RATIS, portNumber);
+  }
+
+  /**
+   * Constructs a new REST Port with the given port number.
+   *
+   * @param portNumber Port number
+   * @return the {@link Port} instance
+   */
+  public static Port newRestPort(Integer portNumber) {
+    return newPort(Name.REST, portNumber);
+  }
+
+  /**
+   * Constructs a new Standalone Port with the given port number.
+   *
+   * @param portNumber Port number
+   * @return the {@link Port} instance
+   */
+  public static Port newStandalonePort(Integer portNumber) {
+    return newPort(Name.STANDALONE, portNumber);
+  }
+
+  /**
    * Container to hold DataNode Port details.
    */
   public static final class Port {
@@ -886,6 +1009,9 @@ public class DatanodeDetails extends NodeImpl implements
           Name.values());
       public static final Set<Name> V0_PORTS = ImmutableSet.copyOf(
           EnumSet.of(STANDALONE, RATIS, REST));
+
+      public static final Set<Name> IO_PORTS = ImmutableSet.copyOf(
+          EnumSet.of(STANDALONE, RATIS, RATIS_DATASTREAM));
     }
 
     private final Name name;
@@ -1035,7 +1161,7 @@ public class DatanodeDetails extends NodeImpl implements
   public HddsProtos.NetworkNode toProtobuf(
       int clientVersion) {
     return HddsProtos.NetworkNode.newBuilder()
-        .setDatanodeDetails(toProtoBuilder(clientVersion).build())
+        .setDatanodeDetails(toProtoBuilder(clientVersion, Collections.emptySet()).build())
         .build();
   }
 }
