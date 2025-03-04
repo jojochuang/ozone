@@ -97,6 +97,7 @@ import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.request.util.OMMultipartUploadUtils;
+import org.apache.hadoop.ozone.om.service.CompactionService;
 import org.apache.hadoop.ozone.om.service.DirectoryDeletingService;
 import org.apache.hadoop.ozone.om.service.KeyDeletingService;
 import org.apache.hadoop.ozone.om.service.MultipartUploadCleanupService;
@@ -135,8 +136,13 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SNAPSHOT_SST_FILTERI
 import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SNAPSHOT_SST_FILTERING_SERVICE_TIMEOUT_DEFAULT;
 import static org.apache.hadoop.ozone.OzoneConsts.ETAG;
 import static org.apache.hadoop.ozone.OzoneConsts.OZONE_URI_DELIMITER;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_COMPACTION_SERVICE_ENABLED;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_COMPACTION_SERVICE_ENABLED_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_COMPACTION_SERVICE_TIMEOUT_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DIR_DELETING_SERVICE_INTERVAL;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_DIR_DELETING_SERVICE_INTERVAL_DEFAULT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_COMPACTION_SERVICE_TIMEOUT;
+import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_COMPPACTION_SERVICE_RUN_INTERVAL_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_CLEANUP_SERVICE_INTERVAL;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_CLEANUP_SERVICE_INTERVAL_DEFAULT;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_MPU_CLEANUP_SERVICE_TIMEOUT;
@@ -200,6 +206,7 @@ public class KeyManagerImpl implements KeyManager {
   private BackgroundService multipartUploadCleanupService;
   private SnapshotDirectoryCleaningService snapshotDirectoryCleaningService;
   private DNSToSwitchMapping dnsToSwitchMapping;
+  private CompactionService compactionService;
 
   public KeyManagerImpl(OzoneManager om, ScmClient scmClient,
       OzoneConfiguration conf, OMPerformanceMetrics metrics) {
@@ -232,6 +239,22 @@ public class KeyManagerImpl implements KeyManager {
 
   @Override
   public void start(OzoneConfiguration configuration) {
+    boolean isCompactionServiceEnabled = configuration.getBoolean(OZONE_COMPACTION_SERVICE_ENABLED,
+        OZONE_COMPACTION_SERVICE_ENABLED_DEFAULT);
+    if (compactionService == null) {
+      long compactionInterval = configuration.getTimeDuration(
+          OZONE_BLOCK_DELETING_SERVICE_INTERVAL,
+          OZONE_OM_COMPPACTION_SERVICE_RUN_INTERVAL_DEFAULT,
+          TimeUnit.MILLISECONDS);
+      long serviceTimeout = configuration.getTimeDuration(
+          OZONE_OM_COMPACTION_SERVICE_TIMEOUT,
+          OZONE_COMPACTION_SERVICE_TIMEOUT_DEFAULT,
+          TimeUnit.MILLISECONDS);
+      compactionService = new CompactionService(ozoneManager, TimeUnit.MILLISECONDS,
+          compactionInterval,
+          serviceTimeout, configuration);
+      keyDeletingService.start();
+    }
     boolean isSnapshotDeepCleaningEnabled = configuration.getBoolean(OZONE_SNAPSHOT_DEEP_CLEANING_ENABLED,
         OZONE_SNAPSHOT_DEEP_CLEANING_ENABLED_DEFAULT);
     if (keyDeletingService == null) {

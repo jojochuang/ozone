@@ -51,6 +51,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This is a background service to delete orphan directories and its
@@ -84,6 +85,8 @@ public class DirectoryDeletingService extends AbstractKeyDeletingService {
   private final DeletedDirSupplier deletedDirSupplier;
 
   private AtomicInteger taskCount = new AtomicInteger(0);
+  // this counter is used by OMDirectoriesPurgeResponseWithFSO to track the number of directories deleted
+  private AtomicLong uncompactedDeletes = new AtomicLong(0);
 
   public DirectoryDeletingService(long interval, TimeUnit unit,
       long serviceTimeout, OzoneManager ozoneManager,
@@ -117,6 +120,10 @@ public class DirectoryDeletingService extends AbstractKeyDeletingService {
 
   public AtomicInteger getTaskCount() {
     return taskCount;
+  }
+
+  public AtomicLong getUncompactedDeletes() {
+    return uncompactedDeletes;
   }
 
   /**

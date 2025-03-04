@@ -22,6 +22,9 @@ import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.hdds.utils.db.DBStore;
+import org.apache.hadoop.hdds.utils.db.RDBStore;
+import org.apache.hadoop.hdds.utils.db.RocksDatabase;
+import org.apache.hadoop.hdds.utils.db.managed.ManagedCompactRangeOptions;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
@@ -37,12 +40,15 @@ import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
 import org.apache.hadoop.ozone.om.snapshot.ReferenceCounted;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DELETED_DIR_TABLE;
 import static org.apache.hadoop.ozone.om.OmMetadataManagerImpl.DELETED_TABLE;
@@ -63,17 +69,20 @@ public class OMDirectoriesPurgeResponseWithFSO extends OmKeyResponse {
   private Map<Pair<String, String>, OmBucketInfo> volBucketInfoMap;
   private SnapshotInfo fromSnapshotInfo;
   private Map<String, OmKeyInfo> openKeyInfoMap;
+  private AtomicLong uncompactedDeletes;
 
   public OMDirectoriesPurgeResponseWithFSO(@Nonnull OMResponse omResponse,
       @Nonnull List<OzoneManagerProtocolProtos.PurgePathRequest> paths,
       @Nonnull BucketLayout bucketLayout,
       Map<Pair<String, String>, OmBucketInfo> volBucketInfoMap,
-      SnapshotInfo fromSnapshotInfo, Map<String, OmKeyInfo> openKeyInfoMap) {
+      SnapshotInfo fromSnapshotInfo, Map<String, OmKeyInfo> openKeyInfoMap,
+      AtomicLong uncompactedDeletes) {
     super(omResponse, bucketLayout);
     this.paths = paths;
     this.volBucketInfoMap = volBucketInfoMap;
     this.fromSnapshotInfo = fromSnapshotInfo;
     this.openKeyInfoMap = openKeyInfoMap;
+    this.uncompactedDeletes = uncompactedDeletes;
   }
 
   public OMDirectoriesPurgeResponseWithFSO(OMResponse omResponse) {
@@ -142,6 +151,7 @@ public class OMDirectoriesPurgeResponseWithFSO extends OmKeyResponse {
               keyInfo.getKeyName(), ozoneDbKey);
         }
       }
+      compactDirectoryTableIfNeeded(omMetadataManager, markDeletedSubDirsList.size());
 
       for (OzoneManagerProtocolProtos.KeyInfo key : deletedSubFilesList) {
         OmKeyInfo keyInfo = OmKeyInfo.getFromProtobuf(key);
@@ -167,6 +177,7 @@ public class OMDirectoriesPurgeResponseWithFSO extends OmKeyResponse {
         omMetadataManager.getDeletedTable().putWithBatch(batchOperation,
             deletedKey, repeatedOmKeyInfo);
       }
+      compactFileTableIfNeeded(omMetadataManager, deletedSubFilesList.size());
 
       if (!openKeyInfoMap.isEmpty()) {
         for (Map.Entry<String, OmKeyInfo> entry : openKeyInfoMap.entrySet()) {
@@ -185,5 +196,62 @@ public class OMDirectoriesPurgeResponseWithFSO extends OmKeyResponse {
         }
       }
     }
+  }
+
+  private CompletableFuture<Void> compactDirectoryTableIfNeeded(OMMetadataManager omMetadataManager,
+    long batchSize) throws IOException {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        String columnFamilyName = "directoryTable";
+        long compactionThreshold = 100 * 1000;
+        return compactTableIfNeededAsync(omMetadataManager, batchSize,
+            columnFamilyName, compactionThreshold);
+      } catch (IOException e) {
+        LOG.warn("Failed to compact column family directoryTable", e);
+      }
+      return null;
+    });
+  }
+
+  private CompletableFuture<Void> compactFileTableIfNeeded(OMMetadataManager omMetadataManager,
+    long batchSize) throws IOException {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        String columnFamilyName = "fileTable";
+        long compactionThreshold = 100 * 1000;
+        return compactTableIfNeededAsync(omMetadataManager, batchSize,
+            columnFamilyName, compactionThreshold);
+      } catch (IOException e) {
+        LOG.warn("Failed to compact column family directoryTable", e);
+      }
+      return null;
+    });
+  }
+
+  // Compacts the table if the number of deletes exceeds the threshold.
+  private Void compactTableIfNeededAsync(OMMetadataManager omMetadataManager,
+      long batchSize, String columnFamilyName, long compactionThreshold)
+      throws IOException {
+    if (uncompactedDeletes.addAndGet(batchSize) < compactionThreshold) {
+      return null;
+    }
+
+    LOG.info("Compacting column family: {} after more than {} deletes",
+        columnFamilyName, compactionThreshold);
+    long startTime = Time.monotonicNow();
+    ManagedCompactRangeOptions options =
+        new ManagedCompactRangeOptions();
+    options.setBottommostLevelCompaction(
+        ManagedCompactRangeOptions.BottommostLevelCompaction.kForce);
+    // Find CF Handler
+    RocksDatabase.ColumnFamily columnFamily =
+        ((RDBStore) omMetadataManager.getStore()).getDb()
+            .getColumnFamily(columnFamilyName);
+    ((RDBStore) omMetadataManager.getStore()).getDb().compactRange(
+        columnFamily, null, null, options);
+    LOG.info("Compaction of column family: {} completed in {} ms",
+        columnFamilyName, Time.monotonicNow() - startTime);
+    uncompactedDeletes.set(0);
+    return null;
   }
 }
