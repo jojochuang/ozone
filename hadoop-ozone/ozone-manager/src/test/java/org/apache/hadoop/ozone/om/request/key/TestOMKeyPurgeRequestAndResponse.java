@@ -122,6 +122,7 @@ public class TestOMKeyPurgeRequestAndResponse extends TestOMKeyRequest {
 
   @Test
   public void testValidateAndUpdateCache() throws Exception {
+    keyManager.start(getOzoneConfiguration());
     // Create and Delete keys. The keys should be moved to DeletedKeys table
     List<String> deletedKeyNames = createAndDeleteKeys(1, null);
 
@@ -165,6 +166,7 @@ public class TestOMKeyPurgeRequestAndResponse extends TestOMKeyRequest {
 
   @Test
   public void testKeyPurgeInSnapshot() throws Exception {
+    keyManager.start(getOzoneConfiguration());
     // Create and Delete keys. The keys should be moved to DeletedKeys table
     List<String> deletedKeyNames = createAndDeleteKeys(1, null);
 

@@ -52,7 +52,6 @@ import org.junit.jupiter.api.Test;
  * Tests {@link OMKeyPurgeRequest} and {@link OMKeyPurgeResponse}.
  */
 public class TestOMDirectoriesPurgeRequestAndResponse extends TestOMKeyRequest {
-
   private int numKeys = 10;
 
   /**
@@ -185,6 +184,7 @@ public class TestOMDirectoriesPurgeRequestAndResponse extends TestOMKeyRequest {
 
   @Test
   public void testValidateAndUpdateCacheCheckQuota() throws Exception {
+    keyManager.start(getOzoneConfiguration());
     // Create and Delete keys. The keys should be moved to DeletedKeys table
     List<OmKeyInfo> deletedKeyInfos = createAndDeleteKeys(1, null);
     // The keys should be present in the DeletedKeys table before purging
@@ -216,6 +216,7 @@ public class TestOMDirectoriesPurgeRequestAndResponse extends TestOMKeyRequest {
 
   @Test
   public void testValidateAndUpdateCacheSnapshotLastTransactionInfoUpdated() throws Exception {
+    keyManager.start(getOzoneConfiguration());
     // Create and Delete keys. The keys should be moved to DeletedKeys table
     List<OmKeyInfo> deletedKeyInfos = createAndDeleteKeys(1, null);
     // The keys should be present in the DeletedKeys table before purging
@@ -269,6 +270,7 @@ public class TestOMDirectoriesPurgeRequestAndResponse extends TestOMKeyRequest {
   @Test
   public void testValidateAndUpdateCacheQuotaBucketRecreated()
       throws Exception {
+    keyManager.start(getOzoneConfiguration());
     // Create and Delete keys. The keys should be moved to DeletedKeys table
     List<OmKeyInfo> deletedKeyInfos = createAndDeleteKeys(1, null);
     // The keys should be present in the DeletedKeys table before purging
