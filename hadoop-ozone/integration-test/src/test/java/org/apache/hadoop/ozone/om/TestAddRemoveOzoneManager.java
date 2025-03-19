@@ -78,6 +78,7 @@ public class TestAddRemoveOzoneManager {
   private ObjectStore objectStore;
   private OzoneConfiguration conf;
   private long lastTransactionIndex;
+  private UserGroupInformation admin;
   private UserGroupInformation user;
 
   private static final String OM_SERVICE_ID = "om-add-remove";
@@ -353,7 +354,8 @@ public class TestAddRemoveOzoneManager {
   @Test
   public void testDecommission() throws Exception {
     setupCluster(3);
-    user = UserGroupInformation.getCurrentUser();
+    admin = UserGroupInformation.getCurrentUser();
+    user = UserGroupInformation.createUserForTesting("user", new String[]{});
 
     // Stop the 3rd OM and decommission it
     String omNodeId3 = cluster.getOzoneManager(2).getOMNodeId();
