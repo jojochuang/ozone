@@ -2267,6 +2267,23 @@
       <properties>
         <!-- supported since Java 9 -->
         <maven.compiler.release>${javac.version}</maven.compiler.release>
+        <argLine>--add-opens java.base/java.nio=ALL-UNNAMED
+          --add-opens java.base/java.lang=ALL-UNNAMED
+          --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+        </argLine>
+      </properties>
+    </profile>
+    <profile>
+      <id>java17-or-later</id>
+      <activation>
+        <jdk>[17,]</jdk>
+      </activation>
+      <properties>
+        <!-- supported since Java 17 -->
+        <maven.compiler.release>${javac.version}</maven.compiler.release>
+        <argLine>--add-opens java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED
+          --add-exports java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED
+        </argLine>
       </properties>
     </profile>
     <profile>
