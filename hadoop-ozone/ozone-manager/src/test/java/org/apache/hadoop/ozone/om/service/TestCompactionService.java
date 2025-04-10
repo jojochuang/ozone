@@ -78,7 +78,6 @@ class TestCompactionService {
     OMMetadataManager metadataManager = mock(OMMetadataManager.class);
 
     TypedTable table = mock(TypedTable.class);
-    AtomicLong numDeletes = new AtomicLong(2);
 
     when(ozoneManager.getMetadataManager()).thenReturn(metadataManager);
     when(metadataManager.getTable(anyString())).thenReturn(table);
