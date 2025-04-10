@@ -3,7 +3,7 @@ title: SCM HA support
 summary: HA for Storage Container Manager using Ratis to replicate data
 date: 2020-03-05
 jira: HDDS-2823
-status: implementing
+status: implemented
 author: Li Cheng, Nandakumar Vadivelu, Rui Wang, Glen Geng, Shashikant Banerjee
 ---
 <!--

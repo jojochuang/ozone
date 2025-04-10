@@ -3,7 +3,7 @@ title: Ozone Volume Management
 summary: A simplified version of mapping between S3 buckets and Ozone volume/buckets
 date: 2020-04-02
 jira: HDDS-3331
-status: accepted
+status: impplemented
 author: Marton Elek, Arpit Agarwal, Sanjay Radia
 ---
 

@@ -3,7 +3,7 @@ title: Overwriting an Ozone Key only if it has not changed.
 summary: A minimal design illustrating how to replace a key in Ozone only if it has not changes since it was read.
 date: 2024-04-05
 jira: HDDS-10657
-status: accepted
+status: implemented
 author: Stephen ODonnell
 ---
 

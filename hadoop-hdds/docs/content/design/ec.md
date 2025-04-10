@@ -3,7 +3,7 @@ title: Erasure Coding in Ozone
 summary: Use Erasure Coding algorithm for efficient storage
 date: 2020-06-30
 jira: HDDS-3816
-status: draft
+status: implemented
 author: Uma Maheswara Rao Gangumalla, Marton Elek, Stephen O'Donnell 
 ---
 <!--

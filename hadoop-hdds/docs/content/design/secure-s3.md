@@ -3,7 +3,7 @@ title: Secure S3 keys management
 summary: Improving security regarding s3 keys management
 date: 2023-03-10
 jira: HDDS-8132
-status: implementing
+status: implemented
 author: Maksim Myskov, Mikhail Pochatkin
 ---
 <!--

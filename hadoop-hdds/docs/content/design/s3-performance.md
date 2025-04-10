@@ -3,7 +3,7 @@ title: Proposed persistent OM connection for S3 gateway
 summary: Proposal to use per-request authentication and persistent connections between S3g and OM
 date: 2020-11-09
 jira: HDDS-4440
-status: accepted
+status: implemented
 author: Márton Elek
 ---
 <!--
