@@ -17,7 +17,6 @@
 Documentation       Test ozone s3 getsecret command
 Resource            ../commonlib.robot
 Test Timeout        2 minutes
-Suite Setup         Kinit test user     testuser     testuser.keytab
 
 *** Keywords ***
 Verify output
@@ -25,21 +24,14 @@ Verify output
     Should contain         ${output}           awsAccessKey
     Should contain         ${output}           awsSecret
 
-Revoke secrets
-    Execute and Ignore Error             ozone s3 revokesecret -y -u testuser2
-
 *** Test Cases ***
 Without OM service ID
     Pass Execution If      '${SECURITY_ENABLED}' == 'false'    N/A
-    Revoke secrets
     ${output} =            Execute             ozone s3 getsecret -u testuser2
     Verify output          ${output}
-    Revoke secrets
 
 With OM service ID
     Pass Execution If      '${OM_HA_PARAM}' == '${EMPTY}'          duplicate test in non-HA env.
     Pass Execution If      '${SECURITY_ENABLED}' == 'false'    N/A
-    Revoke secrets
     ${output} =            Execute             ozone s3 getsecret -u testuser2 ${OM_HA_PARAM}
     Verify output          ${output}
-    Revoke secrets

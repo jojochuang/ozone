@@ -554,7 +554,7 @@ enum Status {
     SSL_CONNECTION_FAILURE = 89;
     RENAME_OPEN_FILE = 90;
     UNAUTHORIZED = 91;
-
+    // Deprecated, do not use
     S3_SECRET_ALREADY_EXISTS = 92;
 
     INVALID_PATH = 93;

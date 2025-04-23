@@ -81,13 +81,7 @@ Setup v4 headers
     Run Keyword if      '${SECURITY_ENABLED}' == 'false'    Setup dummy credentials for S3
 
 Setup secure v4 headers
-    ${result} =         Execute and Ignore error             ozone s3 getsecret ${OM_HA_PARAM}
-    ${exists} =         Run Keyword And Return Status    Should Contain    ${result}    S3_SECRET_ALREADY_EXISTS
-    IF                  ${exists}
-                        Execute    ozone s3 revokesecret -y ${OM_HA_PARAM}
-        ${result} =     Execute    ozone s3 getsecret ${OM_HA_PARAM}
-    END
-
+    ${result} =         Execute                    ozone s3 getsecret ${OM_HA_PARAM}
     ${accessKey} =      Get Regexp Matches         ${result}     (?<=awsAccessKey=).*
     # Use a valid user that are created in the Docket image Ex: testuser if it is not a secure cluster
     ${accessKey} =      Get Variable Value         ${accessKey}  testuser

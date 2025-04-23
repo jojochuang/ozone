@@ -765,16 +765,17 @@ final class TestSecureOzoneCluster {
           OmTransportFactory.create(conf, ugi, null),
           RandomStringUtils.secure().nextAscii(5));
 
-      // Creates a secret since it does not exist
+      //Creates a secret since it does not exist
       S3SecretValue attempt1 = omClient.getS3Secret(username);
 
-      // A second getS3Secret on the same username should throw exception
-      try {
-        omClient.getS3Secret(username);
-      } catch (OMException omEx) {
-        assertEquals(OMException.ResultCodes.S3_SECRET_ALREADY_EXISTS,
-            omEx.getResult());
-      }
+      //Fetches the secret from db since it was created in previous step
+      S3SecretValue attempt2 = omClient.getS3Secret(username);
+
+      //secret fetched on both attempts must be same
+      assertEquals(attempt1.getAwsSecret(), attempt2.getAwsSecret());
+
+      //access key fetched on both attempts must be same
+      assertEquals(attempt1.getAwsAccessKey(), attempt2.getAwsAccessKey());
 
       // Revoke the existing secret
       omClient.revokeS3Secret(username);
@@ -792,23 +793,14 @@ final class TestSecureOzoneCluster {
       S3SecretValue attempt3 = omClient.getS3Secret(username);
 
       // secret should differ because it has been revoked previously
-      assertNotEquals(attempt3.getAwsSecret(), attempt1.getAwsSecret());
+      assertNotEquals(attempt3.getAwsSecret(), attempt2.getAwsSecret());
 
       // accessKey is still the same because it is derived from username
-      assertEquals(attempt3.getAwsAccessKey(), attempt1.getAwsAccessKey());
+      assertEquals(attempt3.getAwsAccessKey(), attempt2.getAwsAccessKey());
 
       // Admin can set secret for any user
-      S3SecretValue attempt4 = omClient.setS3Secret(username, secretKeySet);
-      assertEquals(secretKeySet, attempt4.getAwsSecret());
-
-      // A second getS3Secret on the same username should throw exception
-      try {
-        omClient.getS3Secret(username);
-      } catch (OMException omEx) {
-        assertEquals(OMException.ResultCodes.S3_SECRET_ALREADY_EXISTS,
-            omEx.getResult());
-      }
-
+      omClient.setS3Secret(username, secretKeySet);
+      assertEquals(secretKeySet, omClient.getS3Secret(username).getAwsSecret());
       // Clean up
       omClient.revokeS3Secret(username);
 

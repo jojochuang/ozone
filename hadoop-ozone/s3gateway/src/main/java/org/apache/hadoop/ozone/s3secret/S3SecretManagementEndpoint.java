@@ -17,7 +17,6 @@
 
 package org.apache.hadoop.ozone.s3secret;
 
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 import jakarta.annotation.Nullable;
@@ -75,12 +74,8 @@ public class S3SecretManagementEndpoint extends S3SecretEndpointBase {
     } catch (OMException e) {
       AUDIT.logWriteFailure(buildAuditMessageForFailure(
           S3GAction.GENERATE_SECRET, getAuditParameters(), e));
-      if (e.getResult() == OMException.ResultCodes.S3_SECRET_ALREADY_EXISTS) {
-        return Response.status(BAD_REQUEST.getStatusCode(), e.getResult().toString()).build();
-      } else {
-        LOG.error("Can't execute get secret request: ", e);
-        return Response.serverError().build();
-      }
+      LOG.error("Can't execute get secret request: ", e);
+      return Response.serverError().build();
     }
   }
 
