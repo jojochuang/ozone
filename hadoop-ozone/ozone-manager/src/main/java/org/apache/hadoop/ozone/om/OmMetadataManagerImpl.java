@@ -567,7 +567,7 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
       initializeOmTables(CacheType.FULL_CACHE, true);
     }
 
-    snapshotChainManager = new SnapshotChainManager(this);
+    snapshotChainManager = SnapshotChainManager.getInstance(this);
   }
 
   public static DBStore loadDB(OzoneConfiguration configuration, File metaDir, int maxOpenFiles) throws IOException {
