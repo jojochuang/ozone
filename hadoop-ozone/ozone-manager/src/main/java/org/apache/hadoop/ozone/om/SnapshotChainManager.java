@@ -59,7 +59,7 @@ public final class SnapshotChainManager {
   private UUID latestGlobalSnapshotId;
   private final boolean snapshotChainCorrupted;
   private UUID oldestGlobalSnapshotId;
-  private static SnapshotChainManager instance;
+  private static volatile SnapshotChainManager instance;
 
   private SnapshotChainManager(OMMetadataManager metadataManager) {
     globalSnapshotChain = Collections.synchronizedMap(new LinkedHashMap<>());
@@ -70,7 +70,7 @@ public final class SnapshotChainManager {
     snapshotChainCorrupted = !loadFromSnapshotInfoTable(metadataManager);
   }
 
-  public static synchronized SnapshotChainManager getInstance(OMMetadataManager metadataManager) {
+  public static SnapshotChainManager getInstance(OMMetadataManager metadataManager) {
     if (instance == null) {
       synchronized (SnapshotChainManager.class) {
         if (instance == null) {
