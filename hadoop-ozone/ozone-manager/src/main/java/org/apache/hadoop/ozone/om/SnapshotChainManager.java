@@ -59,14 +59,26 @@ public class SnapshotChainManager {
   private UUID latestGlobalSnapshotId;
   private final boolean snapshotChainCorrupted;
   private UUID oldestGlobalSnapshotId;
+  private static SnapshotChainManager instance;
 
-  public SnapshotChainManager(OMMetadataManager metadataManager) {
+  private SnapshotChainManager(OMMetadataManager metadataManager) {
     globalSnapshotChain = Collections.synchronizedMap(new LinkedHashMap<>());
     snapshotChainByPath = new ConcurrentHashMap<>();
     latestSnapshotIdByPath = new ConcurrentHashMap<>();
     snapshotIdToTableKey = new ConcurrentHashMap<>();
     latestGlobalSnapshotId = null;
     snapshotChainCorrupted = !loadFromSnapshotInfoTable(metadataManager);
+  }
+
+  public static synchronized SnapshotChainManager getInstance(OMMetadataManager metadataManager) {
+    if (instance == null) {
+      synchronized (SnapshotChainManager.class) {
+        if (instance == null) {
+          instance = new SnapshotChainManager(metadataManager);
+        }
+      }
+    }
+    return instance;
   }
 
   /**
