@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
  * On start, the snapshot chains are initialized from the on disk
  * SnapshotInfoTable from the OM RocksDB.
  */
-public class SnapshotChainManager {
+public final class SnapshotChainManager {
   private static final Logger LOG =
       LoggerFactory.getLogger(SnapshotChainManager.class);
 
