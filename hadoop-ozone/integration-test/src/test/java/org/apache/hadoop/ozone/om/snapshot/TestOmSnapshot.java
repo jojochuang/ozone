@@ -116,6 +116,7 @@ import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.KeyManagerImpl;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
+import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OmMetadataManagerImpl;
 import org.apache.hadoop.ozone.om.OmSnapshot;
 import org.apache.hadoop.ozone.om.OmSnapshotManager;
@@ -2523,5 +2524,85 @@ public abstract class TestOmSnapshot {
 
     // Stop key manager after testcase executed
     stopKeyManager();
+  }
+
+  @Test
+  public void testSnapshotDeletedKeys() throws Exception {
+    // Step 1: Create volumes
+    String volume1 = "vol1-" + counter.incrementAndGet();
+    String volume2 = "vol2-" + counter.incrementAndGet();
+    store.createVolume(volume1);
+    store.createVolume(volume2);
+    OzoneVolume vol1 = store.getVolume(volume1);
+    OzoneVolume vol2 = store.getVolume(volume2);
+
+    // Step 2: Create buckets
+    String bucket1 = "buck1";
+    String bucket12 = "buck12";
+    String bucket2 = "buck2";
+    String bucket21 = "buck21";
+    createBucket(vol1, bucket1);
+    createBucket(vol1, bucket12);
+    createBucket(vol1, bucket2);
+    createBucket(vol2, bucket2);
+    createBucket(vol2, bucket21);
+
+    OzoneBucket vol1Bucket1 = vol1.getBucket(bucket1);
+    OzoneBucket vol1Bucket12 = vol1.getBucket(bucket12);
+    OzoneBucket vol1Bucket2 = vol1.getBucket(bucket2);
+    OzoneBucket vol2Bucket2 = vol2.getBucket(bucket2);
+    OzoneBucket vol2Bucket21 = vol2.getBucket(bucket21);
+
+    // Step 3: Create keys
+    createFileKeyWithPrefix(vol1Bucket1, "key1");
+    createFileKeyWithPrefix(vol1Bucket1, "key2");
+    createFileKeyWithPrefix(vol1Bucket12, "key1");
+    createFileKeyWithPrefix(vol1Bucket12, "key2");
+    createFileKeyWithPrefix(vol1Bucket12, "key3");
+    createFileKeyWithPrefix(vol1Bucket2, "key1");
+    createFileKeyWithPrefix(vol1Bucket2, "key2");
+    createFileKeyWithPrefix(vol1Bucket2, "key3");
+    createFileKeyWithPrefix(vol2Bucket2, "key2");
+    createFileKeyWithPrefix(vol2Bucket21, "key1");
+    createFileKeyWithPrefix(vol2Bucket21, "key2");
+    createFileKeyWithPrefix(vol2Bucket21, "key3");
+
+    // Step 4: Delete keys
+    vol1Bucket1.deleteKey("key1");
+    vol1Bucket12.deleteKey("key1");
+    vol1Bucket12.deleteKey("key3");
+    vol1Bucket2.deleteKey("key1");
+    vol1Bucket2.deleteKey("key3");
+    vol2Bucket21.deleteKey("key1");
+    vol2Bucket21.deleteKey("key2");
+
+    // Step 5: Take snapshot
+    String snapshotName = "Snap-1";
+    createSnapshot(volume1, bucket12, snapshotName);
+
+    // Step 6: Verify deleted keys
+    List<String> expectedDeletedKeys = Arrays.asList(
+        "key1", "key3"
+    );
+    for (String key : expectedDeletedKeys) {
+      KeyInfoWithVolumeContext keyInfo =
+          writeClient.getKeyInfo(
+              new OmKeyArgs.Builder()
+                  .setVolumeName(volume1)
+                  .setBucketName(bucket12)
+                  .setKeyName(key)
+                  .build(),
+              true
+          );
+      assertNotNull(keyInfo, "Deleted key not found in snapshot: " + key);
+    }
+
+    for (String key : expectedDeletedKeys) {
+      OMMetadataManager omMetadataManager =
+          ozoneManager.getMetadataManager();
+      String dtKey = omMetadataManager.getOzoneKey(volume1, bucket12, key);
+      assertTrue(omMetadataManager.getDeletedTable().isExist(dtKey), "Deleted key not found in snapshot: " + dtKey);
+    }
+
   }
 }
