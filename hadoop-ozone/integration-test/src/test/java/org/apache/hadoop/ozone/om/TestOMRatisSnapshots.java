@@ -130,6 +130,7 @@ public class TestOMRatisSnapshots {
   private OzoneManagerRatisServer leaderRatisServer;
   private String followerNodeId;
   private OzoneManager followerOM;
+  
   /**
    * Create a MiniOzoneCluster for testing. The cluster initially has one
    * inactive OM. So at the start of the cluster, there will be 2 active and 1
@@ -241,7 +242,7 @@ public class TestOMRatisSnapshots {
     for (int snapshotCount = 0; snapshotCount < SNAPSHOTS_TO_CREATE; snapshotCount++) {
       snapshotName = snapshotNamePrefix + snapshotCount;
       keys = writeKeys(keyIncrement);
-      snapshotInfo = createOzoneSnapshot(leaderOM, snapshotName);
+      snapshotInfo = createOzoneSnapshot(snapshotName);
     }
     long endTime1 = System.currentTimeMillis();
 
@@ -317,7 +318,7 @@ public class TestOMRatisSnapshots {
      */
     long endTime4 = System.currentTimeMillis();
 
-    checkSnapshot(leaderOM, followerOM, snapshotName, keys, snapshotInfo);
+    checkSnapshot(snapshotName, keys, snapshotInfo);
     long endTime5 = System.currentTimeMillis();
     int sstFileCount = 0;
     Set<String> sstFileUnion = new HashSet<>();
@@ -344,8 +345,7 @@ public class TestOMRatisSnapshots {
     LOG.info("testInstallSnapshot time: {}ms", (endTime6 - startTime));
   }
 
-  private void checkSnapshot(OzoneManager leaderOM, OzoneManager followerOM,
-                             String snapshotName,
+  private void checkSnapshot(String snapshotName,
                              List<String> keys, SnapshotInfo snapshotInfo)
       throws IOException, RocksDBException {
     // Read back data from snapshot.
@@ -430,7 +430,7 @@ public class TestOMRatisSnapshots {
         100);
     long endTime1 = System.currentTimeMillis();
 
-    SnapshotInfo snapshotInfo2 = createOzoneSnapshot(leaderOM, "snap100");
+    SnapshotInfo snapshotInfo2 = createOzoneSnapshot("snap100");
     long endTime2 = System.currentTimeMillis();
 
     followerOM.getConfiguration().setInt(
@@ -447,11 +447,9 @@ public class TestOMRatisSnapshots {
     long endTime4 = System.currentTimeMillis();
 
     // Get two incremental tarballs, adding new keys/snapshot for each.
-    IncrementData firstIncrement = getNextIncrementalTarball(200, 2, leaderOM,
-        leaderRatisServer, faultInjector, followerOM, tempDir);
+    IncrementData firstIncrement = getNextIncrementalTarball(200, 2, faultInjector, tempDir);
     long endTime5 = System.currentTimeMillis();
-    IncrementData secondIncrement = getNextIncrementalTarball(300, 3, leaderOM,
-        leaderRatisServer, faultInjector, followerOM, tempDir);
+    IncrementData secondIncrement = getNextIncrementalTarball(300, 3, faultInjector, tempDir);
     long endTime6 = System.currentTimeMillis();
 
     // Resume the follower thread, it would download the incremental snapshot.
@@ -530,10 +528,10 @@ public class TestOMRatisSnapshots {
     assertNotNull(filesInCandidate);
     assertEquals(0, filesInCandidate.length);
 
-    checkSnapshot(leaderOM, followerOM, "snap100", firstKeys, snapshotInfo2);
-    checkSnapshot(leaderOM, followerOM, "snap200", firstIncrement.getKeys(),
+    checkSnapshot("snap100", firstKeys, snapshotInfo2);
+    checkSnapshot("snap200", firstIncrement.getKeys(),
         firstIncrement.getSnapshotInfo());
-    checkSnapshot(leaderOM, followerOM, "snap300", secondIncrement.getKeys(),
+    checkSnapshot("snap300", secondIncrement.getKeys(),
         secondIncrement.getSnapshotInfo());
     assertEquals(
         2, followerOM.getOmSnapshotProvider().getInitCount(),
@@ -580,8 +578,7 @@ public class TestOMRatisSnapshots {
 
   private IncrementData getNextIncrementalTarball(
       int numKeys, int expectedNumDownloads,
-      OzoneManager leaderOM, OzoneManagerRatisServer leaderRatisServer,
-      FaultInjector faultInjector, OzoneManager followerOM, Path tempDir)
+      FaultInjector faultInjector, Path tempDir)
       throws IOException, InterruptedException, TimeoutException {
     IncrementData id = new IncrementData();
 
@@ -597,7 +594,7 @@ public class TestOMRatisSnapshots {
     id.keys = writeKeysToIncreaseLogIndex(leaderRatisServer,
         numKeys);
 
-    id.snapshotInfo = createOzoneSnapshot(leaderOM, "snap" + numKeys);
+    id.snapshotInfo = createOzoneSnapshot("snap" + numKeys);
     // Resume the follower thread, it would download the incremental snapshot.
     faultInjector.resume();
 
@@ -1063,7 +1060,7 @@ public class TestOMRatisSnapshots {
     assertLogCapture(logCapture, msg);
   }
 
-  private SnapshotInfo createOzoneSnapshot(OzoneManager leaderOM, String name)
+  private SnapshotInfo createOzoneSnapshot(String name)
       throws IOException {
     objectStore.createSnapshot(volumeName, bucketName, name);
 
