@@ -990,6 +990,7 @@ public class TestOMRatisSnapshots {
         leaderCheckpointTermIndex.getIndex() + 100);
     long endTime3 = System.currentTimeMillis();
 
+    Thread.sleep(1000); // Temporary workaround for race condition HDDS-12910.
     // Install the old checkpoint on the follower OM. This should fail as the
     // followerOM is already ahead of that transactionLogIndex and the OM
     // state should be reloaded.
