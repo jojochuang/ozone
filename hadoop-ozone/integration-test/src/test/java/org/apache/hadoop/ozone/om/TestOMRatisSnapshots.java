@@ -125,6 +125,11 @@ public class TestOMRatisSnapshots {
   private static final String SNAPSHOT_NAME_PREFIX = "snapshot";
   private OzoneClient client;
 
+  private String leaderOMNodeId;
+  private OzoneManager leaderOM;
+  private OzoneManagerRatisServer leaderRatisServer;
+  private String followerNodeId;
+  private OzoneManager followerOM;
   /**
    * Create a MiniOzoneCluster for testing. The cluster initially has one
    * inactive OM. So at the start of the cluster, there will be 2 active and 1
@@ -182,6 +187,22 @@ public class TestOMRatisSnapshots {
         BucketArgs.newBuilder().setBucketLayout(TEST_BUCKET_LAYOUT).build());
     ozoneBucket = retVolumeinfo.getBucket(bucketName);
     long endTime = System.currentTimeMillis();
+
+    // Get the leader OM
+    leaderOMNodeId = OmFailoverProxyUtil
+        .getFailoverProxyProvider(objectStore.getClientProxy())
+        .getCurrentProxyOMNodeId();
+
+    leaderOM = cluster.getOzoneManager(leaderOMNodeId);
+    leaderRatisServer = leaderOM.getOmRatisServer();
+
+    // Find the inactive OM
+    followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
+    if (cluster.isOMActive(followerNodeId)) {
+      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
+    }
+    followerOM = cluster.getOzoneManager(followerNodeId);
+
     LOG.info("init time: {}ms", (endTime - startTime));
   }
 
@@ -203,19 +224,6 @@ public class TestOMRatisSnapshots {
   @Test
   public void testInstallSnapshot(@TempDir Path tempDir) throws Exception {
     long startTime = System.currentTimeMillis();
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
 
     List<Set<String>> sstSetList = new ArrayList<>();
     FaultInjector faultInjector =
@@ -236,7 +244,6 @@ public class TestOMRatisSnapshots {
       snapshotInfo = createOzoneSnapshot(leaderOM, snapshotName);
     }
     long endTime1 = System.currentTimeMillis();
-
 
     // Get the latest db checkpoint from the leader OM.
     TransactionInfo transactionInfo =
@@ -412,20 +419,7 @@ public class TestOMRatisSnapshots {
   @Timeout(300)
   public void testInstallIncrementalSnapshot(@TempDir Path tempDir)
       throws Exception {
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-    OzoneManagerRatisServer leaderRatisServer = leaderOM.getOmRatisServer();
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
+    long startTime = System.currentTimeMillis();
 
     // Set fault injector to pause before install
     FaultInjector faultInjector = new FaultInjectorImpl();
@@ -434,27 +428,35 @@ public class TestOMRatisSnapshots {
     // Do some transactions so that the log index increases
     List<String> firstKeys = writeKeysToIncreaseLogIndex(leaderRatisServer,
         100);
+    long endTime1 = System.currentTimeMillis();
 
     SnapshotInfo snapshotInfo2 = createOzoneSnapshot(leaderOM, "snap100");
+    long endTime2 = System.currentTimeMillis();
+
     followerOM.getConfiguration().setInt(
         OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL,
         KeyManagerImpl.DISABLE_VALUE);
     // Start the inactive OM. Checkpoint installation will happen spontaneously.
     cluster.startInactiveOM(followerNodeId);
+    long endTime3 = System.currentTimeMillis();
 
     // Wait the follower download the snapshot,but get stuck by injector
     GenericTestUtils.waitFor(() -> {
       return followerOM.getOmSnapshotProvider().getNumDownloaded() == 1;
     }, 100, 30_000);
+    long endTime4 = System.currentTimeMillis();
 
     // Get two incremental tarballs, adding new keys/snapshot for each.
     IncrementData firstIncrement = getNextIncrementalTarball(200, 2, leaderOM,
         leaderRatisServer, faultInjector, followerOM, tempDir);
+    long endTime5 = System.currentTimeMillis();
     IncrementData secondIncrement = getNextIncrementalTarball(300, 3, leaderOM,
         leaderRatisServer, faultInjector, followerOM, tempDir);
+    long endTime6 = System.currentTimeMillis();
 
     // Resume the follower thread, it would download the incremental snapshot.
     faultInjector.resume();
+    long endTime7 = System.currentTimeMillis();
 
     // Get the latest db checkpoint from the leader OM.
     TransactionInfo transactionInfo =
@@ -471,6 +473,7 @@ public class TestOMRatisSnapshots {
       return followerOM.getOmRatisServer().getLastAppliedTermIndex().getIndex()
           >= leaderOMSnapshotIndex - 1;
     }, 100, 30_000);
+    long endTime8 = System.currentTimeMillis();
 
     assertEquals(3, followerOM.getOmSnapshotProvider().getNumDownloaded());
     // Verify that the follower OM's DB contains the transactions which were
@@ -505,6 +508,7 @@ public class TestOMRatisSnapshots {
     GenericTestUtils.waitFor(() -> {
       return followerOM.isOmRpcServerRunning();
     }, 100, 30_000);
+    long endTime9 = System.currentTimeMillis();
 
     // Read & Write after snapshot installed.
     List<String> newKeys = writeKeys(1);
@@ -518,6 +522,7 @@ public class TestOMRatisSnapshots {
         throw new RuntimeException(e);
       }
     }, 100, 30_000);
+    long endTime10 = System.currentTimeMillis();
 
     // Verify follower candidate directory get cleaned
     String[] filesInCandidate = followerOM.getOmSnapshotProvider().
@@ -531,8 +536,33 @@ public class TestOMRatisSnapshots {
     checkSnapshot(leaderOM, followerOM, "snap300", secondIncrement.getKeys(),
         secondIncrement.getSnapshotInfo());
     assertEquals(
-        followerOM.getOmSnapshotProvider().getInitCount(), 2,
+        2, followerOM.getOmSnapshotProvider().getInitCount(),
         "Only initialized twice");
+    followerOM.getOmSnapshotProvider().setInjector(null);
+    long endTime11 = System.currentTimeMillis();
+
+    LOG.info("testInstallIncrementalSnapshot after create snapshot time: {}ms",
+        (endTime1 - startTime));
+    LOG.info("testInstallIncrementalSnapshot wait for follower catch up time: {}ms",
+        (endTime2 - startTime));
+    LOG.info("testInstallIncrementalSnapshot follower rpc is up time: {}ms",
+        (endTime3 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after read keys time: {}ms",
+        (endTime4 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after get incremental tarball time: {}ms",
+        (endTime5 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after get incremental tarball time: {}ms",
+        (endTime6 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after install incremental tarball time: {}ms",
+        (endTime7 - startTime));
+    LOG.info("testInstallIncrementalSnapshot wait for follower catch up time: {}ms",
+        (endTime8 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after read keys time: {}ms",
+        (endTime9 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after check snapshot time: {}ms",
+        (endTime10 - startTime));
+    LOG.info("testInstallIncrementalSnapshot after check snapshot time: {}ms",
+        (endTime11 - startTime));
   }
 
   static class IncrementData {
@@ -623,21 +653,6 @@ public class TestOMRatisSnapshots {
   @Test
   @Timeout(300)
   public void testInstallIncrementalSnapshotWithFailure() throws Exception {
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-    OzoneManagerRatisServer leaderRatisServer = leaderOM.getOmRatisServer();
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
-
     // Set fault injector to pause before install
     FaultInjector faultInjector = new FaultInjectorImpl();
     followerOM.getOmSnapshotProvider().setInjector(faultInjector);
@@ -761,26 +776,12 @@ public class TestOMRatisSnapshots {
         getCandidateDir().list();
     assertNotNull(filesInCandidate);
     assertEquals(0, filesInCandidate.length);
+    followerOM.getOmSnapshotProvider().setInjector(null);
   }
 
   @Test
   public void testInstallSnapshotWithClientWrite() throws Exception {
     long startTime = System.currentTimeMillis();
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-    OzoneManagerRatisServer leaderRatisServer = leaderOM.getOmRatisServer();
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
-
     // Do some transactions so that the log index increases
     List<String> keys = writeKeysToIncreaseLogIndex(leaderRatisServer, 100);
     long endTime1 = System.currentTimeMillis();
@@ -893,21 +894,6 @@ public class TestOMRatisSnapshots {
 
   @Test
   public void testInstallSnapshotWithClientRead() throws Exception {
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-    OzoneManagerRatisServer leaderRatisServer = leaderOM.getOmRatisServer();
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
-
     // Do some transactions so that the log index increases
     List<String> keys = writeKeysToIncreaseLogIndex(leaderRatisServer, 100);
 
@@ -980,26 +966,13 @@ public class TestOMRatisSnapshots {
   @Test
   public void testInstallOldCheckpointFailure() throws Exception {
     long startTime = System.currentTimeMillis();
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-
-    // Find the inactive OM and start it
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
 
     GenericTestUtils.setLogLevel(OzoneManager.class, Level.INFO);
     LogCapturer logCapture = LogCapturer.captureLogs(OzoneManager.class);
+    OzoneManagerRatisServer followerRatisServer = followerOM.getOmRatisServer();
+
     cluster.startInactiveOM(followerNodeId);
     long endTime1 = System.currentTimeMillis();
-
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
-    OzoneManagerRatisServer followerRatisServer = followerOM.getOmRatisServer();
 
     // Do some transactions so that the log index increases on follower OM
     writeKeysToIncreaseLogIndex(followerRatisServer, 100);
@@ -1028,6 +1001,7 @@ public class TestOMRatisSnapshots {
     String errorMsg = "Cannot proceed with InstallSnapshot as OM is at " +
         "TermIndex " + followerTermIndex + " and checkpoint has lower " +
         "TermIndex";
+    LOG.info("looking for error message: {}", errorMsg);
     assertLogCapture(logCapture, errorMsg);
     assertNull(newTermIndex,
         "OM installed checkpoint even though checkpoint " +
@@ -1037,6 +1011,7 @@ public class TestOMRatisSnapshots {
     String msg = "OM DB is not stopped. Started services with Term: " +
         followerTermIndex.getTerm() + " and Index: " +
         followerTermIndex.getIndex();
+    LOG.info("looking for error message: {}", errorMsg);
     assertLogCapture(logCapture, msg);
 
     LOG.info("testInstallOldCheckpointFailure after start inactive OM time: {}ms", (endTime1 - startTime));
@@ -1048,21 +1023,6 @@ public class TestOMRatisSnapshots {
 
   @Test
   public void testInstallCorruptedCheckpointFailure() throws Exception {
-    // Get the leader OM
-    String leaderOMNodeId = OmFailoverProxyUtil
-        .getFailoverProxyProvider(objectStore.getClientProxy())
-        .getCurrentProxyOMNodeId();
-
-    OzoneManager leaderOM = cluster.getOzoneManager(leaderOMNodeId);
-    OzoneManagerRatisServer leaderRatisServer = leaderOM.getOmRatisServer();
-
-    // Find the inactive OM
-    String followerNodeId = leaderOM.getPeerNodes().get(0).getNodeId();
-    if (cluster.isOMActive(followerNodeId)) {
-      followerNodeId = leaderOM.getPeerNodes().get(1).getNodeId();
-    }
-    OzoneManager followerOM = cluster.getOzoneManager(followerNodeId);
-
     // Do some transactions so that the log index increases
     writeKeysToIncreaseLogIndex(leaderRatisServer, 100);
 
