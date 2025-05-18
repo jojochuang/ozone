@@ -1198,6 +1198,82 @@ public class TestSnapshotDiffManager {
   }
 
   @Test
+  public void testListSnapshotDiffJobsWithContinuation()
+      throws IOException {
+    String jobStatus = "queued";
+    boolean listAllStatus = true;
+    boolean containsJob = false;
+
+    // create 4 snapshots: snapshot1, snapshot2, snapshot3, snapshot4
+    String volumeName = "vol-" + RandomStringUtils.secure().nextNumeric(5);
+    String bucketName = "bucket-" + RandomStringUtils.secure().nextNumeric(5);
+    String snapshot1 = "snap-" + RandomStringUtils.secure().nextNumeric(5);
+    String snapshot2 = "snap-" + RandomStringUtils.secure().nextNumeric(5);
+
+    UUID snapshot1UUID = UUID.randomUUID();
+    UUID snapshot2UUID = UUID.randomUUID();
+
+    setupMocksForRunningASnapDiff(volumeName, bucketName);
+
+    setUpSnapshots(volumeName, bucketName, snapshot1,
+        snapshot2, snapshot1UUID, snapshot2UUID);
+
+    String snapshot3 = "snap-" + RandomStringUtils.secure().nextNumeric(5);
+    String snapshot4 = "snap-" + RandomStringUtils.secure().nextNumeric(5);
+
+    UUID snapshotUUID3 = UUID.randomUUID();
+    UUID snapshotUUID4 = UUID.randomUUID();
+
+    setUpSnapshots(volumeName, bucketName, snapshot3,
+        snapshot4, snapshotUUID3, snapshotUUID4);
+
+    PersistentMap<String, SnapshotDiffJob> snapDiffJobMap =
+        snapshotDiffManager.getSnapDiffJobTable();
+    String diffJobKey = snapshot1UUID + DELIMITER + snapshot2UUID;
+    String diffJobKey2 = snapshotUUID3 + DELIMITER + snapshotUUID4;
+
+    SnapshotDiffJob diffJob;
+    SnapshotDiffJob diffJob2;
+    ListSnapshotDiffJobResponse snapshotDiffJobList;
+    List<SnapshotDiffJob> jobList;
+
+    // generate a snapshot diff report between snapshot snapshot1 and snapshot2
+    SnapshotDiffManager spy = spy(snapshotDiffManager);
+    doNothing().when(spy).generateSnapshotDiffReport(eq(diffJobKey),
+        anyString(), eq(volumeName), eq(bucketName), eq(snapshot1),
+        eq(snapshot2), eq(false), eq(false));
+
+    // SnapshotDiffReport
+    spy.getSnapshotDiffReport(volumeName, bucketName, snapshot1,
+        snapshot2, 0, 0, false, false);
+
+    // generate a snapshot diff report between snapshot snapshot3 and snapshot4
+    doNothing().when(spy).generateSnapshotDiffReport(eq(diffJobKey),
+        anyString(), eq(volumeName), eq(bucketName), eq(snapshot3),
+        eq(snapshot4), eq(false), eq(false));
+
+    // SnapshotDiffReport
+    spy.getSnapshotDiffReport(volumeName, bucketName, snapshot3,
+        snapshot4, 0, 0, false, false);
+
+    diffJob = snapDiffJobMap.get(diffJobKey);
+    assertNotNull(diffJob);
+
+    diffJob2 = snapDiffJobMap.get(diffJobKey2);
+    assertNotNull(diffJob2);
+
+    // Return a list of snapshot diff jobs, up to 1 job, so that it sets the continuation token.
+    snapshotDiffJobList = snapshotDiffManager
+        .getSnapshotDiffJobList(volumeName, bucketName, jobStatus, listAllStatus, null, 1);
+    jobList = snapshotDiffJobList.getSnapshotDiffJobs();
+    assertTrue(jobList.contains(diffJob2));
+
+    // Check the continuation token.
+    assertNotNull(snapshotDiffJobList.getLastSnapshotDiffJob());
+    assertEquals(diffJob.getJobId(), snapshotDiffJobList.getLastSnapshotDiffJob());
+  }
+
+  @Test
   public void testListSnapDiffWithInvalidStatus() throws IOException {
     String volumeName = "vol-" + RandomStringUtils.secure().nextNumeric(5);
     String bucketName = "bucket-" + RandomStringUtils.secure().nextNumeric(5);

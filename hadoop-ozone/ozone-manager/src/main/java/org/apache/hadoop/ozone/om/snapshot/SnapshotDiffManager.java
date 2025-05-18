@@ -429,6 +429,24 @@ public class SnapshotDiffManager implements AutoCloseable {
     return new CancelSnapshotDiffResponse(reason);
   }
 
+  /**
+   * Retrieves a list of snapshot diff jobs for the specified volume and bucket.
+   *
+   * This method queries the internal snapshot diff job table and returns a paginated
+   * list of {@link SnapshotDiffJob} entries that match the provided volume and bucket.
+   * It supports filtering by job status or listing all statuses, and provides a
+   * continuation token (the last job key) for pagination.
+   *
+   * @param volumeName      the name of the volume to filter jobs by
+   * @param bucketName      the name of the bucket to filter jobs by
+   * @param jobStatus       the status of jobs to filter by (ignored if listAllStatus is true)
+   * @param listAllStatus   if true, ignores jobStatus and returns jobs of all statuses
+   * @param prevDiffJob     the key of the previous snapshot diff job for pagination (exclusive); can be null
+   * @param maxEntries      the maximum number of jobs to return
+   * @return a {@link ListSnapshotDiffJobResponse} containing the list of snapshot diff jobs
+   *         and a continuation token if more jobs are available
+   * @throws IOException if an error occurs while accessing the job table or parsing the job status
+   */
   public ListSnapshotDiffJobResponse getSnapshotDiffJobList(
       String volumeName,
       String bucketName,
