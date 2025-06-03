@@ -26,6 +26,10 @@
   <name>Apache Ozone HDDS</name>
   <description>Apache Ozone Distributed Data Store Project</description>
 
+  <properties>
+    <sort.skip>true</sort.skip>
+  </properties>
+
   <modules>
     <module>annotations</module>
     <module>client</module>

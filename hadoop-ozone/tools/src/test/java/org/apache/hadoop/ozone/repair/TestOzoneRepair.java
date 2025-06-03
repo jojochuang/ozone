@@ -83,8 +83,10 @@ public class TestOzoneRepair {
       Object userObject = spec.userObject();
       if (!(userObject instanceof ReadOnlyCommand)) {
         assertThat(spec.optionsMap().keySet())
-            .as(() -> "'" + spec.qualifiedName() + "' defined by " + userObject.getClass()
-                + " should support --dry-run or implement " + ReadOnlyCommand.class)
+            .as("'%s' defined by %s should support --dry-run or implement %s",
+                spec.qualifiedName(),
+                userObject.getClass(),
+                ReadOnlyCommand.class)
             .contains("--dry-run");
       }
     } else {

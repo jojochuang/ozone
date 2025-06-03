@@ -54,6 +54,7 @@
 
   <properties>
     <docker.image>apache/ozone:${project.version}</docker.image>
+    <sort.skip>true</sort.skip>
   </properties>
 
   <build>

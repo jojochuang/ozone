@@ -139,7 +139,7 @@ public class HddsDatanodeClientProtocolServer extends ServiceRuntimeInfoImpl {
         .setBindAddress(addr.getHostString())
         .setPort(addr.getPort())
         .setNumHandlers(handlerCount)
-        .setNumReaders(readThreads)
+        .setnumReaders(readThreads)
         .setVerbose(false)
         .setSecretManager(null)
         .build();
