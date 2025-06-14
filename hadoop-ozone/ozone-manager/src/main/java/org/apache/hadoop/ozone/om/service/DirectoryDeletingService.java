@@ -303,10 +303,27 @@ public class DirectoryDeletingService extends AbstractKeyDeletingService {
     }
 
     @Override
-    public void close() {
-      IOUtils.closeQuietly(deleteTableIterator);
+    OzoneManagerProtocolProtos.PurgeDirectoriesRequest.Builder purgeDirRequest =
+        OzoneManagerProtocolProtos.PurgeDirectoriesRequest.newBuilder();
+
+    if (snapTableKey != null) {
+      purgeDirRequest.setSnapshotTableKey(snapTableKey);
     }
-  }
+    OzoneManagerProtocolProtos.NullableUUID.Builder expectedPreviousSnapshotNullableUUID =
+        OzoneManagerProtocolProtos.NullableUUID.newBuilder();
+    if (expectedPreviousSnapshotId != null) {
+      expectedPreviousSnapshotNullableUUID.setUuid(HddsUtils.toProtobuf(expectedPreviousSnapshotId));
+    }
+    purgeDirRequest.setExpectedPreviousSnapshotID(expectedPreviousSnapshotNullableUUID.build());
+
+    purgeDirRequest.addAllDeletedPath(requests);
+
+    OzoneManagerProtocolProtos.OMRequest omRequest =
+        OzoneManagerProtocolProtos.OMRequest.newBuilder()
+            .setCmdType(OzoneManagerProtocolProtos.Type.PurgeDirectories)
+            .setPurgeDirectoriesRequest(purgeDirRequest)
+            .setClientId(getClientId().toString())
+            .build();
 
   /**
    * Returns the number of dirs deleted by the background service.
@@ -504,6 +521,7 @@ public class DirectoryDeletingService extends AbstractKeyDeletingService {
           keyManager.getDeletedDirEntries() : keyManager.getDeletedDirEntries(volume, bucket))) {
         // This is to avoid race condition b/w purge request and snapshot chain update. For AOS taking the global
         // snapshotId since AOS could process multiple buckets in one iteration. While using path
+
         // previous snapshotId for a snapshot since it would process only one bucket.
         UUID expectedPreviousSnapshotId = currentSnapshotInfo == null ?
             snapshotChainManager.getLatestGlobalSnapshotId() :
