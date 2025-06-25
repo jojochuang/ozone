@@ -86,11 +86,10 @@ class NavBar extends React.Component<INavBarProps> {
     });
   };
 
+
   render() {
     const { location } = this.props;
-    // Commented till OPSAPS-71477 is fixed
-    // const { isHeatmapEnabled } = this.state;
-    const isHeatmapEnabled = false;
+    const { isHeatmapEnabled } = this.state;
     const menuItems = [(
       <Menu.Item key='/Overview'
         icon={<DashboardOutlined />}>

@@ -75,13 +75,10 @@ export const routes: IRoute[] = [
     path: '/Containers',
     component: MissingContainers,
   },
-  // Commenting out to prevent users from routing to this page
-  // Should uncomment when SOLR team provides a fix
-  // Ref: OPSAPS-71477
-  // {
-  //   path: '/Heatmap',
-  //   component: Heatmap
-  // },
+  {
+    path: '/Heatmap',
+    component: Heatmap
+  },
   {
     path: '/:NotFound',
     component: NotFound
