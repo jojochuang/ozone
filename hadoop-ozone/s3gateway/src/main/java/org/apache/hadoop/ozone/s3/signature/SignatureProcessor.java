@@ -36,8 +36,32 @@ public interface SignatureProcessor {
   DateTimeFormatter DATE_FORMATTER =
       DateTimeFormatter.ofPattern("yyyyMMdd");
 
+  import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.HttpMethod;
+
+/**
+ * Parser to request auth parser for http request.
+ */
+public interface SignatureProcessor {
+
+  String CONTENT_TYPE = "content-type";
+
+  String CONTENT_MD5 = "content-md5";
+
+  String AWS4_SIGNING_ALGORITHM = "AWS4-HMAC-SHA256";
+
+  String HOST_HEADER = "Host";
+
+  DateTimeFormatter DATE_FORMATTER =
+      DateTimeFormatter.ofPattern("yyyyMMdd");
+
   /**
    * API to return string to sign.
    */
-  SignatureInfo parseSignature() throws OS3Exception;
+  SignatureInfo parseSignature(ContainerRequestContext context) throws OS3Exception;
+
+  /**
+   * API to validate the request and return signature info.
+   */
+  SignatureInfo validateRequest(ContainerRequestContext context, String method) throws OS3Exception;
 }

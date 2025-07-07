@@ -134,6 +134,8 @@ import org.apache.hadoop.ozone.s3.UnsignedChunksInputStream;
 import org.apache.hadoop.ozone.s3.endpoint.S3Tagging.Tag;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.exception.S3ErrorTable;
+import org.apache.hadoop.ozone.s3.signature.SignatureInfo;
+import org.apache.hadoop.ozone.s3.signature.SignatureProcessor;
 import org.apache.hadoop.ozone.s3.util.RFC1123Util;
 import org.apache.hadoop.ozone.s3.util.RangeHeader;
 import org.apache.hadoop.ozone.s3.util.RangeHeaderParserUtil;
@@ -172,6 +174,9 @@ public class ObjectEndpoint extends EndpointBase {
 
   @Context
   private HttpHeaders headers;
+
+  @Inject
+  private SignatureProcessor signatureProcessor;
 
   /*FOR the feature Overriding Response Header
   https://docs.aws.amazon.com/de_de/AmazonS3/latest/API/API_GetObject.html */
@@ -242,6 +247,15 @@ public class ObjectEndpoint extends EndpointBase {
         s3GAction = S3GAction.PUT_OBJECT_ACL;
         throw newError(NOT_IMPLEMENTED, keyPath);
       }
+
+      // Check for presigned URL
+      if (context.getUriInfo().getQueryParameters().containsKey("X-Amz-Signature")) {
+        SignatureInfo signatureInfo = signatureProcessor.validateRequest(context, HttpMethod.PUT);
+        // TODO: Verify s3:PutObject permission for the user in signatureInfo
+        // For now, we'll just log the access ID.
+        LOG.debug("Presigned PUT request from user: {}", signatureInfo.getAwsAccessId());
+      }
+
       OzoneVolume volume = getVolume();
       OzoneBucket bucket = volume.getBucket(bucketName);
       S3Owner.verifyBucketOwnerCondition(headers, bucketName, bucket.getOwner());

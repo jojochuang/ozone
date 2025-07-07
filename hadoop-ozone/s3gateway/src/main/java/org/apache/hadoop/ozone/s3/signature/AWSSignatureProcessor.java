@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MultivaluedMap;
@@ -59,9 +60,12 @@ public class AWSSignatureProcessor implements SignatureProcessor {
   @Context
   private ContainerRequestContext context;
 
-  @Override
-  public SignatureInfo parseSignature() throws OS3Exception {
+  @Inject
+  private SecretKeyProvider secretKeyProvider;
 
+  @Override
+  public SignatureInfo parseSignature(ContainerRequestContext context) throws OS3Exception {
+    this.context = context;
     LowerCaseKeyStringMap headers =
         LowerCaseKeyStringMap.fromHeaderMap(context.getHeaders());
 
@@ -96,6 +100,43 @@ public class AWSSignatureProcessor implements SignatureProcessor {
     return signatureInfo;
   }
 
+  @Override
+  public SignatureInfo validateRequest(ContainerRequestContext context, String method) throws OS3Exception {
+    SignatureInfo signatureInfo = parseSignature(context);
+
+    if (signatureInfo.getVersion() == Version.NONE) {
+      throw S3ErrorTable.newError(S3ErrorTable.ACCESS_DENIED, context.getUriInfo().getPath());
+    }
+
+    try {
+      String stringToSign = StringToSignProducer.createSignatureBase(
+          signatureInfo,
+          context.getUriInfo().getRequestUri().getScheme(),
+          method,
+          LowerCaseKeyStringMap.fromHeaderMap(context.getHeaders()),
+          StringToSignProducer.fromMultiValueToSingleValueMap(context.getUriInfo().getQueryParameters()));
+
+      signatureInfo.setStrToSign(stringToSign);
+
+      String accessKeyId = signatureInfo.getAwsAccessId();
+      String secretKey = secretKeyProvider.get  SecretKey(accessKeyId);
+
+      String calculatedSignature = SignatureProcessorUtil.calculateSignature(
+          secretKey, signatureInfo.getDate(), signatureInfo.getRegion(),
+          signatureInfo.getService(), stringToSign);
+
+      if (!calculatedSignature.equals(signatureInfo.getSignature())) {
+        throw S3ErrorTable.newError(S3ErrorTable.SIGNATURE_DOES_NOT_MATCH, context.getUriInfo().getPath());
+      }
+    } catch (Exception e) {
+      AuditMessage message = buildAuthFailureMessage(new MalformedResourceException(e.getMessage()));
+      AUDIT.logAuthFailure(message);
+      throw S3ErrorTable.newError(S3ErrorTable.ACCESS_DENIED, context.getUriInfo().getPath());
+    }
+
+    return signatureInfo;
+  }
+
   private AuditMessage buildAuthFailureMessage(MalformedResourceException e) {
     AuditMessage message = new AuditMessage.Builder()
         .forOperation(AuthOperation.fromContext(context))
@@ -110,6 +151,11 @@ public class AWSSignatureProcessor implements SignatureProcessor {
   @VisibleForTesting
   public void setContext(ContainerRequestContext context) {
     this.context = context;
+  }
+
+  @VisibleForTesting
+  public void setSecretKeyProvider(SecretKeyProvider secretKeyProvider) {
+    this.secretKeyProvider = secretKeyProvider;
   }
 
   /**

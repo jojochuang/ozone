@@ -92,6 +92,8 @@ public class AuthorizationV4QueryParser implements SignatureParser {
         .setCredentialScope(credential.createScope())
         .setAlgorithm(queryParameters.get("X-Amz-Algorithm"))
         .setSignPayload(false)
+        .setRegion(credential.getAwsRegion())
+        .setService(credential.getAwsService())
         .build();
   }
 
