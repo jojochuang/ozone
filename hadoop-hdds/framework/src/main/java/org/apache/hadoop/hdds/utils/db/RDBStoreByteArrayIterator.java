@@ -24,15 +24,13 @@ import org.apache.hadoop.hdds.utils.db.managed.ManagedRocksIterator;
  * RocksDB store iterator using the byte[] API.
  */
 class RDBStoreByteArrayIterator extends RDBStoreAbstractIterator<byte[]> {
-  private static final byte[] EMPTY = {};
-
-  private final Type type;
+  private static byte[] copyPrefix(byte[] prefix) {
+    return prefix == null || prefix.length == 0 ? null : Arrays.copyOf(prefix, prefix.length);
+  }
 
   RDBStoreByteArrayIterator(ManagedRocksIterator iterator,
       RDBTable table, byte[] prefix, Type type) {
-    super(iterator, table,
-        prefix == null ? null : Arrays.copyOf(prefix, prefix.length));
-    this.type = type;
+    super(iterator, table, copyPrefix(prefix), type);
     seekToFirst();
   }
 
@@ -44,8 +42,8 @@ class RDBStoreByteArrayIterator extends RDBStoreAbstractIterator<byte[]> {
   @Override
   Table.KeyValue<byte[], byte[]> getKeyValue() {
     final ManagedRocksIterator i = getRocksDBIterator();
-    final byte[] key = type.readKey() ? i.get().key() : EMPTY;
-    final byte[] value = type.readValue() ? i.get().value() : EMPTY;
+    final byte[] key = getType().readKey() ? i.get().key() : null;
+    final byte[] value = getType().readValue() ? i.get().value() : null;
     return Table.newKeyValue(key, value);
   }
 
