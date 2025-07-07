@@ -1032,6 +1032,46 @@ public abstract class AbstractS3SDKV1Tests extends OzoneTestBase {
     }
   }
 
+  @Test
+  public void testPresignedUrlPut() throws IOException {
+    final String bucketName = getBucketName();
+    final String keyName = getKeyName();
+    final String content = "Hello, presigned PUT!";
+    s3Client.createBucket(bucketName);
+
+    // Set the presigned URL to expire after one hour.
+    Date expiration = Date.from(Instant.now().plusMillis(1000 * 60 * 60));
+
+    // Generate the presigned URL for PUT operation
+    GeneratePresignedUrlRequest generatePresignedUrlRequest =
+        new GeneratePresignedUrlRequest(bucketName, keyName)
+            .withMethod(HttpMethod.PUT)
+            .withExpiration(expiration);
+    URL url = s3Client.generatePresignedUrl(generatePresignedUrlRequest);
+
+    // Upload the object using HttpUrlConnection
+    URL presignedUrl = new URL(url.toExternalForm());
+    HttpURLConnection connection = (HttpURLConnection) presignedUrl.openConnection();
+    connection.setDoOutput(true);
+    connection.setRequestMethod("PUT");
+    connection.setRequestProperty("Content-Type", "text/plain");
+    connection.setRequestProperty("Content-Length", String.valueOf(content.length()));
+
+    try (java.io.OutputStream os = connection.getOutputStream()) {
+      os.write(content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    assertEquals(HttpURLConnection.HTTP_OK, connection.getResponseCode());
+
+    // Verify the uploaded object content
+    S3Object s3Object = s3Client.getObject(bucketName, keyName);
+    try (S3ObjectInputStream s3is = s3Object.getObjectContent();
+         ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+      IOUtils.copy(s3is, bos);
+      assertEquals(content, bos.toString(StandardCharsets.UTF_8.name()));
+    }
+  }
+
   /**
    * Tests the functionality to create a snapshot of an Ozone bucket and then read files
    * from the snapshot directory using the S3 SDK.
