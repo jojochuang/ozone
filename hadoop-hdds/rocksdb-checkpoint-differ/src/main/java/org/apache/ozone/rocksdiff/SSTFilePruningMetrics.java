@@ -34,8 +34,8 @@ import org.apache.hadoop.ozone.OzoneConsts;
 @Metrics(about = "SST File Pruning Metrics", context = OzoneConsts.OZONE)
 public final class SSTFilePruningMetrics implements MetricsSource {
 
-  public static final String METRICS_SOURCE_NAME = SSTFilePruningMetrics.class.getSimpleName();
-  private MetricsRegistry registry;
+  private final String metricsSourceName;
+  private final MetricsRegistry registry;
 
   /*
    * Pruning Throughput Metrics.
@@ -57,8 +57,9 @@ public final class SSTFilePruningMetrics implements MetricsSource {
   @Metric("No. of pruning job failures")
   private MutableCounterLong pruningFailures;
 
-  private SSTFilePruningMetrics() {
-    this.registry = new MetricsRegistry(METRICS_SOURCE_NAME);
+  private SSTFilePruningMetrics(String sourceName) {
+    this.metricsSourceName = sourceName;
+    this.registry = new MetricsRegistry(metricsSourceName);
   }
 
   /**
@@ -66,16 +67,18 @@ public final class SSTFilePruningMetrics implements MetricsSource {
    *
    * @return SSTFilePruningMetrics
    */
-  public static SSTFilePruningMetrics create() {
-    return DefaultMetricsSystem.instance().register(METRICS_SOURCE_NAME, "SST File Pruning Metrics",
-        new SSTFilePruningMetrics());
+  public static SSTFilePruningMetrics create(String dbName) {
+    String sourceName = SSTFilePruningMetrics.class.getSimpleName() +
+        (dbName == null || dbName.isEmpty() ? "" : "-" + dbName.replaceAll("[/\\:]", "_"));
+    return DefaultMetricsSystem.instance().register(sourceName, "SST File Pruning Metrics for " + dbName,
+        new SSTFilePruningMetrics(sourceName));
   }
 
   /**
    * Unregister the metrics instance.
    */
   public void unRegister() {
-    DefaultMetricsSystem.instance().unregisterSource(METRICS_SOURCE_NAME);
+    DefaultMetricsSystem.instance().unregisterSource(metricsSourceName);
   }
 
   public void updateQueueSize(long queueSize) {
@@ -120,7 +123,7 @@ public final class SSTFilePruningMetrics implements MetricsSource {
 
   @Override
   public void getMetrics(MetricsCollector collector, boolean all) {
-    MetricsRecordBuilder recordBuilder = collector.addRecord(METRICS_SOURCE_NAME);
+    MetricsRecordBuilder recordBuilder = collector.addRecord(metricsSourceName);
     filesPrunedTotal.snapshot(recordBuilder, all);
     filesPrunedLast.snapshot(recordBuilder, all);
     filesRemovedTotal.snapshot(recordBuilder, all);
