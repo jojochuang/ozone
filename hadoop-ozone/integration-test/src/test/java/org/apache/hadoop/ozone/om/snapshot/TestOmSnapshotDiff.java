@@ -27,7 +27,6 @@ import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_ENABLE_FILESYSTEM
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_SNAPSHOT_DIFF_DISABLE_NATIVE_LIBS;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_OM_SNAPSHOT_FORCE_FULL_DIFF;
 import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_SNAPSHOT_SST_FILTERING_SERVICE_INTERVAL;
-import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.CONTAINS_SNAPSHOT;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLIdentityType.USER;
 import static org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType.WRITE;
 import static org.apache.hadoop.ozone.snapshot.SnapshotDiffResponse.JobStatus.DONE;
@@ -53,7 +52,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -79,7 +77,6 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneKeyDetails;
-import org.apache.hadoop.ozone.client.OzoneSnapshot;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
@@ -88,7 +85,6 @@ import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.om.OmSnapshotManager;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.ResolvedBucket;
-import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
@@ -1160,9 +1156,8 @@ public abstract class TestOmSnapshotDiff {
     assertEquals(1, diff.getDiffList().size());
     assertEquals(Lists.newArrayList(
         SnapshotDiffReportOzone.getDiffReportEntry(
-            SnapshotDiffReport.DiffType.MODIFY, key1)), diff.getDiffList());
+            SnapshotDiffReport.DiffType.RENAME, key1, key1)), diff.getDiffList());
   }
-
 
   @Test
   public void testSnapDiffWithStreamKey() throws Exception {
@@ -1307,8 +1302,6 @@ public abstract class TestOmSnapshotDiff {
     return key;
   }
 
-  ///////
-
   private String createStreamFileKeyWithPrefix(OzoneBucket bucket, String keyPrefix)
       throws Exception {
     String key = keyPrefix + counter.incrementAndGet();
@@ -1331,7 +1324,6 @@ public abstract class TestOmSnapshotDiff {
     }, 300, 10000);
     return key;
   }
-
 
   private void createFileKey(FileSystem fs,
                              String path)
