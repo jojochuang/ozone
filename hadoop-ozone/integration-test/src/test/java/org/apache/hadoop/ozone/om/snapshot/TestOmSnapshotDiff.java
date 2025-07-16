@@ -111,9 +111,9 @@ public abstract class TestOmSnapshotDiff {
 
   private MiniOzoneCluster cluster;
   private OzoneClient client;
-  private String volumeName;
-  private String bucketName;
-  private OzoneManagerProtocol writeClient;
+  
+  
+  
   private ObjectStore store;
   private OzoneManager ozoneManager;
   private OzoneBucket ozoneBucket;
@@ -172,12 +172,11 @@ public abstract class TestOmSnapshotDiff {
     if (createLinkedBucket) {
       this.linkedBuckets.put(ozoneBucket.getName(), ozoneBucket.getSourceBucket());
     }
-    volumeName = ozoneBucket.getVolumeName();
-    bucketName = ozoneBucket.getName();
+    
     ozoneManager = cluster.getOzoneManager();
 
     store = client.getObjectStore();
-    writeClient = store.getClientProxy().getOzoneManagerClient();
+    
 
     // stop the deletion services so that keys can still be read
     //stopKeyManager();
@@ -1243,10 +1242,7 @@ public abstract class TestOmSnapshotDiff {
             SnapshotDiffReport.DiffType.MODIFY, key1)), diff.getDiffList());
   }*/
 
-  private String createSnapshot(String volName, String buckName)
-      throws IOException, InterruptedException, TimeoutException {
-    return createSnapshot(volName, buckName, UUID.randomUUID().toString());
-  }
+  
 
   private String createSnapshot(String volName, String buckName,
       String snapshotName)
