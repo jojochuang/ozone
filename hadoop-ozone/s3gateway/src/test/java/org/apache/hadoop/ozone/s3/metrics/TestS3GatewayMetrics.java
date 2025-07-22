@@ -646,6 +646,23 @@ public class TestS3GatewayMetrics {
     assertEquals(1L, curMetric - oriMetric);
   }
 
+  @Test
+  public void testPendingOps() {
+    assertEquals(0, metrics.getPendingOps());
+
+    metrics.incPendingOps();
+    assertEquals(1, metrics.getPendingOps());
+
+    metrics.incPendingOps();
+    assertEquals(2, metrics.getPendingOps());
+
+    metrics.decPendingOps();
+    assertEquals(1, metrics.getPendingOps());
+
+    metrics.decPendingOps();
+    assertEquals(0, metrics.getPendingOps());
+  }
+
   private OzoneClient createClientWithKeys(String... keys) throws IOException {
     for (String key : keys) {
       bucket.createKey(key, 0).close();

@@ -101,6 +101,7 @@ public final class S3GatewayMetrics implements Closeable, MetricsSource {
   private @Metric MutableCounterLong deleteObjectTaggingFailure;
   private @Metric MutableCounterLong putObjectAclSuccess;
   private @Metric MutableCounterLong putObjectAclFailure;
+  private @Metric MutableCounterLong pendingOps;
 
   // S3 Gateway Latency Metrics
   // BucketEndpoint
@@ -421,6 +422,7 @@ public final class S3GatewayMetrics implements Closeable, MetricsSource {
     deleteObjectTaggingFailureLatencyNs.snapshot(recordBuilder, true);
     putObjectAclSuccess.snapshot(recordBuilder, true);
     putObjectAclFailure.snapshot(recordBuilder, true);
+    pendingOps.snapshot(recordBuilder, true);
   }
 
   // INC and UPDATE
@@ -682,6 +684,14 @@ public final class S3GatewayMetrics implements Closeable, MetricsSource {
     this.putObjectAclFailureLatencyNs.add(Time.monotonicNowNanos() - startNanos);
   }
 
+  public void incPendingOps() {
+    pendingOps.incr();
+  }
+
+  public void decPendingOps() {
+    pendingOps.incr(-1);
+  }
+
   // GET
   public long getListS3BucketsSuccess() {
     return listS3BucketsSuccess.value();
@@ -845,6 +855,10 @@ public final class S3GatewayMetrics implements Closeable, MetricsSource {
 
   public long getDeleteObjectTaggingFailure() {
     return deleteObjectTaggingFailure.value();
+  }
+
+  public long getPendingOps() {
+    return pendingOps.value();
   }
 
   private long updateAndGetStats(PerformanceMetrics metric, long startNanos) {

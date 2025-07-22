@@ -24,6 +24,7 @@ import io.opentracing.noop.NoopSpan;
 import io.opentracing.util.GlobalTracer;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ContainerResponseContext;
@@ -32,6 +33,7 @@ import javax.ws.rs.container.ResourceInfo;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.ext.Provider;
 import org.apache.hadoop.ozone.client.io.WrappedOutputStream;
+import org.apache.hadoop.ozone.s3.metrics.S3GatewayMetrics;
 
 /**
  * Filter used to add jaeger tracing span.
@@ -47,9 +49,14 @@ public class TracingFilter implements ContainerRequestFilter,
   @Context
   private ResourceInfo resourceInfo;
 
+  @Inject
+  private S3GatewayMetrics metrics;
+
   @Override
   public void filter(ContainerRequestContext requestContext) {
     finishAndCloseActiveSpan();
+
+    metrics.incPendingOps();
 
     Span span = GlobalTracer.get().buildSpan(
         resourceInfo.getResourceClass().getSimpleName() + "." +
@@ -79,6 +86,7 @@ public class TracingFilter implements ContainerRequestFilter,
     } else {
       finishAndClose(scope, span);
     }
+    metrics.decPendingOps();
   }
 
   private static void finishAndClose(Scope scope, Span span) {
