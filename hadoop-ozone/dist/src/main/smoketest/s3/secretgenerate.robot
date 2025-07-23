@@ -61,3 +61,24 @@ S3 Gateway Reject Secret Generation By Non-admin User
     Run Keyword                                             Kinit test user   testuser2   testuser2.keytab
     ${result} =         Execute                             curl -X PUT --negotiate -u : -v ${ENDPOINT_URL}/secret/testuser
                         Should contain          ${result}   HTTP/1.1 403 FORBIDDEN    ignore_case=True
+
+S3 Set Secret
+    Pass Execution If   '${SECURITY_ENABLED}' == 'false'    Skipping this check as security is not enabled
+    ${result} =         Execute                             ozone s3 setsecret ${OM_HA_PARAM} 'r5H9bK2wPzFpT6nLqWjXvA3sDeFgHjMnBcVgY7uI'
+                        Should contain          ${result}       S3 secret is set.
+
+S3 Set Secret For Another User
+    Pass Execution If   '${SECURITY_ENABLED}' == 'false'    Skipping this check as security is not enabled
+    ${result} =         Execute                             ozone s3 setsecret ${OM_HA_PARAM} -u testuser2 'r5H9bK2wPzFpT6nLqWjXvA3sDeFgHjMnBcVgY7uI'
+                        Should contain          ${result}       S3 secret is set.
+
+S3 Set Secret with Invalid Key
+    Pass Execution If   '${SECURITY_ENABLED}' == 'false'    Skipping this check as security is not enabled
+    ${result} =         Execute                             ozone s3 setsecret ${OM_HA_PARAM} 'invalid-key'
+                        Should contain          ${result}       INVALID_S3_SECRET
+
+S3 Set Secret without Kerberos Ticket
+    Pass Execution If   '${SECURITY_ENABLED}' == 'false'    Skipping this check as security is not enabled
+    Execute                                                 kdestroy
+    ${result} =         Execute                             ozone s3 setsecret ${OM_HA_PARAM} 'r5H9bK2wPzFpT6nLqWjXvA3sDeFgHjMnBcVgY7uI'
+                        Should contain          ${result}       Kerberos authentication failed

@@ -71,6 +71,15 @@ aws configure set region us-west-1
 Please refer to AWS S3 documentation on how to use S3 via command line or via
 S3 API.
 
+## Setting Secrets
+
+To set a specific secret for your access key, use the `ozone s3 setsecret` command. This allows using a pre-existing secret key, which must be a valid AWS Secret Access Key.
+
+```bash
+ozone s3 setsecret 'your-pre-existing-secret-key-here'
+S3 secret is set.
+```
+
 ## Revoking Secrets via REST API
 
 To invalidate/revoke the secret, use `ozone s3 revokesecret` command.
