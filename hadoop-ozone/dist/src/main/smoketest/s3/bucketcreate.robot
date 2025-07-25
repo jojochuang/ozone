@@ -35,11 +35,35 @@ Create new bucket
 Create bucket which already exists
     ${bucket} =         Create bucket
     ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket ${bucket}   255
-                        Should contain          ${result}           BucketAlreadyExists
+                        Should contain          ${result}           BucketAlreadyOwnedByYou
 
 Create bucket with invalid bucket name
     ${randStr} =        Generate Ozone String
     ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket invalid_bucket_${randStr}   255
+                        Should contain          ${result}           InvalidBucketName
+
+Create bucket with 2 chars
+    ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket ab   255
+                        Should contain          ${result}           InvalidBucketName
+
+Create bucket with 3 chars
+    Create bucket with name    abc
+
+Create bucket with 63 chars
+    ${bucket_name} =    Generate Random String    63    [a-z0-9]
+    Create bucket with name    ${bucket_name}
+
+Create bucket with 64 chars
+    ${bucket_name} =    Generate Random String    64    [a-z0-9]
+    ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket ${bucket_name}   255
+                        Should contain          ${result}           InvalidBucketName
+
+Create bucket with uppercase chars
+    ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket MyBucket   255
+                        Should contain          ${result}           InvalidBucketName
+
+Create bucket with trailing dash
+    ${result} =         Execute AWSS3APICli and checkrc         create-bucket --bucket mybucket-   255
                         Should contain          ${result}           InvalidBucketName
 
 Create new bucket and check default group ACL
