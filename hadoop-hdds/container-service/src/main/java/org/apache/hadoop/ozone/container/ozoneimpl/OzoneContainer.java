@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
+import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails.Port.Name;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ContainerType;
@@ -83,6 +84,7 @@ import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.common.transport.server.XceiverServerGrpc;
 import org.apache.hadoop.ozone.container.common.transport.server.XceiverServerSpi;
 import org.apache.hadoop.ozone.container.common.transport.server.ratis.XceiverServerRatis;
+import org.apache.hadoop.hdds.transport.XceiverServerUcx;
 import org.apache.hadoop.ozone.container.common.utils.ContainerInspectorUtil;
 import org.apache.hadoop.ozone.container.common.utils.HddsVolumeUtil;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
@@ -123,6 +125,7 @@ public class OzoneContainer {
   private final ContainerSet containerSet;
   private final XceiverServerSpi writeChannel;
   private final XceiverServerSpi readChannel;
+  private final XceiverServerSpi ucxChannel;
   private final ContainerController controller;
   private BackgroundContainerMetadataScanner metadataScanner;
   private OnDemandContainerScanner onDemandScanner;
@@ -253,6 +256,9 @@ public class OzoneContainer {
 
     readChannel = new XceiverServerGrpc(
         datanodeDetails, config, hddsDispatcher, certClient);
+
+    ucxChannel = new XceiverServerUcx(new OzoneConfiguration(config), this, hddsDispatcher);
+
     Duration blockDeletingSvcInterval = dnConf.getBlockDeletionInterval();
 
     long blockDeletingServiceTimeout = config
@@ -527,6 +533,9 @@ public class OzoneContainer {
     hddsDispatcher.setClusterId(clusterId);
     writeChannel.start();
     readChannel.start();
+    if (ucxChannel != null) {
+      ucxChannel.start();
+    }
     blockDeletingService.start();
     recoveringContainerScrubbingService.start();
 
@@ -546,6 +555,9 @@ public class OzoneContainer {
     replicationServer.stop();
     writeChannel.stop();
     readChannel.stop();
+    if (ucxChannel != null) {
+      ucxChannel.stop();
+    }
     this.handlers.values().forEach(Handler::stop);
     hddsDispatcher.shutdown();
     volumeChecker.shutdownAndWait(0, TimeUnit.SECONDS);
@@ -612,6 +624,10 @@ public class OzoneContainer {
 
   public XceiverServerSpi getReadChannel() {
     return readChannel;
+  }
+
+  public XceiverServerSpi getUcxChannel() {
+    return ucxChannel;
   }
 
   public ContainerController getController() {

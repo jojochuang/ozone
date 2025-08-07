@@ -788,9 +788,8 @@ public class ObjectEndpoint extends EndpointBase {
       } else if (ex.getResult() == ResultCodes.NOT_SUPPORTED_OPERATION) {
         // When deleteObjectTagging operation is applied on FSO directory
         throw S3ErrorTable.newError(S3ErrorTable.NOT_IMPLEMENTED, keyPath);
-      } else {
-        throw ex;
       }
+      throw ex;
     } catch (Exception ex) {
       AUDIT.logWriteFailure(
           buildAuditMessageForFailure(s3GAction, getAuditParameters(), ex));

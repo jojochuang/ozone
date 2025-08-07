@@ -38,6 +38,8 @@ import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.scm.client.ClientTrustManager;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.hdds.transport.XceiverClientUcx;
+import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.util.CacheMetrics;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
@@ -153,7 +155,14 @@ public class XceiverClientManager extends XceiverClientCreator {
       // create different client different pipeline node based on
       // network topology
       String key = getPipelineCacheKey(pipeline, topologyAware);
-      return clientCache.get(key, () -> newClient(pipeline));
+      return clientCache.get(key, () -> {
+        if (getConf().getBoolean(OzoneConfigKeys.HDDS_DATANODE_TRANSPORT_UCX_ENABLED,
+            OzoneConfigKeys.HDDS_DATANODE_TRANSPORT_UCX_ENABLED_DEFAULT)) {
+          return new XceiverClientUcx(pipeline, getConf());
+        } else {
+          return newClient(pipeline);
+        }
+      });
     } catch (Exception e) {
       throw new IOException(
           "Exception getting XceiverClient: " + e, e);

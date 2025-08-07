@@ -46,6 +46,8 @@
     <module>rocksdb-checkpoint-differ</module>
     <module>server-scm</module>
     <module>test-utils</module>
+    <module>transport-ucx</module>
+    <module>transport-ucx-client</module>
   </modules>
 
   <build>

@@ -1029,7 +1029,8 @@ public class DatanodeDetails extends NodeImpl implements Comparable<DatanodeDeta
       @BelongsToHDDSLayoutVersion(WEBUI_PORTS_IN_DATANODEDETAILS)
       HTTPS,
       @BelongsToHDDSLayoutVersion(HADOOP_PRC_PORTS_IN_DATANODEDETAILS)
-      CLIENT_RPC;
+      CLIENT_RPC,
+      UCX;
 
       public static final Set<Name> ALL_PORTS = ImmutableSet.copyOf(
           Name.values());

@@ -2467,7 +2467,18 @@
       <id>apache.snapshots.https</id>
       <url>https://repository.apache.org/content/repositories/snapshots</url>
     </repository>
+    <repository>
+      <id>ucx</id>
+      <url>https://www.openucx.org/maven</url>
+    </repository>
   </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>ucx</id>
+      <url>https://www.openucx.org/maven</url>
+    </pluginRepository>
+  </pluginRepositories>
 
   <distributionManagement>
     <repository>

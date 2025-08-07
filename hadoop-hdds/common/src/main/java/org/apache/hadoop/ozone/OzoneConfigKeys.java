@@ -411,6 +411,15 @@ public final class OzoneConfigKeys {
   public static final String HDDS_DATANODE_PLUGINS_KEY =
       "hdds.datanode.plugins";
 
+  public static final String HDDS_DATANODE_TRANSPORT_UCX_ENABLED =
+      "hdds.datanode.transport.ucx.enabled";
+  public static final boolean HDDS_DATANODE_TRANSPORT_UCX_ENABLED_DEFAULT =
+      false;
+
+  public static final String HDDS_DATANODE_TRANSPORT_UCX_PORT =
+      "hdds.datanode.transport.ucx.port";
+  public static final int HDDS_DATANODE_TRANSPORT_UCX_PORT_DEFAULT = 9860;
+
   public static final String
       HDDS_DATANODE_STORAGE_UTILIZATION_WARNING_THRESHOLD =
       "hdds.datanode.storage.utilization.warning.threshold";
