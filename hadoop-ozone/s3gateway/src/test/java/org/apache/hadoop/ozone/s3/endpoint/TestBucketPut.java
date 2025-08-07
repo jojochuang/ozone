@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.s3.endpoint;
 import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.BUCKET_ALREADY_EXISTS;
+import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.BUCKET_ALREADY_OWNED_BY_YOU;
 import static org.apache.hadoop.ozone.s3.exception.S3ErrorTable.MALFORMED_HEADER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,6 +31,8 @@ import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
+import org.apache.hadoop.ozone.s3.signature.SignatureInfo;
+import org.apache.hadoop.ozone.s3.signature.SignatureProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,9 +52,13 @@ public class TestBucketPut {
     clientStub = new OzoneClientStub();
 
     // Create HeadBucket and setClient to OzoneClientStub
-    bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
+        bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
         .setClient(clientStub)
         .build();
+        SignatureInfo signatureInfo = new SignatureInfo.Builder(SignatureInfo.Version.V4)
+        .setAwsAccessId("testuser")
+        .build();
+    bucketEndpoint.init();
   }
 
   @Test
@@ -75,6 +82,19 @@ public class TestBucketPut {
         bucketName, null, null));
     assertEquals(HTTP_CONFLICT, e.getHttpCode());
     assertEquals(BUCKET_ALREADY_EXISTS.getCode(), e.getCode());
+  }
+
+  @Test
+  public void testBucketAlreadyOwnedByYou() throws Exception {
+    Response response = bucketEndpoint.put(bucketName, null, null);
+    assertEquals(200, response.getStatus());
+    assertNotNull(response.getLocation());
+
+    // Create-bucket on an existing bucket fails with BUCKET_ALREADY_OWNED_BY_YOU
+    OS3Exception e = assertThrows(OS3Exception.class, () -> bucketEndpoint.put(
+        bucketName, null, null));
+    assertEquals(HTTP_CONFLICT, e.getHttpCode());
+    assertEquals(BUCKET_ALREADY_OWNED_BY_YOU.getCode(), e.getCode());
   }
 
   @Test

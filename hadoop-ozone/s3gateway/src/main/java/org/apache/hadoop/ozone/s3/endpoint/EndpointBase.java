@@ -199,7 +199,13 @@ public abstract class EndpointBase implements Auditor {
           ex.getResult() == ResultCodes.INTERNAL_ERROR) {
         throw newError(S3ErrorTable.INTERNAL_ERROR, bucketName, ex);
       } else if (ex.getResult() == ResultCodes.BUCKET_ALREADY_EXISTS) {
-        throw newError(S3ErrorTable.BUCKET_ALREADY_EXISTS, bucketName, ex);
+        // Check if the user is the owner of the bucket.
+        OzoneBucket bucket = getBucket(bucketName);
+        if (bucket.getOwner().equals(s3Auth.getAccessID())) {
+          throw newError(S3ErrorTable.BUCKET_ALREADY_OWNED_BY_YOU, bucketName, ex);
+        } else {
+          throw newError(S3ErrorTable.BUCKET_ALREADY_EXISTS, bucketName, ex);
+        }
       } else {
         throw ex;
       }
