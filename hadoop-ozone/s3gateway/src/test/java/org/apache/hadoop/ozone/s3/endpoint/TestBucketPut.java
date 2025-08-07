@@ -32,7 +32,6 @@ import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientStub;
 import org.apache.hadoop.ozone.s3.exception.OS3Exception;
 import org.apache.hadoop.ozone.s3.signature.SignatureInfo;
-import org.apache.hadoop.ozone.s3.signature.SignatureProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -52,10 +51,10 @@ public class TestBucketPut {
     clientStub = new OzoneClientStub();
 
     // Create HeadBucket and setClient to OzoneClientStub
-        bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
+    bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
         .setClient(clientStub)
         .build();
-        SignatureInfo signatureInfo = new SignatureInfo.Builder(SignatureInfo.Version.V4)
+    SignatureInfo signatureInfo = new SignatureInfo.Builder(SignatureInfo.Version.V4)
         .setAwsAccessId("testuser")
         .build();
     bucketEndpoint.init();
