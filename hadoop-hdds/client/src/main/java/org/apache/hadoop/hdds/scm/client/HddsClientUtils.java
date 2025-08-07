@@ -82,7 +82,7 @@ public final class HddsClientUtils {
           VALID_LENGTH_MESSAGE);
     }
 
-    if (resName.length() > OzoneConsts.OZONE_MAX_BUCKET_NAME_LENGTH) {
+    if (resName.length() >= OzoneConsts.OZONE_MAX_BUCKET_NAME_LENGTH) {
       String nameToReport;
 
       if (resName.length() > MAX_BUCKET_NAME_LENGTH_IN_LOG) {

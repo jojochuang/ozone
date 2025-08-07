@@ -54,9 +54,6 @@ public class TestBucketPut {
     bucketEndpoint = EndpointBuilder.newBucketEndpointBuilder()
         .setClient(clientStub)
         .build();
-    SignatureInfo signatureInfo = new SignatureInfo.Builder(SignatureInfo.Version.V4)
-        .setAwsAccessId("testuser")
-        .build();
     bucketEndpoint.init();
   }
 
