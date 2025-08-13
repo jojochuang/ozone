@@ -210,11 +210,11 @@ class TestUpgradeContainerSchema {
         String schemaVersionKey = "schemaVersion\\s*:\\W*";
         assertThat(new File(cr.getBackupContainerFilePath()))
             .exists()
-            .content(UTF_8)
+            .asString()
             .containsPattern(schemaVersionKey + SCHEMA_V2);
         assertThat(new File(cr.getNewContainerFilePath()))
             .exists()
-            .content(UTF_8)
+            .asString()
             .containsPattern(schemaVersionKey + (dryRun ? SCHEMA_V2 : SCHEMA_V3));
       }
     }
