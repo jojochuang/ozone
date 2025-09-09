@@ -49,8 +49,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.apache.commons.io.FileUtils;
@@ -80,6 +78,7 @@ import org.apache.hadoop.ozone.recon.api.types.NSSummary;
 import org.apache.hadoop.ozone.recon.recovery.ReconOMMetadataManager;
 import org.apache.hadoop.ozone.recon.scm.ReconContainerReportQueue;
 import org.apache.hadoop.ozone.recon.spi.ReconNamespaceSummaryManager;
+import org.apache.hadoop.ozone.recon.tasks.NSSummaryTask;
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.ozone.recon.schema.generated.tables.daos.GlobalStatsDao;
 import org.apache.ozone.recon.schema.generated.tables.pojos.GlobalStats;
@@ -96,15 +95,6 @@ public class ReconUtils {
   private static Logger log = LoggerFactory.getLogger(
       ReconUtils.class);
 
-  // Use NSSummaryTask's unified rebuild control instead of separate tracking
-  private static final ExecutorService NSSUMMARY_REBUILD_EXECUTOR =
-      Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r);
-        t.setName("RebuildNSSummaryThread");
-        t.setDaemon(true); // Optional: allows JVM to exit without waiting
-        return t;
-      });
-
   public ReconUtils() {
   }
 
@@ -114,35 +104,8 @@ public class ReconUtils {
    * 
    * @return current RebuildState from NSSummaryTask
    */
-  public static org.apache.hadoop.ozone.recon.tasks.NSSummaryTask.RebuildState getNSSummaryRebuildState() {
-    return org.apache.hadoop.ozone.recon.tasks.NSSummaryTask.getRebuildState();
-  }
-
-  /**
-   * Convenience method to trigger asynchronous NSSummary tree rebuild.
-   * Uses the unified control mechanism in NSSummaryTask.
-   * 
-   * @param reconNamespaceSummaryManager The namespace summary manager
-   * @param omMetadataManager The OM metadata manager
-   * @return true if rebuild was triggered successfully, false otherwise
-   */
-  public static boolean triggerAsyncNSSummaryRebuild(
-      ReconNamespaceSummaryManager reconNamespaceSummaryManager,
-      ReconOMMetadataManager omMetadataManager) {
-
-    // Submit rebuild task to single thread executor for async execution
-    NSSUMMARY_REBUILD_EXECUTOR.submit(() -> {
-      try {
-
-        // This will go through NSSummaryTask's unified control mechanism
-        reconNamespaceSummaryManager.rebuildNSSummaryTree(omMetadataManager);
-        log.info("Async NSSummary tree rebuild completed successfully.");
-      } catch (Exception e) {
-        log.error("Async NSSummary tree rebuild failed.", e);
-      }
-    });
-    
-    return true;
+  public static NSSummaryTask.RebuildState getNSSummaryRebuildState() {
+    return NSSummaryTask.getRebuildState();
   }
 
   public static File getReconScmDbDir(ConfigurationSource conf) {
@@ -217,22 +180,21 @@ public class ReconUtils {
 
   /**
    * Constructs the full path of a key from its OmKeyInfo using a bottom-up approach, starting from the leaf node.
-   * <p>
+   *
    * The method begins with the leaf node (the key itself) and recursively prepends parent directory names, fetched
    * via NSSummary objects, until reaching the parent bucket (parentId is -1). It effectively builds the path from
    * bottom to top, finally prepending the volume and bucket names to complete the full path. If the directory structure
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param omKeyInfo         The OmKeyInfo object for the key
-   * @param omMetadataManager
+   * @param omKeyInfo The OmKeyInfo object for the key
    * @return The constructed full path of the key as a String, or an empty string if a rebuild is in progress and
-   * the path cannot be constructed at this time.
+   *         the path cannot be constructed at this time.
    * @throws IOException
    */
   public static String constructFullPath(OmKeyInfo omKeyInfo,
                                          ReconNamespaceSummaryManager reconNamespaceSummaryManager,
-                                         ReconOMMetadataManager omMetadataManager) throws IOException {
+                                         ReconOMMetadataManager omMetadataManager)  throws IOException {
     return constructFullPath(omKeyInfo.getKeyName(), omKeyInfo.getParentObjectID(), omKeyInfo.getVolumeName(),
         omKeyInfo.getBucketName(), reconNamespaceSummaryManager, omMetadataManager);
   }
@@ -240,20 +202,19 @@ public class ReconUtils {
   /**
    * Constructs the full path of a key from its key name and parent ID using a bottom-up approach, starting from the
    * leaf node.
-   * <p>
+   *
    * The method begins with the leaf node (the key itself) and recursively prepends parent directory names, fetched
    * via NSSummary objects, until reaching the parent bucket (parentId is -1). It effectively builds the path from
    * bottom to top, finally prepending the volume and bucket names to complete the full path. If the directory structure
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param keyName           The name of the key
-   * @param initialParentId   The parent ID of the key
-   * @param volumeName        The name of the volume
-   * @param bucketName        The name of the bucket
-   * @param omMetadataManager
+   * @param keyName The name of the key
+   * @param initialParentId The parent ID of the key
+   * @param volumeName The name of the volume
+   * @param bucketName The name of the bucket
    * @return The constructed full path of the key as a String, or an empty string if a rebuild is in progress and
-   * the path cannot be constructed at this time.
+   *         the path cannot be constructed at this time.
    * @throws IOException
    */
   public static String constructFullPath(String keyName, long initialParentId, String volumeName, String bucketName,
@@ -271,25 +232,23 @@ public class ReconUtils {
   /**
    * Constructs the prefix path to a key from its key name and parent ID using a bottom-up approach, starting from the
    * leaf node.
-   * <p>
+   *
    * The method begins with the leaf node (the key itself) and recursively prepends parent directory names, fetched
    * via NSSummary objects, until reaching the parent bucket (parentId is -1). It effectively builds the path from
    * bottom to top, finally prepending the volume and bucket names to complete the full path. If the directory structure
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param initialParentId   The parent ID of the key
-   * @param volumeName        The name of the volume
-   * @param bucketName        The name of the bucket
-   * @param omMetadataManager
+   * @param initialParentId The parent ID of the key
+   * @param volumeName The name of the volume
+   * @param bucketName The name of the bucket
    * @return A StringBuilder containing the constructed prefix path of the key, or an empty string builder if a rebuild
-   * is in progress.
+   *         is in progress.
    * @throws IOException
    */
   public static StringBuilder constructFullPathPrefix(long initialParentId, String volumeName,
-                                                      String bucketName,
-                                                      ReconNamespaceSummaryManager reconNamespaceSummaryManager,
-                                                      ReconOMMetadataManager omMetadataManager) throws IOException {
+      String bucketName, ReconNamespaceSummaryManager reconNamespaceSummaryManager,
+      ReconOMMetadataManager omMetadataManager) throws IOException {
 
     StringBuilder fullPath = new StringBuilder();
     long parentId = initialParentId;
@@ -301,14 +260,6 @@ public class ReconUtils {
       if (nsSummary == null) {
         log.warn("NSSummary tree is currently being rebuilt or the directory could be in the progress of " +
             "deletion, returning empty string for path construction.");
-        fullPath.setLength(0);
-        return fullPath;
-      }
-      if (nsSummary.getParentId() == -1) {
-        // Trigger async rebuild using unified control mechanism
-        triggerAsyncNSSummaryRebuild(reconNamespaceSummaryManager, omMetadataManager);
-        log.warn(
-            "NSSummary tree corruption detected, rebuild triggered. Returning empty string for path construction.");
         fullPath.setLength(0);
         return fullPath;
       }
