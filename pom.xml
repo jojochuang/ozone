@@ -193,7 +193,7 @@
     <proto3.hadooprpc.protobuf.version>3.25.5</proto3.hadooprpc.protobuf.version>
     <!-- Maven protoc compiler -->
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <ranger.version>2.6.0.7.3.2.0-SNAPSHOT</ranger.version>
+    <ranger.version>2.6.0.7.3.2.2-20</ranger.version>
     <ratis.thirdparty.version>1.0.9.7.3.2.0-SNAPSHOT</ratis.thirdparty.version>
     <ratis.version>3.2.0.7.3.2.0-SNAPSHOT</ratis.version>
     <reflections.version>0.10.2</reflections.version>
