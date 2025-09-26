@@ -28,8 +28,6 @@ import io.opentracing.Span;
 import io.opentracing.util.GlobalTracer;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -330,8 +328,7 @@ public class BaseFreonGenerator implements FreonSubcommand {
     LongSupplier supplier;
     if (duration != null) {
       maxValue = durationInSecond;
-      supplier = () -> Duration.between(
-          Instant.ofEpochMilli(startTime), Instant.now()).getSeconds();
+      supplier = () -> (Time.monotonicNow() - startTime) / 1000;
     } else {
       maxValue = testNo;
       supplier = () -> successCounter.get() + failureCounter.get();
