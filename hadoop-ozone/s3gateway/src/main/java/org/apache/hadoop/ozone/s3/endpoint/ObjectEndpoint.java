@@ -718,6 +718,8 @@ public class ObjectEndpoint extends EndpointBase {
       if (ex.getResult() == ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR) {
         // Aborting a non-existent MPU should not result in an error.
         // The aws-sdk-php test fails if a 404 is returned.
+        LOG.debug("Ignoring NO_SUCH_MULTIPART_UPLOAD_ERROR for " +
+            "bucket: {}, key: {}, uploadId: {}", bucket, key, uploadId);
       } else if (ex.getResult() == ResultCodes.BUCKET_NOT_FOUND) {
         throw newError(S3ErrorTable.NO_SUCH_BUCKET, bucket, ex);
       } else {
