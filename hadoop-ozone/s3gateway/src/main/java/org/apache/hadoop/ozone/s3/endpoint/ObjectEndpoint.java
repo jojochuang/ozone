@@ -716,11 +716,13 @@ public class ObjectEndpoint extends EndpointBase {
           key, uploadId);
     } catch (OMException ex) {
       if (ex.getResult() == ResultCodes.NO_SUCH_MULTIPART_UPLOAD_ERROR) {
-        throw newError(S3ErrorTable.NO_SUCH_UPLOAD, uploadId, ex);
+        // Aborting a non-existent MPU should not result in an error.
+        // The aws-sdk-php test fails if a 404 is returned.
       } else if (ex.getResult() == ResultCodes.BUCKET_NOT_FOUND) {
         throw newError(S3ErrorTable.NO_SUCH_BUCKET, bucket, ex);
+      } else {
+        throw ex;
       }
-      throw ex;
     }
     getMetrics().updateAbortMultipartUploadSuccessStats(startNanos);
     return Response

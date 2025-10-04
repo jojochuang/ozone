@@ -266,4 +266,13 @@ public class TestMultipartUploadComplete {
             () -> completeMultipartUpload(key, completeMultipartUploadRequest, uploadID));
     assertEquals(ex.getCode(), S3ErrorTable.INVALID_PART.getCode());
   }
+
+  @Test
+  public void testAbortNonExistentMultipartUpload() throws Exception {
+    // Try to abort a multipart upload with a non-existent upload ID.
+    // This should not throw an exception and should return 204 No Content.
+    Response response = rest.delete(OzoneConsts.S3_BUCKET, "non-existent-key",
+        "non-existent-upload-id", null);
+    assertEquals(204, response.getStatus());
+  }
 }
