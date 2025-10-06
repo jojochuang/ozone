@@ -1,0 +1,16 @@
+docker_images:
+  ozone: ozone
+
+registry: __REGISTRY__
+docker_image_tag:
+  build_tag: __VERSION__
+  latest_tag: __STACK_LATEST__
+
+#  After Text Replacement, File Becomes something like this -
+#   docker_images:
+#     ozone: ozone
+#
+#   registry: docker-sandbox.infra.cloudera.com/cloudera
+#   docker_image_tag:
+#     build_tag: 7.3.2.0-625-71489447  # Replaced from __VERSION__
+#     latest_tag: 7.3.2.0-latest       # Replaced from __STACK_LATEST__
