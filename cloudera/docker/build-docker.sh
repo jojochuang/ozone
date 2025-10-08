@@ -12,7 +12,7 @@ echo "Building Ozone Docker image with Dockerfile.apache..."
 echo "Registry: ${REGISTRY}"
 echo "Tags: ${TAGS}"
 
-# Use Attila's RE-OZONE approach - construct path directly using version variable
+# RE-OZONE approach - construct path directly using version variable
 if [ -n "${ozone_jar_version}" ]; then
     OZONE_BIN_PATH="hadoop-ozone/dist/target/ozone-${ozone_jar_version}"
     echo "Using RE-OZONE pattern: ${OZONE_BIN_PATH}"
@@ -32,8 +32,7 @@ fi
 echo "Final OZONE_BIN path: ${OZONE_BIN_PATH}"
 
 # Build using Dockerfile.apache with OZONE_BIN argument
-# This follows the RE-OZONE pattern: 
-# docker build --build-arg OZONE_BIN=hadoop-ozone/dist/target/ozone-${ozone_jar_version} -t ozone:${ozone_jar_version} -f cloudera/docker/Dockerfile.apache .
+# This follows the RE-OZONE pattern:
 echo "Building Docker image..."
 docker build \
   --build-arg OZONE_BIN=${OZONE_BIN_PATH} \
