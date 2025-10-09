@@ -12,7 +12,7 @@ echo "Building Ozone Docker image with Dockerfile.apache..."
 echo "Registry: ${REGISTRY}"
 echo "Tags: ${TAGS}"
 
-# RE-OZONE approach - construct path directly using version variable
+# Use RE-OZONE approach construct path directly using version variable
 if [ -n "${ozone_jar_version}" ]; then
     OZONE_BIN_PATH="hadoop-ozone/dist/target/ozone-${ozone_jar_version}"
     echo "Using RE-OZONE pattern: ${OZONE_BIN_PATH}"
@@ -23,35 +23,21 @@ else
         echo "Found ozone directory: ${OZONE_BIN_PATH}"
     else
         echo "ERROR: No ozone directory found and ozone_jar_version not set!"
-        echo "Available files in hadoop-ozone/dist/target/:"
-        ls -la hadoop-ozone/dist/target/ 2>/dev/null || echo "Directory not found"
+        echo "Available files in hadoop-ozone/dist/target/:";
+        ls -la hadoop-ozone/dist/target/ 2>/dev/null || echo "Directory not found";
         exit 1
     fi
 fi
 
 echo "Final OZONE_BIN path: ${OZONE_BIN_PATH}"
 
-# Build using Dockerfile.apache with OZONE_BIN argument
-# This follows the RE-OZONE pattern:
-echo "Building Docker image..."
-docker build \
-  --build-arg OZONE_BIN=${OZONE_BIN_PATH} \
-  -f cloudera/docker/Dockerfile.apache \
-  -t ozone-temp:build .
-
-echo "Docker build completed successfully!"
-
-# Tag and push for each specified tag
+# Build every tag separately as build system wraps 'docker' command and transforms it to multi-arch building
 for tag in ${TAGS}; do
-    echo "Tagging and pushing ozone:${tag}..."
-    docker tag ozone-temp:build ${REGISTRY}/ozone:${tag}
-    docker push ${REGISTRY}/ozone:${tag}
-    echo "Successfully pushed ${REGISTRY}/ozone:${tag}"
+    echo "Building Docker image for tag: ${tag}"
+    docker build \
+      --build-arg OZONE_BIN=${OZONE_BIN_PATH} \
+      -f cloudera/docker/Dockerfile.apache \
+      -t ${REGISTRY}/ozone:${tag} .
 done
 
-# Tag local image (without registry prefix) for P2 metadata processing
-FIRST_TAG=$(echo ${TAGS} | awk '{print $1}')
-echo "Tagging local image for metadata: ozone:${FIRST_TAG}"
-docker tag ozone-temp:build ozone:${FIRST_TAG}
-
-echo "Docker build and push completed successfully!"
+echo "Docker build completed successfully! The CDP build system will handle pushing to the registry."
