@@ -224,15 +224,17 @@ public class ReconUtils {
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param omKeyInfo The OmKeyInfo object for the key
+   * @param omKeyInfo         The OmKeyInfo object for the key
+   * @param omMetadataManager
    * @return The constructed full path of the key as a String, or an empty string if a rebuild is in progress and
    * the path cannot be constructed at this time.
    * @throws IOException
    */
   public static String constructFullPath(OmKeyInfo omKeyInfo,
-                                         ReconNamespaceSummaryManager reconNamespaceSummaryManager) throws IOException {
+                                         ReconNamespaceSummaryManager reconNamespaceSummaryManager,
+                                         ReconOMMetadataManager omMetadataManager) throws IOException {
     return constructFullPath(omKeyInfo.getKeyName(), omKeyInfo.getParentObjectID(), omKeyInfo.getVolumeName(),
-        omKeyInfo.getBucketName(), reconNamespaceSummaryManager);
+        omKeyInfo.getBucketName(), reconNamespaceSummaryManager, omMetadataManager);
   }
 
   /**
@@ -245,18 +247,20 @@ public class ReconUtils {
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param keyName         The name of the key
-   * @param initialParentId The parent ID of the key
-   * @param volumeName      The name of the volume
-   * @param bucketName      The name of the bucket
+   * @param keyName           The name of the key
+   * @param initialParentId   The parent ID of the key
+   * @param volumeName        The name of the volume
+   * @param bucketName        The name of the bucket
+   * @param omMetadataManager
    * @return The constructed full path of the key as a String, or an empty string if a rebuild is in progress and
    * the path cannot be constructed at this time.
    * @throws IOException
    */
   public static String constructFullPath(String keyName, long initialParentId, String volumeName, String bucketName,
-                                         ReconNamespaceSummaryManager reconNamespaceSummaryManager) throws IOException {
+                                         ReconNamespaceSummaryManager reconNamespaceSummaryManager,
+                                         ReconOMMetadataManager omMetadataManager) throws IOException {
     StringBuilder fullPath = constructFullPathPrefix(initialParentId, volumeName, bucketName,
-        reconNamespaceSummaryManager);
+        reconNamespaceSummaryManager, omMetadataManager);
     if (fullPath.length() == 0) {
       return "";
     }
@@ -274,15 +278,18 @@ public class ReconUtils {
    * is currently being rebuilt (indicated by the rebuildTriggered flag), this method returns an empty string to signify
    * that path construction is temporarily unavailable.
    *
-   * @param initialParentId The parent ID of the key
-   * @param volumeName      The name of the volume
-   * @param bucketName      The name of the bucket
+   * @param initialParentId   The parent ID of the key
+   * @param volumeName        The name of the volume
+   * @param bucketName        The name of the bucket
+   * @param omMetadataManager
    * @return A StringBuilder containing the constructed prefix path of the key, or an empty string builder if a rebuild
    * is in progress.
    * @throws IOException
    */
   public static StringBuilder constructFullPathPrefix(long initialParentId, String volumeName,
-      String bucketName, ReconNamespaceSummaryManager reconNamespaceSummaryManager) throws IOException {
+                                                      String bucketName,
+                                                      ReconNamespaceSummaryManager reconNamespaceSummaryManager,
+                                                      ReconOMMetadataManager omMetadataManager) throws IOException {
 
     StringBuilder fullPath = new StringBuilder();
     long parentId = initialParentId;
@@ -302,7 +309,8 @@ public class ReconUtils {
         triggerAsyncNSSummaryRebuild(reconNamespaceSummaryManager, omMetadataManager);
         log.warn(
             "NSSummary tree corruption detected, rebuild triggered. Returning empty string for path construction.");
-        throw new ServiceNotReadyException("Service is initializing. Please try again later.");
+        fullPath.setLength(0);
+        return fullPath;
       }
       // On the last pass, dir-name will be empty and parent will be zero, indicating the loop should end.
       if (!nsSummary.getDirName().isEmpty()) {

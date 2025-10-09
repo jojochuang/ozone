@@ -1222,7 +1222,7 @@ public class OMDBInsightEndpoint {
             // buckets in practice.
             prevParentID = -1;
             String fullPath = ReconUtils.constructFullPath(keyEntityInfo.getKeyName(), keyEntityInfo.getParentId(),
-                keyEntityInfo.getVolumeName(), keyEntityInfo.getBucketName(), reconNamespaceSummaryManager);
+                keyEntityInfo.getVolumeName(), keyEntityInfo.getBucketName(), reconNamespaceSummaryManager, omMetadataManager);
             if (fullPath.isEmpty()) {
               LOG.warn("Full path is empty for volume: {}, bucket: {}, key: {}",
                   keyEntityInfo.getVolumeName(), keyEntityInfo.getBucketName(), keyEntityInfo.getKeyName());
@@ -1237,7 +1237,8 @@ public class OMDBInsightEndpoint {
             if (prevParentID != keyEntityInfo.getParentId()) {
               prevParentID = keyEntityInfo.getParentId();
               keyPrefix = ReconUtils.constructFullPathPrefix(keyEntityInfo.getParentId(),
-                  keyEntityInfo.getVolumeName(), keyEntityInfo.getBucketName(), reconNamespaceSummaryManager);
+                  keyEntityInfo.getVolumeName(), keyEntityInfo.getBucketName(), reconNamespaceSummaryManager,
+                  omMetadataManager);
               keyPrefixLength = keyPrefix.length();
             }
             keyPrefix.setLength(keyPrefixLength);
@@ -1295,7 +1296,7 @@ public class OMDBInsightEndpoint {
     KeyEntityInfo keyEntityInfo = new KeyEntityInfo();
     keyEntityInfo.setKey(dbKey); // Set the DB key
     keyEntityInfo.setIsKey(keyInfo.isFile());
-    String fullKeyPath = ReconUtils.constructFullPath(keyInfo, reconNamespaceSummaryManager);
+    String fullKeyPath = ReconUtils.constructFullPath(keyInfo, reconNamespaceSummaryManager, omMetadataManager);
     keyEntityInfo.setPath(fullKeyPath.isEmpty() ? keyInfo.getKeyName() : fullKeyPath);
     keyEntityInfo.setSize(keyInfo.getDataSize());
     keyEntityInfo.setCreationTime(keyInfo.getCreationTime());
