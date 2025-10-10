@@ -236,7 +236,7 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       this.setState({
         loading: false
       });
-      showDataFetchError(error.toString());
+      showDataFetchError(error);
     });
   };
 
@@ -263,7 +263,7 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       this.setState({
         loading: false
       });
-      showDataFetchError(error.toString());
+      showDataFetchError(error);
     });
   };
 
