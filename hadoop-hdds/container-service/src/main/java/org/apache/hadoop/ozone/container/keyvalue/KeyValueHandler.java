@@ -1368,6 +1368,7 @@ public class KeyValueHandler extends Handler {
   public void markContainerForClose(Container container)
       throws IOException {
     container.writeLock();
+    boolean stateChanged = false;
     try {
       ContainerProtos.ContainerDataProto.State state =
           container.getContainerState();
@@ -1379,12 +1380,17 @@ public class KeyValueHandler extends Handler {
           ContainerLogger.logRecovered(container.getContainerData());
         }
         container.markContainerForClose();
+        stateChanged = true;
       }
     } finally {
       container.writeUnlock();
     }
     ContainerLogger.logClosing(container.getContainerData());
-    sendICR(container);
+    if (stateChanged) {
+      sendICR(container);
+    } else {
+      sendDeferredICR(container);
+    }
   }
 
   @Override
