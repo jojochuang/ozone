@@ -74,6 +74,7 @@ interface IOverviewState {
   deletePendingSummarytotalRepSize: number | string;
   deletePendingSummarytotalDeletedKeys: number | string;
   decommissionInfoCount: number | string;
+  heatmapHealthCheck: boolean;
   scmServiceId: string;
   omServiceId: string;
 }
@@ -282,7 +283,7 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       openSummarytotalUnrepSize, openSummarytotalRepSize, openSummarytotalOpenKeys,
       deletePendingSummarytotalUnrepSize, deletePendingSummarytotalRepSize, deletePendingSummarytotalDeletedKeys,
       keys, missingContainersCount, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull,
-      omStatus, openContainers, deletedContainers, scmServiceId, omServiceId } = this.state;
+      omStatus, openContainers, deletedContainers, decommissionInfoCount, scmServiceId, omServiceId } = this.state;
 
     let openKeysError: boolean = false;
     let pendingDeleteKeysError: boolean = false;

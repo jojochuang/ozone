@@ -128,6 +128,16 @@ const Overview: React.FC<{}> = () => {
     }
   );
 
+  const heatmapHealth = useApiData<{message: string}>(
+    '/api/v1/heatmap/healthCheck',
+    {message: 'Unhealthy'},
+    {
+      retryAttempts: 2,
+      initialFetch: false,
+      onError: (error) => showDataFetchError(error)
+    }
+  );
+
   const omDBDeltaObject = taskStatus.data?.find((item: TaskStatus) => item.taskName === 'OmDeltaRequest');
   const omDBFullObject = taskStatus.data?.find((item: TaskStatus) => item.taskName === 'OmSnapshotRequest');
 
@@ -136,6 +146,8 @@ const Overview: React.FC<{}> = () => {
     taskStatus.refetch();
     openKeysSummary.refetch();
     deletePendingKeysSummary.refetch();
+    heatmapHealth.refetch();
+    sessionStorage.setItem('heatmapHealthCheck', JSON.stringify(heatmapHealth.data.message === 'Healthy' ? true : false));
     setState(prev => ({ ...prev, lastRefreshed: Number(moment()) }));
   };
   

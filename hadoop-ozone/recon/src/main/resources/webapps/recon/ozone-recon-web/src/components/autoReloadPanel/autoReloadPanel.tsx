@@ -102,8 +102,8 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
 
     return (
       <div className='auto-reload-panel' data-testid='autoreload-panel'>
-        Alert :
-        <Popover style={{ width: 500 }} content={content} title="Alert Notifications" trigger="hover" placement='bottom'>
+        Alert:&nbsp;
+        <Popover style={{ width: 500 }} content={content} title="SOLR Health" trigger="hover" placement='bottomRight'>
           <span style={{ color: heatmapHealthCheck ? '#1DA57A' : '#f83437' }}>1</span>
         </Popover>
         &nbsp; | &nbsp; Auto Refresh &nbsp; <Switch defaultChecked={autoReloadEnabled} size='small' className='toggle-switch' onChange={this.autoReloadToggleHandler}/>
