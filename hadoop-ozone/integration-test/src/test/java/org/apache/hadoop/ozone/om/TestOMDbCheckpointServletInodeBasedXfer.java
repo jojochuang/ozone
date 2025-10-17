@@ -319,15 +319,18 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
     assertFalse(inodesFromTarball.isEmpty());
     assertTrue(inodesFromTarball.containsAll(inodesFromOmDataDir));
 
+    /* TODO: CDPD-90988 disabled yaml file creation.
     long actualYamlFiles = Files.list(newDbDir.toPath())
         .filter(f -> f.getFileName().toString()
             .endsWith(".yaml")).count();
     assertEquals(numSnapshots, actualYamlFiles,
         "Number of generated YAML files should match the number of snapshots.");
+     */
 
     // create hardlinks now
     OmSnapshotUtils.createHardLinks(newDbDir.toPath(), true);
 
+    /* TODO: CDPD-90988 disabled yaml file creation.
     if (includeSnapshot) {
       List<String> yamlRelativePaths = snapshotPaths.stream().map(path -> {
         int startIndex = path.indexOf("db.snapshots");
@@ -341,7 +344,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
         String yamlFileName = Paths.get(newDbDir.getPath(), yamlRelativePath).toString();
         assertTrue(Files.exists(Paths.get(yamlFileName)));
       }
-    }
+    }*/
 
     assertFalse(hardlinkFilePath.toFile().exists());
   }
