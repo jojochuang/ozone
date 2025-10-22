@@ -260,6 +260,16 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <!-- Provide Jackson JAX-RS JSON provider used by Ranger client (javax-based) -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.jaxrs</groupId>
+      <artifactId>jackson-jaxrs-json-provider</artifactId>
+    </dependency>
+    <!-- Enable JAXB annotations module for Jackson if needed by Ranger client -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-jaxb-annotations</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-common</artifactId>
