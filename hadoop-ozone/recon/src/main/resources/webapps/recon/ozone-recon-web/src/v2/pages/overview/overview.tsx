@@ -214,6 +214,7 @@ const Overview: React.FC<{}> = () => {
     keys,
     pipelines,
     deletedContainers,
+    openContainers,
     omServiceId,
     scmServiceId
   } = clusterState.data;
@@ -301,7 +302,7 @@ const Overview: React.FC<{}> = () => {
             lg: 16,
             xl: 16
           }, 20]}>
-          <Col flex="1 0 20%">
+          <Col flex="1 0 15%">
             <OverviewSimpleCard
               title='Volumes'
               icon='inbox'
@@ -310,7 +311,7 @@ const Overview: React.FC<{}> = () => {
               linkToUrl='/Volumes'
               error={clusterState.error} />
           </Col>
-          <Col flex="1 0 20%">
+          <Col flex="1 0 15%">
             <OverviewSimpleCard
               title='Buckets'
               icon='folder-open'
@@ -319,7 +320,7 @@ const Overview: React.FC<{}> = () => {
               linkToUrl='/Buckets'
               error={clusterState.error} />
           </Col>
-          <Col flex="1 0 20%">
+          <Col flex="1 0 15%">
             <OverviewSimpleCard
               title='Keys'
               icon='file-text'
@@ -327,7 +328,7 @@ const Overview: React.FC<{}> = () => {
               data={keys}
               error={clusterState.error} />
           </Col>
-          <Col flex="1 0 20%">
+          <Col flex="1 0 15%">
             <OverviewSimpleCard
               title='Pipelines'
               icon='deployment-unit'
@@ -336,12 +337,20 @@ const Overview: React.FC<{}> = () => {
               linkToUrl='/Pipelines'
               error={clusterState.error} />
           </Col>
-          <Col flex="1 0 20%">
+          <Col flex="1 0 15%">
             <OverviewSimpleCard
               title='Deleted Containers'
               icon='delete'
               loading={clusterState.loading}
               data={deletedContainers}
+              error={clusterState.error} />
+          </Col>
+          <Col flex="1 0 15%">
+            <OverviewSimpleCard
+              title='Open Containers'
+              icon='container'
+              loading={clusterState.loading}
+              data={openContainers}
               error={clusterState.error} />
           </Col>
         </Row>
