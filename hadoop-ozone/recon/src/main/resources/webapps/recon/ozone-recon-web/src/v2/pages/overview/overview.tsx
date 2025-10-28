@@ -147,7 +147,6 @@ const Overview: React.FC<{}> = () => {
     openKeysSummary.refetch();
     deletePendingKeysSummary.refetch();
     heatmapHealth.refetch();
-    sessionStorage.setItem('heatmapHealthCheck', JSON.stringify(heatmapHealth.data.message === 'Healthy' ? true : false));
     setState(prev => ({ ...prev, lastRefreshed: Number(moment()) }));
   };
   
@@ -235,7 +234,7 @@ const Overview: React.FC<{}> = () => {
         Overview
         <AutoReloadPanel isLoading={loading} lastRefreshed={state.lastRefreshed}
           lastUpdatedOMDBDelta={omDBDeltaObject?.lastUpdatedTimestamp} lastUpdatedOMDBFull={omDBFullObject?.lastUpdatedTimestamp}
-          togglePolling={autoReload.handleAutoReloadToggle} onReload={loadOverviewPageData} omSyncLoad={syncOmData} omStatus={state.omStatus} />
+          togglePolling={autoReload.handleAutoReloadToggle} onReload={loadOverviewPageData} omSyncLoad={syncOmData} omStatus={state.omStatus} isHeatmapHealthy={heatmapHealth.data.message === 'Healthy'} />
       </div>
       <div className='data-container'>
         <Row

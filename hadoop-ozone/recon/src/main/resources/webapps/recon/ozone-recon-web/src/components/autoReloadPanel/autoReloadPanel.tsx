@@ -20,20 +20,19 @@ import React from 'react';
 import moment from 'moment';
 import { Tooltip, Button, Switch, Popover, Alert } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
-import { withRouter } from 'react-router-dom';
-import { RouteComponentProps } from 'react-router';
 
 import './autoReloadPanel.less';
 
-interface IAutoReloadPanelProps extends RouteComponentProps<object> {
+interface IAutoReloadPanelProps {
   onReload: () => void;
   lastRefreshed: number;
-  lastUpdatedOMDBDelta: number;
-  lastUpdatedOMDBFull: number;
+  lastUpdatedOMDBDelta: number | undefined;
+  lastUpdatedOMDBFull: number | undefined;
   isLoading: boolean;
   omStatus: string;
   togglePolling: (isEnabled: boolean) => void;
   omSyncLoad: () => void;
+  isHeatmapHealthy: boolean;
 }
 
 class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
@@ -43,9 +42,9 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
   };
 
   render() {
-    const { onReload, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull, isLoading, omSyncLoad, omStatus} = this.props;
+    const { onReload, lastRefreshed, lastUpdatedOMDBDelta, lastUpdatedOMDBFull, isLoading, omSyncLoad, omStatus, isHeatmapHealthy} = this.props;
     const autoReloadEnabled = sessionStorage.getItem('autoReloadEnabled') === 'false' ? false : true;
-    const heatmapHealthCheck = sessionStorage.getItem('heatmapHealthCheck') === 'false' ? false : true;
+    const heatmapHealthCheck = isHeatmapHealthy;
     const content = (
       <div>
         {heatmapHealthCheck ?
@@ -74,31 +73,32 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
 
     const omSyncStatusDisplay = omStatus === '' ? '' : omStatus ? <div>OM DB update is successfully triggered.</div> : <div>OM DB update is already running.</div>;
 
-    const omDBDeltaFullToolTip = <span>
-      {omSyncStatusDisplay}
-      {'Delta Update'}: {moment(lastUpdatedOMDBDelta).fromNow()}, {moment(lastUpdatedOMDBDelta).format('LT')}
-      <br />
-      {'Full Update'}: {moment(lastUpdatedOMDBFull).fromNow()}, {moment(lastUpdatedOMDBFull).format('LT')}
-    </span>
+    const hasOmTimestamps = !!lastUpdatedOMDBDelta && !!lastUpdatedOMDBFull;
+    const deltaTs = lastUpdatedOMDBDelta ?? 0;
+    const fullTs = lastUpdatedOMDBFull ?? 0;
+    const lastUpdatedOMLatest = deltaTs > fullTs ? deltaTs : fullTs;
 
-    const lastUpdatedOMLatest = lastUpdatedOMDBDelta > lastUpdatedOMDBFull ? lastUpdatedOMDBDelta : lastUpdatedOMDBFull;
+    const omDBDeltaFullToolTip = (
+      <span>
+        {omSyncStatusDisplay}
+        {'Delta Update'}: {moment(deltaTs).fromNow()}, {moment(deltaTs).format('LT')}
+        <br />
+        {'Full Update'}: {moment(fullTs).fromNow()}, {moment(fullTs).format('LT')}
+      </span>
+    );
 
-    const lastUpdatedDeltaFullToolTip = lastUpdatedOMDBDelta === 0 || lastUpdatedOMDBDelta === undefined || lastUpdatedOMDBFull === 0 || lastUpdatedOMDBFull === undefined ? 'NA' :
-      (
-        <Tooltip
-          placement='bottom' title={omDBDeltaFullToolTip}
-        >
-          {moment(lastUpdatedOMLatest).format('LT')}
-        </Tooltip>
-      );
+    const lastUpdatedDeltaFullToolTip = !hasOmTimestamps ? 'NA' : (
+      <Tooltip placement='bottom' title={omDBDeltaFullToolTip}>
+        {moment(lastUpdatedOMLatest).format('LT')}
+      </Tooltip>
+    );
 
-    const lastUpdatedDeltaFullText = lastUpdatedOMDBDelta === 0 || lastUpdatedOMDBDelta === undefined || lastUpdatedOMDBFull === 0 || lastUpdatedOMDBFull === undefined ? '' :
-      (
-        <>
-          &nbsp; | DB Synced at {lastUpdatedDeltaFullToolTip}
-          &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} disabled={omStatus === '' ? false : true} />
-        </>
-      );
+    const lastUpdatedDeltaFullText = !hasOmTimestamps ? '' : (
+      <>
+        &nbsp; | DB Synced at {lastUpdatedDeltaFullToolTip}
+        &nbsp;<Button shape='circle' icon={<PlayCircleOutlined />} size='small' loading={isLoading} onClick={omSyncLoad} disabled={omStatus === '' ? false : true} />
+      </>
+    );
 
     return (
       <div className='auto-reload-panel' data-testid='autoreload-panel'>
@@ -115,4 +115,4 @@ class AutoReloadPanel extends React.Component<IAutoReloadPanelProps> {
   }
 }
 
-export default withRouter(AutoReloadPanel);
+export default AutoReloadPanel;

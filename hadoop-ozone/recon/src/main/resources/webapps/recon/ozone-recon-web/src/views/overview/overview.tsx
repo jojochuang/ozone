@@ -95,7 +95,8 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       storageReport: {
         capacity: 0,
         used: 0,
-        remaining: 0
+        remaining: 0,
+        committed: 0
       },
       containers: 0,
       volumes: 0,
@@ -115,7 +116,9 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       deletePendingSummarytotalRepSize: 0,
       deletePendingSummarytotalDeletedKeys: 0,
       decommissionInfoCount: 0,
-      heatmapHealthCheck:false
+      heatmapHealthCheck:false,
+      scmServiceId: '',
+      omServiceId: ''
     };
     this.autoReload = new AutoReloadHelper(this._loadData);
   }
@@ -199,7 +202,6 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       const omDBDeltaObject = taskStatus && taskStatus.find((item: any) => item.taskName === 'OmDeltaRequest');
       const omDBFullObject = taskStatus && taskStatus.find((item: any) => item.taskName === 'OmSnapshotRequest');
       const healthcheckStatus = healthCheckResponse.value?.data?.message;
-      sessionStorage.setItem('heatmapHealthCheck', JSON.stringify(healthcheckStatus === 'Healthy' ? true : false));
 
       this.setState({
         loading: false,
@@ -227,6 +229,7 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
         decommissionInfoCount: decommissionResponse.value?.data?.DatanodesDecommissionInfo.length,
         scmServiceId: clusterState.scmServiceId,
         omServiceId: clusterState.omServiceId,
+        heatmapHealthCheck: healthcheckStatus === 'Healthy'
       });
     })).catch(error => {
       this.setState({
@@ -331,15 +334,15 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       )
     const openSummaryData = (
       <div>
-        {openSummarytotalRepSize !== undefined ? byteToSize(openSummarytotalRepSize, 1) : 'N/A'}   <span className='ant-card-meta-description meta'>Total Replicated Data Size</span><br />
-        {openSummarytotalUnrepSize !== undefined ? byteToSize(openSummarytotalUnrepSize, 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total UnReplicated Data Size</span><br />
+        {openSummarytotalRepSize !== undefined ? byteToSize(Number(openSummarytotalRepSize), 1) : 'N/A'}   <span className='ant-card-meta-description meta'>Total Replicated Data Size</span><br />
+        {openSummarytotalUnrepSize !== undefined ? byteToSize(Number(openSummarytotalUnrepSize), 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total UnReplicated Data Size</span><br />
         {openSummarytotalOpenKeys !== undefined ? openSummarytotalOpenKeys : 'N/A'}  <span className='ant-card-meta-description meta'>Total Open Keys</span>
       </div>
     );
     const deletePendingSummaryData = (
       <div>
-        {deletePendingSummarytotalRepSize !== undefined ? byteToSize(deletePendingSummarytotalRepSize, 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total Replicated Data Size</span><br />
-        {deletePendingSummarytotalUnrepSize !== undefined ? byteToSize(deletePendingSummarytotalUnrepSize, 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total UnReplicated Data Size</span><br />
+        {deletePendingSummarytotalRepSize !== undefined ? byteToSize(Number(deletePendingSummarytotalRepSize), 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total Replicated Data Size</span><br />
+        {deletePendingSummarytotalUnrepSize !== undefined ? byteToSize(Number(deletePendingSummarytotalUnrepSize), 1) : 'N/A'}  <span className='ant-card-meta-description meta'>Total UnReplicated Data Size</span><br />
         {deletePendingSummarytotalDeletedKeys !== undefined ? deletePendingSummarytotalDeletedKeys : 'N/A'}  <span className='ant-card-meta-description meta'>Total Pending Delete Keys</span>
       </div>
     );
@@ -381,10 +384,11 @@ export class Overview extends React.Component<Record<string, object>, IOverviewS
       <div className='overview-content'>
         <div className='page-header'>
           Overview
-          <AutoReloadPanel isLoading={loading} lastRefreshed={lastRefreshed}
-            lastUpdatedOMDBDelta={lastUpdatedOMDBDelta} lastUpdatedOMDBFull={lastUpdatedOMDBFull}
+          <AutoReloadPanel isLoading={loading} lastRefreshed={typeof lastRefreshed === 'number' ? lastRefreshed : Number(lastRefreshed) || 0}
+            lastUpdatedOMDBDelta={typeof lastUpdatedOMDBDelta === 'number' ? lastUpdatedOMDBDelta : Number(lastUpdatedOMDBDelta) || undefined}
+            lastUpdatedOMDBFull={typeof lastUpdatedOMDBFull === 'number' ? lastUpdatedOMDBFull : Number(lastUpdatedOMDBFull) || undefined}
             togglePolling={this.autoReload.handleAutoReloadToggle} onReload={this._loadData}
-            omSyncLoad={this.omSyncData} omStatus={omStatus} />
+            omSyncLoad={this.omSyncData} omStatus={omStatus} isHeatmapHealthy={this.state.heatmapHealthCheck} />
         </div>
         <Row gutter={[10, 20]}>
           <Col xs={24} sm={18} md={12} lg={12} xl={6}>
