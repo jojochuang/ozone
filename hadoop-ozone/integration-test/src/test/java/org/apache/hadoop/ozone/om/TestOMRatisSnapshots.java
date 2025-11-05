@@ -244,8 +244,8 @@ public class TestOMRatisSnapshots {
     // Wait & for follower to update transactions to leader snapshot index.
     // Timeout error if follower does not load update within 10s
     GenericTestUtils.waitFor(() -> {
-      long index = followerOM.getOmRatisServer().getLastAppliedTermIndex().getIndex();
-      return index >= leaderOMSnapshotIndex - 1;
+      return followerOM.getOmRatisServer().getLastAppliedTermIndex().getIndex()
+          >= leaderOMSnapshotIndex - 1;
     }, 100, 30_000);
 
     long followerOMLastAppliedIndex =
@@ -561,7 +561,7 @@ public class TestOMRatisSnapshots {
     Path increment = Paths.get(tempDir.toString(), "increment" + numKeys);
     assertTrue(increment.toFile().mkdirs());
     unTarLatestTarBall(followerOM, increment);
-    List<String> sstFiles = HAUtils.getExistingFiles(increment.toFile());
+    List<String> sstFiles = HAUtils.getExistingSstFiles(increment.toFile());
     Path followerCandidatePath = followerOM.getOmSnapshotProvider().
         getCandidateDir().toPath();
 
@@ -647,7 +647,7 @@ public class TestOMRatisSnapshots {
     // Corrupt the mixed checkpoint in the candidate DB dir
     File followerCandidateDir = followerOM.getOmSnapshotProvider().
         getCandidateDir();
-    List<String> sstList = HAUtils.getExistingFiles(followerCandidateDir);
+    List<String> sstList = HAUtils.getExistingSstFiles(followerCandidateDir);
     assertThat(sstList.size()).isGreaterThan(0);
     for (int i = 0; i < sstList.size(); i += 2) {
       File victimSst = new File(followerCandidateDir, sstList.get(i));
@@ -1002,7 +1002,6 @@ public class TestOMRatisSnapshots {
     DBCheckpoint leaderDbCheckpoint = leaderOM.getMetadataManager().getStore()
         .getCheckpoint(false);
     Path leaderCheckpointLocation = leaderDbCheckpoint.getCheckpointLocation();
-    OmSnapshotUtils.createHardLinks(leaderCheckpointLocation, true);
     TransactionInfo leaderCheckpointTrxnInfo = OzoneManagerRatisUtils
         .getTrxnInfoFromCheckpoint(conf, leaderCheckpointLocation);
 
@@ -1166,23 +1165,21 @@ public class TestOMRatisSnapshots {
       } else {
         // Each time we get a new tarball add a set of
         // its sst file to the list, (i.e. one per tarball.)
-        sstSetList.add(getFilenames(tarball));
+        sstSetList.add(getSstFilenames(tarball));
       }
     }
 
     // Get Size of sstfiles in tarball.
     private long getSizeOfSstFiles(File tarball) throws IOException {
       FileUtil.unTar(tarball, tempDir.toFile());
-      OmSnapshotUtils.createHardLinks(tempDir, true);
-      List<Path> sstPaths = Files.list(tempDir).collect(Collectors.toList());
-      long totalFileSize = 0;
+      List<Path> sstPaths = Files.walk(tempDir).filter(
+          path -> path.toString().endsWith(".sst")).
+          collect(Collectors.toList());
+      long sstSize = 0;
       for (Path sstPath : sstPaths) {
-        File file = sstPath.toFile();
-        if (file.isFile() && file.getName().endsWith(".sst")) {
-          totalFileSize += Files.size(sstPath);
-        }
+        sstSize += Files.size(sstPath);
       }
-      return totalFileSize;
+      return sstSize;
     }
 
     private void createEmptyTarball(File dummyTarFile)
@@ -1193,18 +1190,21 @@ public class TestOMRatisSnapshots {
       archiveOutputStream.close();
     }
 
-    // Return a list of files in tarball.
-    private Set<String> getFilenames(File tarball)
+    // Return a list of sst files in tarball.
+    private Set<String> getSstFilenames(File tarball)
         throws IOException {
-      Set<String> fileNames = new HashSet<>();
+      Set<String> sstFilenames = new HashSet<>();
       try (TarArchiveInputStream tarInput =
            new TarArchiveInputStream(Files.newInputStream(tarball.toPath()))) {
         TarArchiveEntry entry;
         while ((entry = tarInput.getNextTarEntry()) != null) {
-          fileNames.add(entry.getName());
+          String name = entry.getName();
+          if (name.toLowerCase().endsWith(".sst")) {
+            sstFilenames.add(entry.getName());
+          }
         }
       }
-      return fileNames;
+      return sstFilenames;
     }
 
     // Find the tarball in the dir.
