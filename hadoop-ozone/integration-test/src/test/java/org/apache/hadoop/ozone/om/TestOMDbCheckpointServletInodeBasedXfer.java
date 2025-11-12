@@ -287,6 +287,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
         .forEachRemaining(snapInfo -> snapshotPaths.add(getSnapshotDBPath(snapInfo.getCheckpointDir())));
     Set<String> inodesFromOmDataDir = new HashSet<>();
     Set<String> inodesFromTarball = new HashSet<>();
+    Set<Path> allPathsInTarball = new HashSet<>();
     try (Stream<Path> filesInTarball = Files.list(newDbDir.toPath())) {
       List<Path> files = filesInTarball.collect(Collectors.toList());
       for (Path p : files) {
@@ -296,6 +297,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
         }
         String inode = getInode(file.getName());
         inodesFromTarball.add(inode);
+        allPathsInTarball.add(p);
       }
     }
     Map<String, List<String>> hardLinkMapFromOmData = new HashMap<>();
@@ -337,6 +339,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
         "Number of generated YAML files should match the number of snapshots.");
 
     // create hardlinks now
+/*<<<<<<< HEAD
     OmSnapshotUtils.createHardLinks(newDbDir.toPath(), true);
 
     if (includeSnapshot) {
@@ -354,6 +357,12 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
       }
     }
 
+=======*/
+    OmSnapshotUtils.createHardLinks(newDbDir.toPath());
+    for (Path old : allPathsInTarball) {
+      assertTrue(old.toFile().delete());
+    }
+//>>>>>>> parent of c98c10b71c0 (HDDS-13070. OM Follower changes to create and place sst files from hardlink file. (#8761))
     assertFalse(hardlinkFilePath.toFile().exists());
   }
 
@@ -382,7 +391,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
     FileUtil.unTar(tempFile, newDbDir);
     Set<Path> allPathsInTarball = getAllPathsInTarball(newDbDir);
     // create hardlinks now
-    OmSnapshotUtils.createHardLinks(newDbDir.toPath(), false);
+    OmSnapshotUtils.createHardLinks(newDbDir.toPath());
     for (Path old : allPathsInTarball) {
       assertTrue(old.toFile().delete());
     }
