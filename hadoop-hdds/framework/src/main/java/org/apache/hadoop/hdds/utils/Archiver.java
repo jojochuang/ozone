@@ -115,6 +115,19 @@ public final class Archiver {
   }
 
   /**
+   * Creates a hard link to the specified file.
+   *
+   * @param sourceFile the file to be linked.
+   * @param linkFile   the path for the hard link to be created.
+   * @return the path to the created hard link.
+   * @throws IOException if an I/O error occurs.
+   */
+  public static Path createHardLink(Path sourceFile, Path linkFile) throws IOException {
+    Files.createLink(linkFile, sourceFile);
+    return linkFile;
+  }
+
+  /**
    * Creates a hard link to the specified file in the provided temporary directory,
    * adds the linked file as an entry to the archive with the given entry name, writes
    * its contents to the archive output, and then deletes the temporary hard link.
@@ -124,6 +137,18 @@ public final class Archiver {
    * in a specific location or have a specific name. Any errors during the hardlink
    * creation or archiving process are logged.
    * </p>
+   * @deprecated This method is deprecated because it combines a fast metadata
+   * operation (creating a hardlink) with a slow I/O operation (writing to a
+   * tarball), which can cause lock contention.
+   * <p>
+   * Instead, use a two-step approach:
+   * <ol>
+   *   <li>Call {@link #createHardLink(Path, Path)} to create the hardlink.</li>
+   *   <li>Call {@link #includeFile(File, String, ArchiveOutputStream)} to add
+   *   the file to the archive.</li>
+   * </ol>
+   * This separation allows for more granular control over locking, which is
+   * critical for performance in the OM checkpointing process.
    *
    * @param file         the file to be included in the archive
    * @param entryName    the name/path under which the file should appear in the archive
@@ -132,6 +157,7 @@ public final class Archiver {
    * @return number of bytes copied to the archive for this file
    * @throws IOException if an I/O error occurs other than hardlink creation failure
    */
+  @Deprecated
   public static long linkAndIncludeFile(File file, String entryName,
       ArchiveOutputStream<TarArchiveEntry> archiveOutput, Path tmpDir) throws IOException {
     File link = tmpDir.resolve(entryName).toFile();

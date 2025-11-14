@@ -231,9 +231,7 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
         responseMock);
 
     doCallRealMethod().when(omDbCheckpointServletMock)
-        .writeDbDataToStream(any(), any(), any(), any(), any());
-    doCallRealMethod().when(omDbCheckpointServletMock)
-        .writeDBToArchive(any(), any(), any(), any(), any(), any(), anyBoolean());
+        .writeDbDataToStream(any(), any(), any(), any());
 
     when(omDbCheckpointServletMock.getBootstrapStateLock())
         .thenReturn(lock);
@@ -245,9 +243,10 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
     doCallRealMethod().when(omDbCheckpointServletMock).getCompactionLogDir();
     doCallRealMethod().when(omDbCheckpointServletMock).getSstBackupDir();
     doCallRealMethod().when(omDbCheckpointServletMock)
-        .transferSnapshotData(anySet(), any(), anySet(), any(), any(), anyMap());
+        .transferSnapshotData(anySet(), any(), anySet(), any(), any());
     doCallRealMethod().when(omDbCheckpointServletMock).createAndPrepareCheckpoint(anyBoolean());
     doCallRealMethod().when(omDbCheckpointServletMock).getSnapshotDirsFromDB(any(), any(), any());
+    doCallRealMethod().when(omDbCheckpointServletMock).createHardlinks(any(), any(), any(), any(), any());
   }
 
   @ParameterizedTest
@@ -407,9 +406,8 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
     assertNotNull(value);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testWriteDBToArchive(boolean expectOnlySstFiles) throws Exception {
+  @Test
+  public void testCreateHardlinks() throws Exception {
     setupMocks();
     Path dbDir = folder.resolve("db_data");
     Files.createDirectories(dbDir);
@@ -420,45 +418,19 @@ public class TestOMDbCheckpointServletInodeBasedXfer {
     Path nonSstFile = dbDir.resolve("test.log");
     Files.write(nonSstFile, "log content".getBytes(StandardCharsets.UTF_8));
     Set<String> sstFilesToExclude = new HashSet<>();
-    AtomicLong maxTotalSstSize = new AtomicLong(1000000); // Sufficient size
     Map<String, String> hardLinkFileMap = new java.util.HashMap<>();
+    Map<Path, Path> hardlinksToArchive = new java.util.HashMap<>();
     Path tmpDir = folder.resolve("tmp");
     Files.createDirectories(tmpDir);
-    TarArchiveOutputStream mockArchiveOutputStream = mock(TarArchiveOutputStream.class);
-    List<String> fileNames = new ArrayList<>();
-    try (MockedStatic<Archiver> archiverMock = mockStatic(Archiver.class)) {
-      archiverMock.when(() -> Archiver.linkAndIncludeFile(any(), any(), any(), any())).thenAnswer(invocation -> {
-        // Get the actual mockArchiveOutputStream passed from writeDBToArchive
-        TarArchiveOutputStream aos = invocation.getArgument(2);
-        File sourceFile = invocation.getArgument(0);
-        String fileId = invocation.getArgument(1);
-        fileNames.add(sourceFile.getName());
-        aos.putArchiveEntry(new TarArchiveEntry(sourceFile, fileId));
-        aos.write(new byte[100], 0, 100); // Simulate writing
-        aos.closeArchiveEntry();
-        return 100L;
-      });
-      boolean success = omDbCheckpointServletMock.writeDBToArchive(
-          sstFilesToExclude, dbDir, maxTotalSstSize, mockArchiveOutputStream,
-              tmpDir, hardLinkFileMap, expectOnlySstFiles);
-      assertTrue(success);
-      verify(mockArchiveOutputStream, times(fileNames.size())).putArchiveEntry(any());
-      verify(mockArchiveOutputStream, times(fileNames.size())).closeArchiveEntry();
-      verify(mockArchiveOutputStream, times(fileNames.size())).write(any(byte[].class), anyInt(),
-          anyInt()); // verify write was called once
-
-      boolean containsNonSstFile = false;
-      for (String fileName : fileNames) {
-        if (expectOnlySstFiles) {
-          assertTrue(fileName.endsWith(".sst"), "File is not an SST File");
-        } else {
-          containsNonSstFile = true;
-        }
-      }
-
-      if (!expectOnlySstFiles) {
-        assertTrue(containsNonSstFile, "SST File is not expected");
-      }
+    try (Stream<Path> files = Files.list(dbDir)) {
+      omDbCheckpointServletMock.createHardlinks(files.collect(Collectors.toList()), sstFilesToExclude, tmpDir, hardLinkFileMap, hardlinksToArchive);
+    }
+    assertEquals(2, hardlinksToArchive.size());
+    for (Map.Entry<Path, Path> entry : hardlinksToArchive.entrySet()) {
+      Path linkFile = entry.getKey();
+      Path dbFile = entry.getValue();
+      assertTrue(Files.exists(dbFile));
+      assertFalse(Files.exists(linkFile));
     }
   }
 
