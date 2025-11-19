@@ -134,6 +134,10 @@ public final class S3ErrorTable {
       "BucketAlreadyExists", "The requested bucket name is not available" +
       " as it already exists.", HTTP_CONFLICT);
 
+  public static final OS3Exception BUCKET_ALREADY_OWNED_BY_YOU = new OS3Exception(
+      "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.",
+      HTTP_CONFLICT);
+
   public static final OS3Exception INVALID_TAG = new OS3Exception(
       "InvalidTag", "Your request contains tag input that is not valid.", HTTP_BAD_REQUEST);
 
