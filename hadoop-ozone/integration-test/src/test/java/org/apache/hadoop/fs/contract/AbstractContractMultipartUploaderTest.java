@@ -355,7 +355,7 @@ public abstract class AbstractContractMultipartUploaderTest extends
                  payload.length,
                  file)) {
       partHandle = awaitFuture(getUploader(index)
-          .putPart(uploadHandle, index, file,
+          .putPart(uploadHandle, index, isLastPart, file,
               new ByteArrayInputStream(payload),
               payload.length));
     }
@@ -582,7 +582,7 @@ public abstract class AbstractContractMultipartUploaderTest extends
     }
     Map<Integer, PartHandle> partHandles = new HashMap<>();
     for (int i = payloadCount; i > 0; i -= 2) {
-      partHandles.put(i, buildAndPutPart(file, uploadHandle, i, i == payloadCount,, null));
+      partHandles.put(i, buildAndPutPart(file, uploadHandle, i, i == payloadCount, null));
     }
     completeUpload(file, uploadHandle, partHandles, origDigest,
         getTestPayloadCount() * partSizeInBytes());
