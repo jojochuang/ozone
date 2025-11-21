@@ -26,7 +26,6 @@ import static org.apache.hadoop.ozone.om.OMConfigKeys.OZONE_RANGER_SERVICE;
 import static org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
 
 import com.google.common.base.Preconditions;
-import com.sun.jersey.api.client.ClientResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.ws.rs.core.Response;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -153,7 +153,7 @@ public class RangerClientMultiTenantAccessController implements
    * @param rse RangerServiceException
    */
   private void decodeRSEStatusCodes(RangerServiceException rse) {
-    ClientResponse.Status status = rse.getStatus();
+    Response.Status status = rse.getStatus();
     if (status == null) {
       LOG.error("Request failure with no status provided.", rse);
     } else {

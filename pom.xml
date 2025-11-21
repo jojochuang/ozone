@@ -32,6 +32,9 @@
     <aopalliance.version>1.0</aopalliance.version>
     <apache-rat-plugin.version>0.16.1</apache-rat-plugin.version>
     <aspectj-plugin.version>1.14.1</aspectj-plugin.version>
+    <aspectj.java11.version>1.9.20</aspectj.java11.version>
+    <aspectj.java21.version>1.9.24</aspectj.java21.version>
+    <!-- Default aspectj version for java8 -->
     <aspectj.version>1.9.7</aspectj.version>
     <assertj.version>3.12.2</assertj.version>
     <aws-java-sdk.version>1.12.791</aws-java-sdk.version>
@@ -87,7 +90,7 @@
     <exec-maven-plugin.version>3.5.1</exec-maven-plugin.version>
     <failIfNoTests>false</failIfNoTests>
     <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
-    <grpc.protobuf-compile.version>3.19.6</grpc.protobuf-compile.version>
+    <grpc.protobuf-compile.version>3.25.8</grpc.protobuf-compile.version>
     <gson.version>2.13.1</gson.version>
     <guava.version>33.4.8-jre</guava.version>
     <guice.version>6.0.0</guice.version>
@@ -161,6 +164,7 @@
     <maven-surefire-report-plugin.version>${maven-surefire-plugin.version}</maven-surefire-report-plugin.version>
     <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
     <maven.compiler.createMissingPackageInfoClass>false</maven.compiler.createMissingPackageInfoClass>
+    <maven.compiler.release>${javac.version}</maven.compiler.release>
     <maven.core.version>3.9.10</maven.core.version>
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <metainf-services.version>1.11</metainf-services.version>
@@ -189,11 +193,11 @@
     <proto-backwards-compatibility.version>1.0.7</proto-backwards-compatibility.version>
     <!-- ProtocolBuffer version, used to verify the protoc version and -->
     <!-- define the protobuf JAR version                               -->
-    <proto2.hadooprpc.protobuf.version>2.5.0</proto2.hadooprpc.protobuf.version>
-    <proto3.hadooprpc.protobuf.version>3.25.5</proto3.hadooprpc.protobuf.version>
+    <proto2.hadooprpc.protobuf.version>3.25.8</proto2.hadooprpc.protobuf.version>
+    <proto3.hadooprpc.protobuf.version>3.25.8</proto3.hadooprpc.protobuf.version>
     <!-- Maven protoc compiler -->
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <ranger.version>2.6.0.7.3.2.0-SNAPSHOT</ranger.version>
+    <ranger.version>2.6.0.7.3.2.2-20</ranger.version>
     <ratis.thirdparty.version>1.0.9.7.3.2.0-SNAPSHOT</ratis.thirdparty.version>
     <ratis.version>3.2.0.7.3.2.0-SNAPSHOT</ratis.version>
     <reflections.version>0.10.2</reflections.version>
@@ -443,14 +447,9 @@
         <version>${okhttp3.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-client</artifactId>
-        <version>${jersey.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-core</artifactId>
-        <version>${jersey.version}</version>
+        <groupId>com.sun.xml.bind</groupId>
+        <artifactId>jaxb-core</artifactId>
+        <version>2.3.0</version>
       </dependency>
       <dependency>
         <groupId>commons-beanutils</groupId>
@@ -635,11 +634,6 @@
         <groupId>javax.servlet.jsp</groupId>
         <artifactId>jsp-api</artifactId>
         <version>${jsp-api.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>javax.ws.rs</groupId>
-        <artifactId>jsr311-api</artifactId>
-        <version>${jsr311-api.version}</version>
       </dependency>
       <dependency>
         <groupId>joda-time</groupId>
@@ -841,6 +835,18 @@
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
           </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.containers</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.inject</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
         </exclusions>
       </dependency>
       <dependency>
@@ -894,6 +900,18 @@
           </exclusion>
           <exclusion>
             <groupId>org.slf4j</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.containers</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.glassfish.jersey.inject</groupId>
             <artifactId>*</artifactId>
           </exclusion>
         </exclusions>
@@ -1261,6 +1279,12 @@
         <groupId>org.apache.ranger</groupId>
         <artifactId>ranger-plugins-common</artifactId>
         <version>${ranger.version}</version>
+        <exclusions>
+            <exclusion>
+                <groupId>com.sun.xml.bind</groupId>
+                <artifactId>jaxb-core</artifactId>
+            </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.apache.ratis</groupId>
@@ -2666,25 +2690,23 @@
         </plugins>
       </build>
     </profile>
-    <!-- Profiles for specific JDK versions -->
+    <!-- Profiles for specific aspectj versions -->
     <profile>
-      <id>java8</id>
+      <id>aspectj-java11-20</id>
       <activation>
-        <jdk>[,8]</jdk>
+        <jdk>[11,20]</jdk>
       </activation>
       <properties>
-        <maven.compiler.source>${javac.version}</maven.compiler.source>
-        <maven.compiler.target>${javac.version}</maven.compiler.target>
+        <aspectj.version>${aspectj.java11.version}</aspectj.version>
       </properties>
     </profile>
     <profile>
-      <id>java9-or-later</id>
+      <id>aspectj-java21-or-later</id>
       <activation>
-        <jdk>[9,]</jdk>
+        <jdk>[21,]</jdk>
       </activation>
       <properties>
-        <!-- supported since Java 9 -->
-        <maven.compiler.release>${javac.version}</maven.compiler.release>
+        <aspectj.version>${aspectj.java21.version}</aspectj.version>
       </properties>
     </profile>
     <profile>
