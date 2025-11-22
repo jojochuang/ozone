@@ -120,7 +120,7 @@
     <jaxb-runtime.version>2.3.9</jaxb-runtime.version>
     <jcip-annotations.version>1.0-1</jcip-annotations.version>
     <jdeb.version>1.14</jdeb.version>
-    <jersey.version>1.19.4</jersey.version>
+    <jersey.version>2.47</jersey.version>
     <jersey2.version>2.47</jersey2.version>
     <jetty.version>9.4.58.v20250814</jetty.version>
     <jgrapht.version>1.4.0</jgrapht.version>
@@ -172,7 +172,7 @@
     <native.lib.tmp.dir />
     <!-- Use netty version known to work with grpc-netty. See table: -->
     <!-- https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty -->
-    <netty.version>4.1.127.Final</netty.version>
+    <netty.version>4.1.128.Final</netty.version>
     <!-- Node.js version number (without the v prefix required by frontend-maven-plugin) -->
     <nodejs.version>16.14.2</nodejs.version>
     <okhttp3.version>4.12.0</okhttp3.version>
@@ -197,7 +197,7 @@
     <proto3.hadooprpc.protobuf.version>3.25.8</proto3.hadooprpc.protobuf.version>
     <!-- Maven protoc compiler -->
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <ranger.version>2.6.0.7.3.2.2-20</ranger.version>
+    <ranger.version>2.6.0.7.3.2.0-SNAPSHOT</ranger.version>
     <ratis.thirdparty.version>1.0.9.7.3.2.0-SNAPSHOT</ratis.thirdparty.version>
     <ratis.version>3.2.0.7.3.2.0-SNAPSHOT</ratis.version>
     <reflections.version>0.10.2</reflections.version>
