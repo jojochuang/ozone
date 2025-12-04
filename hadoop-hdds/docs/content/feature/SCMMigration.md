@@ -117,7 +117,7 @@ After the new SCM has been added to the cluster and Datanodes are communicating 
 
 ### Step 5: Transfer Leadership (If Migrating the Leader)
 
-If the SCM you are migrating away from is the current SCM leader, you must transfer leadership to the newly added SCM.
+If the SCM you are migrating away from is the current SCM leader, you must transfer leadership to another SCM in the HA cluster. This can be any of the existing SCMs, including the newly added one.
 
 ```shell
 ozone admin scm transfer --service-id=<your-scm-service-id> --new-leader=<new-scm-node-id>
