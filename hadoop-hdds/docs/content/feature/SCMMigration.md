@@ -127,19 +127,15 @@ ozone admin scm transfer --service-id=<your-scm-service-id> --new-leader=<new-sc
 
 With the new SCM fully integrated, you can remove the old one.
 
-1.  **Reconfigure Datanodes to Remove Old SCM**:
-    -   On each Datanode, edit `ozone-site.xml` and remove the `nodeId` of the old SCM from the `ozone.scm.nodes.<service-id>` list.
-    -   Restart each Datanode to apply the change.
-
-2.  **Reconfigure Recon to Remove Old SCM**:
-    -   On the Recon host, edit `ozone-site.xml` and remove the `nodeId` of the old SCM from the `ozone.scm.nodes.<service-id>` list.
-    -   Restart the Recon server using the commands:
+1.  **Reconfigure Datanodes and Recon to Remove Old SCM**:
+    -   On each Datanode, edit `ozone-site.xml` and remove the `nodeId` of the old SCM from the `ozone.scm.nodes.<service-id>` list. Restart each Datanode to apply the change.
+    -   On the Recon host, edit `ozone-site.xml` and remove the `nodeId` of the old SCM from the `ozone.scm.nodes.<service-id>` list. Restart the Recon server using the commands:
         ```shell
         ozone --daemon stop recon
         ozone --daemon start recon
         ```
 
-3.  **Decommission the Old SCM**: After Datanodes and Recon have disconnected from the old SCM, run the decommission command.
+2.  **Decommission the Old SCM**: After Datanodes and Recon have disconnected from the old SCM, run the decommission command.
     ```shell
     ozone admin scm decommission --service-id=<your-scm-service-id> --nodeid=<old-scm-node-id>
     ```
