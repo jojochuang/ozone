@@ -116,3 +116,11 @@ With the new SCM fully integrated, you can remove the old one.
     ```
 
 The old SCM will be gracefully removed from the HA ring and will shut down. The migration is now complete.
+
+#### Special Cases for Decommissioning the Old SCM:
+
+##### Primordial SCM
+If the SCM you are decommissioning is the **primordial** SCM, you must update the `ozone.scm.primordial.node.id` property in `ozone-site.xml` on all SCMs to point to a different SCM's `nodeId` in the cluster. This change requires restarting all SCM services to take effect before proceeding with the decommission command.
+
+### Final Note on Security
+During SCM decommissioning, the private key of the decommissioned SCM should be manually deleted. The private keys can be found inside the `hdds.metadata.dir`. This manual deletion is needed until full certificate revocation support is implemented (HDDS-8399).
