@@ -94,7 +94,27 @@ All Datanodes must be made aware of the new SCM.
 2.  **Apply Configuration**: Restart each Datanode service. After restarting, Datanodes will find the new SCM and start sending heartbeats to it.
 3.  **Verify**: Check the web UI of the new SCM to confirm that all Datanodes have registered and are healthy.
 
-### Step 4: Transfer Leadership (If Migrating the Leader)
+### Step 4: Update Recon Server Configuration
+
+After the new SCM has been added to the cluster and Datanodes are communicating with it, you need to update Recon's configuration to reflect the change in the SCM HA ring. Recon uses the SCM configuration to connect to SCMs and pull metadata.
+
+1.  **Update `ozone-site.xml` on the Recon host**: Edit the `ozone-site.xml` file used by the Recon server.
+2.  **Update Configuration for the New SCM**:
+    -   Ensure that the address and port properties for the new SCM (e.g., `ozone.scm.address.scm-ha.scm-new`) are present.
+    -   Update the `ozone.scm.nodes.<service-id>` property to include the `nodeId` of the new SCM.
+
+    It's crucial that Recon has an up-to-date list of all active SCMs.
+
+3.  **Restart Recon Server**: Restart the Recon server to apply the updated configuration.
+
+    ```shell
+    # (Command to restart Recon service depends on your deployment)
+    systemctl restart ozone-recon
+    ```
+
+    After restarting, Recon will connect to the updated list of SCMs and synchronize its metadata with them.
+
+### Step 5: Transfer Leadership (If Migrating the Leader)
 
 If the SCM you are migrating away from is the current SCM leader, you must transfer leadership to the newly added SCM.
 
@@ -102,7 +122,7 @@ If the SCM you are migrating away from is the current SCM leader, you must trans
 ozone admin scm transfer --service-id=<your-scm-service-id> --new-leader=<new-scm-node-id>
 ```
 
-### Step 5: Decommission the Old SCM
+### Step 6: Decommission the Old SCM
 
 With the new SCM fully integrated, you can remove the old one.
 
