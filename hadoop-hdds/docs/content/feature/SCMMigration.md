@@ -107,8 +107,13 @@ After the new SCM has been added to the cluster and Datanodes are communicating 
 
 3.  **Restart Recon Server**: Restart the Recon server to apply the updated configuration.
 
+    For deployments where Ozone services are managed directly (e.g., from a tarball installation), use the following commands:
     ```shell
-    # (Command to restart Recon service depends on your deployment)
+    ozone --daemon stop recon
+    ozone --daemon start recon
+    ```
+    For systemd-based deployments, the command might be:
+    ```shell
     systemctl restart ozone-recon
     ```
 
