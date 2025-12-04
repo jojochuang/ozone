@@ -142,7 +142,7 @@ _**ozone.om.decommissioned.nodes**_ property. <p>**Note -** It is recommended to
 
 # SCM Decommission
 
-Storage Container Manager (SCM) decommissioning is the process in which you can gracefully remove one of the SCM from the SCM HA Ring.
+Storage Container Manager (SCM) decommissioning is the process in which you can gracefully remove one of the SCM from the SCM HA Ring. For steps on migrating an SCM to a new host, refer to the [SCM Migration](./SCMMigration.md) guide.
 
 To decommission a SCM and remove the node from the SCM HA ring, the following steps need to be executed.
 ```shell
