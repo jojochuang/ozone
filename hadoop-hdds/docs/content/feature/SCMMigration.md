@@ -63,7 +63,7 @@ First, you need to prepare the new host and update the configuration on all SCMs
     ```xml
     <property>
       <name>ozone.scm.nodes.scm-ha</name>
-      <value>scm-old-1,scm-old-2,scm-new</value>
+      <value>scm-old-1,scm-old-2,scm-old-3,scm-new</value>
     </property>
     ```
 
