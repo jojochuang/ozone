@@ -375,6 +375,29 @@ public class TestECUnderReplicationHandler {
     assertEquals(1, cmd.getReplicaIndex());
   }
 
+  @Test
+  public void testUnderReplicationWithDecommissionIndexAndReconstructionEnabled()
+      throws IOException {
+    replicationManager.getConfig().setDecommissionEcReconstructionEnabled(true);
+    Set<ContainerReplica> availableReplicas = ReplicationTestUtil
+        .createReplicas(Pair.of(DECOMMISSIONING, 1), Pair.of(IN_SERVICE, 2),
+            Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
+            Pair.of(IN_SERVICE, 5));
+    // When reconstruction is enabled for decommissioning, index 1 should be
+    // in the reconstruction command and not a replication command.
+    Set<Pair<DatanodeDetails, SCMCommand<?>>> cmds =
+        testUnderReplicationWithMissingIndexes(
+            ImmutableList.of(1), availableReplicas, 0, 0, policy);
+    assertEquals(1, cmds.size());
+    SCMCommand<?> cmd = cmds.iterator().next().getValue();
+    assertEquals(SCMCommandProto.Type.reconstructECContainersCommand,
+        cmd.getType());
+    ReconstructECContainersCommand reconCmd =
+        (ReconstructECContainersCommand) cmd;
+    assertEquals(1, reconCmd.getMissingContainerIndexes().size());
+    assertEquals(1, reconCmd.getMissingContainerIndexes().byteAt(0));
+  }
+
 
   // Test used to reproduce the issue reported in HDDS-8171 and then adjusted
   // to ensure only a single command is sent for HDDS-8172.

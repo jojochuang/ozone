@@ -345,9 +345,13 @@ public class ECContainerReplicaCount implements ContainerReplicaCount {
    * replicas
    * @param includePendingAdd  If true, treat pending add containers as if they
    *                           have completed successfully.
+   * @param includeDecommissioning If true, decommissioning indexes will be
+   *                               treated as unavailable and returned in the
+   *                               list so they can be reconstructed.
    * @return List of missing indexes which have no online copy.
    */
-  public List<Integer> unavailableIndexes(boolean includePendingAdd) {
+  public List<Integer> unavailableIndexes(boolean includePendingAdd,
+      boolean includeDecommissioning) {
     if (isSufficientlyReplicated(false)) {
       return Collections.emptyList();
     }
@@ -369,11 +373,34 @@ public class ECContainerReplicaCount implements ContainerReplicaCount {
     for (Integer i : maintenanceIndexes.keySet()) {
       missing.remove(i);
     }
-    // Remove any decommission copies, as they are still available
-    for (Integer i : decommissionIndexes.keySet()) {
-      missing.remove(i);
+    // Remove any decommission copies, as they are still available, unless we
+    // want to reconstruct them.
+    if (!includeDecommissioning) {
+      for (Integer i : decommissionIndexes.keySet()) {
+        missing.remove(i);
+      }
     }
     return new ArrayList<>(missing);
+  }
+
+  /**
+   * Returns an unsorted list of indexes which need additional copies to
+   * ensure the container is sufficiently replicated. These missing indexes will
+   * not be on maintenance nodes, or decommission nodes.
+   * Replicas pending delete are assumed to be removed.
+   * If includePendingAdd is true, any replicas pending add
+   * are assume to be created and omitted them from the returned list. If it is
+   * true, we assume the pendingAdd will complete, giving a view of the
+   * potential future state of the container.
+   * This list can be used to determine which replicas must be recovered via an
+   * EC reconstuction, rather than making copies of maintenance / decommission
+   * replicas
+   * @param includePendingAdd  If true, treat pending add containers as if they
+   *                           have completed successfully.
+   * @return List of missing indexes which have no online copy.
+   */
+  public List<Integer> unavailableIndexes(boolean includePendingAdd) {
+    return unavailableIndexes(includePendingAdd, false);
   }
 
   /**

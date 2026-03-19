@@ -1249,6 +1249,16 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
     )
     private int datanodeDeleteLimit = 40;
 
+    @Config(key = "hdds.scm.replication.decommission.ec.reconstruction.enabled",
+        type = ConfigType.BOOLEAN,
+        defaultValue = "false",
+        reconfigurable = true,
+        tags = { SCM, OZONE },
+        description = "If enabled, decommissioning EC containers will be recovered " +
+            "via reconstruction instead of simple replication to speed up the process."
+    )
+    private boolean decommissionEcReconstructionEnabled = false;
+
     @Config(key = "hdds.scm.replication.inflight.limit.factor",
         type = ConfigType.DOUBLE,
         defaultValue = "0.75",
@@ -1305,6 +1315,14 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
 
     public int getDatanodeReplicationLimit() {
       return datanodeReplicationLimit;
+    }
+
+    public boolean isDecommissionEcReconstructionEnabled() {
+      return decommissionEcReconstructionEnabled;
+    }
+
+    public void setDecommissionEcReconstructionEnabled(boolean enabled) {
+      this.decommissionEcReconstructionEnabled = enabled;
     }
 
     public void setDatanodeReplicationLimit(int limit) {

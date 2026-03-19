@@ -158,9 +158,12 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
 
     try {
       IOException firstException = null;
+      boolean decommissionEcReconstructionEnabled = replicationManager.getConfig()
+          .isDecommissionEcReconstructionEnabled();
       try {
         commandsSent += processMissingIndexes(replicaCount, sources,
-            availableSourceNodes, excludedNodes, usedNodes);
+            availableSourceNodes, excludedNodes, usedNodes,
+            decommissionEcReconstructionEnabled);
       } catch (InsufficientDatanodesException
           | CommandTargetOverloadedException  e) {
         firstException = e;
@@ -277,11 +280,13 @@ public class ECUnderReplicationHandler implements UnhealthyReplicationHandler {
       Pair<ContainerReplica, NodeStatus>> sources,
       List<DatanodeDetails> availableSourceNodes,
       List<DatanodeDetails> excludedNodes,
-      List<DatanodeDetails> usedNodes) throws IOException {
+      List<DatanodeDetails> usedNodes,
+      boolean includeDecommissioning) throws IOException {
     ContainerInfo container = replicaCount.getContainer();
     ECReplicationConfig repConfig =
         (ECReplicationConfig)container.getReplicationConfig();
-    List<Integer> missingIndexes = replicaCount.unavailableIndexes(true);
+    List<Integer> missingIndexes = replicaCount.unavailableIndexes(true,
+        includeDecommissioning);
     LOG.debug("Processing missing indexes {} for container {}.", missingIndexes,
         container.containerID());
     final int expectedTargetCount = missingIndexes.size();
