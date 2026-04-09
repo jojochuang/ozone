@@ -4570,6 +4570,16 @@
   </property>
 
   <property>
+    <name>ozone.om.snapshot.directory.metrics.update.interval</name>
+    <value>5m</value>
+    <tag>OZONE, OM</tag>
+    <description>
+      Interval at which snapshot directory metrics (including backup SST directory stats)
+      will be updated. Uses millisecond by default when no time unit is specified.
+    </description>
+  </property>
+
+  <property>
     <name>ozone.om.snapshot.diff.max.allowed.keys.changed.per.job</name>
     <value>10000000</value>
     <tag>OZONE, OM</tag>
