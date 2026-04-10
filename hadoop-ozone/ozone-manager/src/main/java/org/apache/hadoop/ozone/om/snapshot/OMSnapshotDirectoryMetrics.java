@@ -248,18 +248,22 @@ public final class OMSnapshotDirectoryMetrics extends OMPeriodicMetrics implemen
     try {
       Object fileKey = OmSnapshotUtils.getINode(path);
       if (fileKey == null) {
-        // Fallback: use file path + size as unique identifier
-        fileKey = path.toAbsolutePath() + ":" + Files.size(path);
+        // Fallback: use absolute file path as unique identifier
+        fileKey = path.toAbsolutePath().toString();
       }
       if (visitedInodes.add(fileKey)) {
         return Files.size(path);
       }
       return 0;
     } catch (UnsupportedOperationException | IOException e) {
-      // Fallback: if we can't get inode, just count the file size.
-      LOG.warn("Could not get inode for {}, using file size directly: {}",
+      // Fallback: use absolute path as unique identifier to avoid double-counting
+      LOG.warn("Could not get inode for {}, using path as fallback key: {}",
           path, e.getMessage());
-      return Files.size(path);
+      Object fallbackKey = path.toAbsolutePath().toString();
+      if (visitedInodes.add(fallbackKey)) {
+        return Files.size(path);
+      }
+      return 0;
     }
   }
 
