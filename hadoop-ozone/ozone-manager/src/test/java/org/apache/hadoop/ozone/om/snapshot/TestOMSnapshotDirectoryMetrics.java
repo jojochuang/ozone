@@ -342,7 +342,7 @@ public class TestOMSnapshotDirectoryMetrics {
     for (int i = 0; i < numSnapshots; i++) {
       File checkpointDir = new File(snapshotsParentDir, "snapshot-" + i);
       assertTrue(checkpointDir.mkdirs());
-      File sstFile = createFile(checkpointDir, String.format("%06d.sst", i), content);
+      createFile(checkpointDir, String.format("%06d.sst", i), content);
       expectedTotalSize += content.length;
     }
 

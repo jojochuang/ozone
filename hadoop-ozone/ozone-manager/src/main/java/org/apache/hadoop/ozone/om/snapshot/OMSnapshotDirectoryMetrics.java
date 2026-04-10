@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -180,12 +181,14 @@ public final class OMSnapshotDirectoryMetrics extends OMPeriodicMetrics implemen
     long totalSize = 0;
     long sstFileCount = 0;
     int snapshotCount = 0;
-    try (Stream<Path> checkpointDirs = Files.list(directory.toPath())) {
-      for (Path checkpointDir : checkpointDirs.collect(Collectors.toList())) {
+    try (Stream<Path> checkpointStream = Files.list(directory.toPath())) {
+      List<Path> checkpointDirs = checkpointStream.collect(Collectors.toList());
+      for (Path checkpointDir : checkpointDirs) {
         if (Files.isDirectory(checkpointDir)) {
           snapshotCount++;
-          try (Stream<Path> files = Files.list(checkpointDir)) {
-            for (Path path : files.collect(Collectors.toList())) {
+          try (Stream<Path> fileStream = Files.list(checkpointDir)) {
+            List<Path> files = fileStream.collect(Collectors.toList());
+            for (Path path : files) {
               if (Files.isRegularFile(path)) {
                 totalSize += countFileSize(path, visitedInodes);
                 if (path.toFile().getName().endsWith(ROCKSDB_SST_SUFFIX)) {
@@ -217,8 +220,9 @@ public final class OMSnapshotDirectoryMetrics extends OMPeriodicMetrics implemen
     Set<Object> visitedInodes = new HashSet<>();
     long totalSize = 0;
     long sstFileCount = 0;
-    try (Stream<Path> files = Files.list(directory.toPath())) {
-      for (Path path : files.collect(Collectors.toList())) {
+    try (Stream<Path> fileStream = Files.list(directory.toPath())) {
+      List<Path> files = fileStream.collect(Collectors.toList());
+      for (Path path : files) {
         if (Files.isRegularFile(path)) {
           totalSize += countFileSize(path, visitedInodes);
           if (path.toFile().getName().endsWith(ROCKSDB_SST_SUFFIX)) {
