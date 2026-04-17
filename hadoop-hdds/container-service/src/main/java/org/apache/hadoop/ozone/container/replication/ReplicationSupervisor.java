@@ -25,22 +25,31 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.IntConsumer;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -51,6 +60,7 @@ import org.apache.hadoop.metrics2.lib.MetricsRegistry;
 import org.apache.hadoop.metrics2.lib.MutableRate;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
+import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.replication.AbstractReplicationTask.Status;
 import org.apache.hadoop.ozone.container.replication.ReplicationServer.ReplicationConfig;
 import org.apache.hadoop.util.Time;
@@ -553,5 +563,135 @@ public final class ReplicationSupervisor {
   public long getReplicationRequestTotalTime(String metricsName) {
     MutableRate rate = opsLatencyMs.get(metricsName);
     return rate != null ? (long) Math.ceil(rate.lastStat().total()) : 0;
+  }
+
+  /**
+   * A custom implementation of a PriorityBlockingQueue that is aware of the
+   * outbound replication limit per volume.
+   * It skips over tasks whose volumes are currently at their limit.
+   */
+  private final class VolumeAwarePriorityQueue
+      extends LinkedBlockingQueue<TaskRunner> {
+
+    private final PriorityQueue<TaskRunner> queue;
+    private final Lock lock = new ReentrantLock();
+    private final Condition notEmpty = lock.newCondition();
+
+    private VolumeAwarePriorityQueue() {
+      queue = new PriorityQueue<>(TASK_RUNNER_COMPARATOR);
+    }
+
+    @Override
+    public boolean offer(TaskRunner taskRunner) {
+      lock.lock();
+      try {
+        boolean added = queue.offer(taskRunner);
+        if (added) {
+          notEmpty.signal();
+        }
+        return added;
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    @Override
+    public TaskRunner take() throws InterruptedException {
+      lock.lock();
+      try {
+        while (true) {
+          TaskRunner task = findRunnableTask();
+          if (task != null) {
+            return task;
+          }
+          notEmpty.await();
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    @Override
+    public TaskRunner poll(long timeout, TimeUnit unit)
+        throws InterruptedException {
+      long nanos = unit.toNanos(timeout);
+      lock.lock();
+      try {
+        while (true) {
+          TaskRunner task = findRunnableTask();
+          if (task != null) {
+            return task;
+          }
+          if (nanos <= 0) {
+            return null;
+          }
+          nanos = notEmpty.awaitNanos(nanos);
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    private TaskRunner findRunnableTask() {
+      Iterator<TaskRunner> it = queue.iterator();
+      while (it.hasNext()) {
+        TaskRunner taskRunner = it.next();
+        Collection<HddsVolume> volumes = taskRunner.task.getVolumes();
+        boolean canRun = true;
+        for (HddsVolume vol : volumes) {
+          if (vol.getActiveOutboundReplications() >=
+              replicationConfig.getVolumeOutboundLimit()) {
+            canRun = false;
+            break;
+          }
+        }
+        if (canRun) {
+          it.remove();
+          // Pre-increment to reserve the slot
+          for (HddsVolume vol : volumes) {
+            vol.incActiveOutboundReplications();
+          }
+          return taskRunner;
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Signal the queue that a volume slot has become available.
+     */
+    public void signalVolumeAvailable() {
+      lock.lock();
+      try {
+        notEmpty.signalAll();
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    @Override
+    public int size() {
+      lock.lock();
+      try {
+        return queue.size();
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return size() == 0;
+    }
+
+    @Override
+    public void clear() {
+      lock.lock();
+      try {
+        queue.clear();
+      } finally {
+        lock.unlock();
+      }
+    }
   }
 }

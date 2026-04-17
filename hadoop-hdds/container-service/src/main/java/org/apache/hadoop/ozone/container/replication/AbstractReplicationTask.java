@@ -22,7 +22,10 @@ import static org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProt
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.Collections;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ReplicationCommandPriority;
+import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 
 /**
  * Abstract class to capture common variables and methods for different types
@@ -113,6 +116,15 @@ public abstract class AbstractReplicationTask {
    */
   public ReplicationCommandPriority getPriority() {
     return priority;
+  }
+
+  /**
+   * Returns the volumes associated with this task. For push replication, this
+   * is the source volume. For reconstruction, it could be multiple source
+   * volumes.
+   */
+  public Collection<HddsVolume> getVolumes() {
+    return Collections.emptyList();
   }
 
   /**
