@@ -251,6 +251,30 @@ public class TestReplicationManager {
   }
 
   @Test
+  public void testReconstructionCountersClearedOnLeadershipTransition()
+      throws IOException, NodeNotFoundException {
+    ReplicationManager rm = createReplicationManager();
+    // Simulate some inflight reconstruction
+    ContainerInfo container = ReplicationTestUtil.createContainerInfo(
+        repConfig, 1, HddsProtos.LifeCycleState.CLOSED, 10, 20);
+    ReconstructECContainersCommand cmd = new ReconstructECContainersCommand(
+        1L, Collections.emptyList(),
+        ImmutableList.of(MockDatanodeDetails.randomDatanodeDetails()),
+        integers2ByteString(ImmutableList.of(1)), (ECReplicationConfig) repConfig);
+
+    mockReplicationCommandCounts(dn -> 0, dn -> 0);
+    rm.sendThrottledReconstructionCommand(container, cmd);
+    assertEquals(1, rm.getInflightReconstructionCount());
+
+    // Transition to leader (again) should clear the counters
+    when(scmContext.isLeaderReady()).thenReturn(true);
+    when(scmContext.isInSafeMode()).thenReturn(false);
+    rm.notifyStatusChanged();
+
+    assertEquals(0, rm.getInflightReconstructionCount());
+  }
+
+  @Test
   public void testOpenContainerSkipped() throws ContainerNotFoundException {
     ContainerInfo container = createContainerInfo(repConfig, 1,
         HddsProtos.LifeCycleState.OPEN);
