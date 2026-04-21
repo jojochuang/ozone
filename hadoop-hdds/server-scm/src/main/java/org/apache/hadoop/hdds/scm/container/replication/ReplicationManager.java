@@ -1142,8 +1142,11 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
         && op.getCommand().getType() == Type.reconstructECContainersCommand) {
       long cmdId = op.getCommand().getId();
       reconstructionCommandIdToPendingFragmentCount.compute(cmdId, (k, v) -> {
-        if (v == null || v <= 1) {
-          inflightReconstructionCount.decrementAndGet();
+        if (v == null) {
+          return null;
+        }
+        if (v <= 1) {
+          inflightReconstructionCount.updateAndGet(c -> Math.max(0, c - 1));
           return null;
         }
         return v - 1;
@@ -1607,6 +1610,8 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
           // Therefore we should clear the table so RM starts from a clean
           // state.
           containerReplicaPendingOps.clear();
+          inflightReconstructionCount.set(0);
+          reconstructionCommandIdToPendingFragmentCount.clear();
           serviceStatus = ServiceStatus.RUNNING;
         }
       } else {
