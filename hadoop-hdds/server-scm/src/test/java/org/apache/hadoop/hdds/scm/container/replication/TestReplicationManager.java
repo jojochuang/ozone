@@ -77,6 +77,7 @@ import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.ContainerReplicaProto;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
+import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto.Type;
 import org.apache.hadoop.hdds.scm.HddsTestUtils;
 import org.apache.hadoop.hdds.scm.PlacementPolicy;
 import org.apache.hadoop.hdds.scm.container.ContainerHealthState;
@@ -272,6 +273,47 @@ public class TestReplicationManager {
     rm.notifyStatusChanged();
 
     assertEquals(0, rm.getInflightReconstructionCount());
+  }
+
+  @Test
+  public void testIsNodeHighlyLoaded() throws IOException, NodeNotFoundException {
+    rmConf.setDatanodeReplicationLimit(10);
+    rmConf.setEcDecommissionReconstructionLoadFactor(0.9);
+    ReplicationManager rm = createReplicationManager();
+
+    DatanodeDetails dn = MockDatanodeDetails.randomDatanodeDetails();
+    // Default limit is 10. 90% of 10 is 9.
+
+    // Case 1: Load is below 0.9 (8/10)
+    mockReplicationCommandCounts(dn, 8, 0);
+    assertFalse(rm.isNodeHighlyLoaded(dn));
+
+    // Case 2: Load is exactly 0.9 (9/10)
+    mockReplicationCommandCounts(dn, 9, 0);
+    assertTrue(rm.isNodeHighlyLoaded(dn));
+
+    // Case 3: Load is above 0.9 (10/10)
+    mockReplicationCommandCounts(dn, 10, 0);
+    assertTrue(rm.isNodeHighlyLoaded(dn));
+
+    // Case 4: Weighted reconstruction counts (reconstructCount * weight=3)
+    // 1 reconstruct + 6 replicate = 1*3 + 6 = 9. Exactly 0.9
+    mockReplicationCommandCounts(dn, 6, 1);
+    assertTrue(rm.isNodeHighlyLoaded(dn));
+
+    // Case 5: 1 reconstruct + 5 replicate = 1*3 + 5 = 8. Below 0.9
+    mockReplicationCommandCounts(dn, 5, 1);
+    assertFalse(rm.isNodeHighlyLoaded(dn));
+  }
+
+  private void mockReplicationCommandCounts(DatanodeDetails dn,
+      int replicateCount, int reconstructCount) throws NodeNotFoundException {
+    Map<Type, Integer> counts = new HashMap<>();
+    counts.put(Type.replicateContainerCommand, replicateCount);
+    counts.put(Type.reconstructECContainersCommand, reconstructCount);
+    when(nodeManager.getTotalDatanodeCommandCounts(dn,
+        Type.replicateContainerCommand,
+        Type.reconstructECContainersCommand)).thenReturn(counts);
   }
 
   @Test

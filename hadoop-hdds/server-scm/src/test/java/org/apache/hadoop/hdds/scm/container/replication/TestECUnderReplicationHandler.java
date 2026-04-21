@@ -486,6 +486,92 @@ public class TestECUnderReplicationHandler {
   }
 
   @Test
+  public void testUnderReplicationWithDecomNodesReconstructionDisabled()
+      throws IOException {
+    // GIVEN
+    replicationManager.getConfig().setEcDecommissionReconstructionEnabled(false);
+    Set<ContainerReplica> availableReplicas = ReplicationTestUtil
+        .createReplicas(Pair.of(DECOMMISSIONING, 1), Pair.of(IN_SERVICE, 2),
+            Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
+            Pair.of(IN_SERVICE, 5));
+
+    // Mock node 1 as highly loaded
+    DatanodeDetails decomNode = availableReplicas.stream()
+        .filter(r -> r.getReplicaIndex() == 1)
+        .findFirst().get().getDatanodeDetails();
+    when(replicationManager.isNodeHighlyLoaded(decomNode)).thenReturn(true);
+
+    ECUnderReplicationHandler ecURH =
+        new ECUnderReplicationHandler(policy, conf, replicationManager);
+    UnderReplicatedHealthResult result =
+        mock(UnderReplicatedHealthResult.class);
+    when(result.isUnrecoverable()).thenReturn(false);
+    when(result.getContainerInfo()).thenReturn(container);
+
+    // WHEN
+    ecURH.processAndSendCommands(availableReplicas, ImmutableList.of(),
+        result, remainingMaintenanceRedundancy);
+
+    // THEN
+    // We expect 1 replicate command for index 1, and 0 reconstruction commands
+    // because the feature is disabled
+    int replicateCommand = 0;
+    int reconstructCommand = 0;
+    for (Pair<DatanodeDetails, SCMCommand<?>> dnCommand : commandsSent) {
+      if (dnCommand.getValue() instanceof ReplicateContainerCommand) {
+        replicateCommand++;
+      } else if (dnCommand.getValue() instanceof ReconstructECContainersCommand) {
+        reconstructCommand++;
+      }
+    }
+    assertEquals(1, replicateCommand);
+    assertEquals(0, reconstructCommand);
+  }
+
+  @Test
+  public void testUnderReplicationWithDecomNodesBelowThreshold()
+      throws IOException {
+    // GIVEN
+    replicationManager.getConfig().setEcDecommissionReconstructionEnabled(true);
+    Set<ContainerReplica> availableReplicas = ReplicationTestUtil
+        .createReplicas(Pair.of(DECOMMISSIONING, 1), Pair.of(IN_SERVICE, 2),
+            Pair.of(IN_SERVICE, 3), Pair.of(IN_SERVICE, 4),
+            Pair.of(IN_SERVICE, 5));
+
+    // Mock node 1 as NOT highly loaded
+    DatanodeDetails decomNode = availableReplicas.stream()
+        .filter(r -> r.getReplicaIndex() == 1)
+        .findFirst().get().getDatanodeDetails();
+    when(replicationManager.isNodeHighlyLoaded(decomNode)).thenReturn(false);
+
+    ECUnderReplicationHandler ecURH =
+        new ECUnderReplicationHandler(policy, conf, replicationManager);
+    UnderReplicatedHealthResult result =
+        mock(UnderReplicatedHealthResult.class);
+    when(result.isUnrecoverable()).thenReturn(false);
+    when(result.getContainerInfo()).thenReturn(container);
+
+    // WHEN
+    ecURH.processAndSendCommands(availableReplicas, ImmutableList.of(),
+        result, remainingMaintenanceRedundancy);
+
+    // THEN
+    // We expect 1 replicate command for index 1, and 0 reconstruction commands
+    // because it is below threshold
+    int replicateCommand = 0;
+    int reconstructCommand = 0;
+    for (Pair<DatanodeDetails, SCMCommand<?>> dnCommand : commandsSent) {
+      if (dnCommand.getValue() instanceof ReplicateContainerCommand) {
+        replicateCommand++;
+      } else if (dnCommand.getValue() instanceof ReconstructECContainersCommand) {
+        reconstructCommand++;
+      }
+    }
+    assertEquals(1, replicateCommand);
+    assertEquals(0, reconstructCommand);
+  }
+
+  @Test
   public void testUnderReplicationWithDecomIndex12() throws IOException {
     Set<ContainerReplica> availableReplicas = ReplicationTestUtil
         .createReplicas(Pair.of(DECOMMISSIONING, 1),
