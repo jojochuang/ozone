@@ -96,7 +96,26 @@ Start EC decommission with 1-1 replication. Once the number of in-flight decommi
 
 This behavior can be enabled/disabled with a feature flag `hdds.scm.replication.decommission.ec.reconstruction.enabled`
 
-We will implement both, use solution 1 as a baseline. The solution 2 is more sophsticated and should balance between overhead and parallelism.
+## Solution 3 (Selected)
+
+A hybrid approach that combines SCM-side dynamic switching with Datanode-side disk-level fairness.
+
+### Phase 1: SCM Global Throttling
+To prevent cluster-wide bisectional bandwidth saturation ("storms"), a new global limit is introduced:
+* `hdds.scm.replication.reconstruction.global.limit`: Caps the total number of simultaneous reconstruction tasks across the entire cluster.
+
+### Phase 2: SCM Dynamic Switching (The "Load Factor" Rule)
+The SCM monitors the real-time load of decommissioning Datanodes.
+* `hdds.scm.replication.decommission.ec.reconstruction.load.factor` (Default: 0.9): When a node's current replication queue (weighted for reconstruction) exceeds this percentage of its effective limit (which includes the `outofservice.limit.factor`), SCM automatically switches from 1-1 replication to reconstruction.
+* **Source Offloading**: When reconstruction is triggered, SCM prioritizes picking $k$ healthy replicas on **other** nodes as sources, bypassing the bottlenecked decommissioning node for data reads.
+
+### Phase 3: Datanode Disk-Level Fairness (Volume-Aware Dispatching)
+To protect high-density physical disks from head contention/thrashing, the Datanode implements a volume-aware dispatcher in its `ReplicationSupervisor`.
+* `hdds.datanode.replication.volume.outbound.limit` (Default: 2): Caps concurrent replication reads per physical disk.
+* **Lookahead Dispatcher**: The supervisor's queue skips over tasks targeting busy volumes, allowing tasks for idle volumes to "leapfrog" ahead.
+* **Starvation Prevention**: Skipped tasks remain at the head of the priority queue and are re-evaluated every time a slot opens or a thread becomes free.
+
+We will implement all solutions, starting with Solution 1 as a baseline and progressing to Solution 3 for production readiness.
 
 # Expected result:
 
