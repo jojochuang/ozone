@@ -183,11 +183,13 @@ public final class ReplicationSupervisor {
             .setDaemon(true)
             .setNameFormat(threadNamePrefix + "ContainerReplicationThread-%d")
             .build();
+        VolumeAwarePriorityQueue vaQueue =
+            new VolumeAwarePriorityQueue(replicationConfig);
         ThreadPoolExecutor tpe = new ThreadPoolExecutor(
             replicationConfig.getReplicationMaxStreams(),
             replicationConfig.getReplicationMaxStreams(),
             60, TimeUnit.SECONDS,
-            new PriorityBlockingQueue<>(),
+            vaQueue,
             threadFactory);
         executor = tpe;
         executorThreadUpdater = threadCount -> {
@@ -434,6 +436,16 @@ public final class ReplicationSupervisor {
         LOG.warn("Failed {}", this, e);
         failureCounter.get(task.getMetricName()).incrementAndGet();
       } finally {
+        for (HddsVolume vol : task.getVolumes()) {
+          vol.decActiveOutboundReplications();
+        }
+        if (executor instanceof ThreadPoolExecutor) {
+          BlockingQueue<Runnable> queue =
+              ((ThreadPoolExecutor) executor).getQueue();
+          if (queue instanceof VolumeAwarePriorityQueue) {
+            ((VolumeAwarePriorityQueue) queue).signalVolumeAvailable();
+          }
+        }
         queuedCounter.get(task.getMetricName()).decrementAndGet();
         opsLatencyMs.get(task.getMetricName()).add(Time.monotonicNow() - startTime);
         inFlight.remove(task);
@@ -570,19 +582,25 @@ public final class ReplicationSupervisor {
    * outbound replication limit per volume.
    * It skips over tasks whose volumes are currently at their limit.
    */
-  private final class VolumeAwarePriorityQueue
-      extends LinkedBlockingQueue<TaskRunner> {
+  private static final class VolumeAwarePriorityQueue
+      extends LinkedBlockingQueue<Runnable> {
 
     private final PriorityQueue<TaskRunner> queue;
     private final Lock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
+    private final ReplicationConfig replicationConfig;
 
-    private VolumeAwarePriorityQueue() {
+    private VolumeAwarePriorityQueue(ReplicationConfig config) {
+      this.replicationConfig = config;
       queue = new PriorityQueue<>(TASK_RUNNER_COMPARATOR);
     }
 
     @Override
-    public boolean offer(TaskRunner taskRunner) {
+    public boolean offer(Runnable r) {
+      if (!(r instanceof TaskRunner)) {
+        return false;
+      }
+      TaskRunner taskRunner = (TaskRunner) r;
       lock.lock();
       try {
         boolean added = queue.offer(taskRunner);
@@ -596,7 +614,7 @@ public final class ReplicationSupervisor {
     }
 
     @Override
-    public TaskRunner take() throws InterruptedException {
+    public Runnable take() throws InterruptedException {
       lock.lock();
       try {
         while (true) {
@@ -612,7 +630,7 @@ public final class ReplicationSupervisor {
     }
 
     @Override
-    public TaskRunner poll(long timeout, TimeUnit unit)
+    public Runnable poll(long timeout, TimeUnit unit)
         throws InterruptedException {
       long nanos = unit.toNanos(timeout);
       lock.lock();
