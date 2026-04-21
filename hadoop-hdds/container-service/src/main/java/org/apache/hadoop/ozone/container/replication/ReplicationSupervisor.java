@@ -89,6 +89,7 @@ public final class ReplicationSupervisor {
   private final Map<String, AtomicLong> timeoutCounter = new ConcurrentHashMap<>();
   private final Map<String, AtomicLong> skippedCounter = new ConcurrentHashMap<>();
   private final Map<String, AtomicLong> queuedCounter = new ConcurrentHashMap<>();
+  private final AtomicLong volumeOutboundConcurrencyWaitTotal;
 
   private final MetricsRegistry registry;
   private final Map<String, MutableRate> opsLatencyMs = new ConcurrentHashMap<>();
@@ -126,6 +127,8 @@ public final class ReplicationSupervisor {
     private DatanodeConfiguration datanodeConfig;
     private ExecutorService executor;
     private Clock clock;
+    private final AtomicLong volumeOutboundConcurrencyWaitTotal =
+        new AtomicLong(0);
     private IntConsumer executorThreadUpdater = threadCount -> {
     };
 
@@ -184,7 +187,8 @@ public final class ReplicationSupervisor {
             .setNameFormat(threadNamePrefix + "ContainerReplicationThread-%d")
             .build();
         VolumeAwarePriorityQueue vaQueue =
-            new VolumeAwarePriorityQueue(replicationConfig);
+            new VolumeAwarePriorityQueue(replicationConfig,
+                volumeOutboundConcurrencyWaitTotal);
         ThreadPoolExecutor tpe = new ThreadPoolExecutor(
             replicationConfig.getReplicationMaxStreams(),
             replicationConfig.getReplicationMaxStreams(),
@@ -204,7 +208,8 @@ public final class ReplicationSupervisor {
       }
 
       return new ReplicationSupervisor(context, executor, replicationConfig,
-          datanodeConfig, clock, executorThreadUpdater);
+          datanodeConfig, clock, executorThreadUpdater,
+          volumeOutboundConcurrencyWaitTotal);
     }
   }
 
@@ -218,7 +223,8 @@ public final class ReplicationSupervisor {
 
   private ReplicationSupervisor(StateContext context, ExecutorService executor,
       ReplicationConfig replicationConfig, DatanodeConfiguration datanodeConfig,
-      Clock clock, IntConsumer executorThreadUpdater) {
+      Clock clock, IntConsumer executorThreadUpdater,
+      AtomicLong volumeOutboundConcurrencyWaitTotal) {
     this.inFlight = ConcurrentHashMap.newKeySet();
     this.context = context;
     this.executor = executor;
@@ -227,6 +233,7 @@ public final class ReplicationSupervisor {
     maxQueueSize = datanodeConfig.getCommandQueueLimit();
     this.clock = clock;
     this.executorThreadUpdater = executorThreadUpdater;
+    this.volumeOutboundConcurrencyWaitTotal = volumeOutboundConcurrencyWaitTotal;
 
     // set initial state
     if (context != null) {
@@ -558,6 +565,10 @@ public final class ReplicationSupervisor {
     return counter != null ? counter.get() : 0;
   }
 
+  public long getVolumeOutboundConcurrencyWaitTotal() {
+    return volumeOutboundConcurrencyWaitTotal.get();
+  }
+
   public long getReplicationQueuedCount() {
     return getCount(queuedCounter);
   }
@@ -589,9 +600,12 @@ public final class ReplicationSupervisor {
     private final Lock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
     private final ReplicationConfig replicationConfig;
+    private final AtomicLong volumeWaitCounter;
 
-    private VolumeAwarePriorityQueue(ReplicationConfig config) {
+    private VolumeAwarePriorityQueue(ReplicationConfig config,
+        AtomicLong volumeWaitCounter) {
       this.replicationConfig = config;
+      this.volumeWaitCounter = volumeWaitCounter;
       queue = new PriorityQueue<>(TASK_RUNNER_COMPARATOR);
     }
 
@@ -660,6 +674,7 @@ public final class ReplicationSupervisor {
           if (vol.getActiveOutboundReplications() >=
               replicationConfig.getVolumeOutboundLimit()) {
             canRun = false;
+            volumeWaitCounter.incrementAndGet();
             break;
           }
         }
