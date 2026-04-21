@@ -111,7 +111,7 @@ public class ReplicationSupervisorSchedulingBenchmark {
       List<DatanodeDetails> sources = new ArrayList<>();
       sources.add(datanodes.get(random.nextInt(datanodes.size())));
 
-      rs.addTask(new ReplicationTask(fromSources(i, sources), replicator));
+      rs.addTask(new ReplicationTask(fromSources(i, sources), replicator, null));
     }
     rs.shutdownAfterFinish();
     final long executionTime = Time.monotonicNow() - start;
