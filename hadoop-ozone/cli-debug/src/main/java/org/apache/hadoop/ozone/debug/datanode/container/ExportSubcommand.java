@@ -66,7 +66,8 @@ public class ExportSubcommand implements Callable<Void> {
     parent.loadContainersFromVolumes();
 
     final ContainerReplicationSource replicationSource =
-        new OnDemandContainerReplicationSource(parent.getController());
+        new OnDemandContainerReplicationSource(parent.getController(),
+            new ReplicationServer.ReplicationConfig());
 
     for (int i = 0; i < containerCount; i++) {
       replicationSource.prepare(containerId);
