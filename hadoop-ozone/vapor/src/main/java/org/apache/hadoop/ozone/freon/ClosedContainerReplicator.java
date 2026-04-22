@@ -93,6 +93,8 @@ public class ClosedContainerReplicator extends BaseFreonGenerator implements
 
   private ContainerReplicator replicator;
 
+  private ContainerController controller;
+
   private Timer timer;
   private WitnessedContainerMetadataStore witnessedContainerMetadataStore;
 
@@ -239,8 +241,7 @@ public class ClosedContainerReplicator extends BaseFreonGenerator implements
       handlers.put(containerType, handler);
     }
 
-    ContainerController controller =
-        new ContainerController(containerSet, handlers);
+    controller = new ContainerController(containerSet, handlers);
 
     ContainerImporter importer = new ContainerImporter(conf, containerSet,
         controller, volumeSet, volumeChoosingPolicy);
