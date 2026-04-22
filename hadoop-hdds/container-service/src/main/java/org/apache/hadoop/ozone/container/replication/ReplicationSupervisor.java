@@ -594,6 +594,8 @@ public final class ReplicationSupervisor {
   private static final class VolumeAwarePriorityQueue
       extends LinkedBlockingQueue<Runnable> {
 
+    private static final long serialVersionUID = 1L;
+
     private final transient PriorityQueue<TaskRunner> queue;
     private final transient Lock lock = new ReentrantLock();
     private final transient Condition notEmpty = lock.newCondition();
