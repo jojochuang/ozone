@@ -594,11 +594,11 @@ public final class ReplicationSupervisor {
   private static final class VolumeAwarePriorityQueue
       extends LinkedBlockingQueue<Runnable> {
 
-    private final PriorityQueue<TaskRunner> queue;
-    private final Lock lock = new ReentrantLock();
-    private final Condition notEmpty = lock.newCondition();
-    private final ReplicationConfig replicationConfig;
-    private final AtomicLong volumeWaitCounter;
+    private final transient PriorityQueue<TaskRunner> queue;
+    private final transient Lock lock = new ReentrantLock();
+    private final transient Condition notEmpty = lock.newCondition();
+    private final transient ReplicationConfig replicationConfig;
+    private final transient AtomicLong volumeWaitCounter;
 
     private VolumeAwarePriorityQueue(ReplicationConfig config,
         AtomicLong volumeWaitCounter) {
