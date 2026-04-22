@@ -143,7 +143,7 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
   /**
    * Report object that is refreshed each time replication Manager runs.
    */
-  private ReplicationManagerReport containerReport;
+  private volatile ReplicationManagerReport containerReport;
 
   /**
    * Replication progress related metrics.
@@ -204,6 +204,8 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
   private final HealthCheck containerCheckChain;
   private final ReplicationQueue noOpsReplicationQueue =
       new MonitoringReplicationQueue();
+
+  private final Object monitorLock = new Object();
 
   /**
    * Constructs ReplicationManager instance with the given configuration.
@@ -367,7 +369,7 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
    * Process all the containers now, and wait for the processing to complete.
    * This in intended to be used in tests.
    */
-  public synchronized void processAll() {
+  public void processAll() {
     if (!shouldRun()) {
       if (scmContext.isLeader()) {
         LOG.info("Replication Manager is not ready to run until {}ms after " +
@@ -1010,11 +1012,13 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
    * ReplicationMonitor thread runnable. This wakes up at configured
    * interval and processes all the containers in the system.
    */
-  private synchronized void run() {
+  private void run() {
     try {
       while (running) {
         processAll();
-        wait(rmConf.getInterval().toMillis());
+        synchronized (monitorLock) {
+          monitorLock.wait(rmConf.getInterval().toMillis());
+        }
       }
     } catch (Throwable t) {
       if (t instanceof InterruptedException) {
@@ -1733,7 +1737,7 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
    * 
    * @return true if the replication monitor was woken up, false otherwise
    */
-  public synchronized boolean notifyNodeStateChange() {
+  public boolean notifyNodeStateChange() {
     if (!running || serviceStatus == ServiceStatus.PAUSING) {
       return false;
     }
@@ -1749,7 +1753,9 @@ public class ReplicationManager implements SCMService, ContainerReplicaPendingOp
     if (getQueue().isEmpty()) {
       LOG.debug("Waking up replication monitor due to node state change");
       // Notify the replication monitor thread to wake up
-      notify();
+      synchronized (monitorLock) {
+        monitorLock.notify();
+      }
       return true;
     } else {
       LOG.debug("Replication queue is not empty, not waking up replication monitor");

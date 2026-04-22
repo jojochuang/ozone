@@ -383,11 +383,16 @@ public final class ReplicationSupervisor {
   /**
    * An executable form of a replication task with status handling.
    */
-  public final class TaskRunner implements Comparable<TaskRunner>, Runnable {
+  public class TaskRunner implements Runnable, Comparable<TaskRunner> {
     private final AbstractReplicationTask task;
+    private Collection<HddsVolume> acquiredVolumes = Collections.emptyList();
 
     public TaskRunner(AbstractReplicationTask task) {
       this.task = task;
+    }
+
+    public void setAcquiredVolumes(Collection<HddsVolume> volumes) {
+      this.acquiredVolumes = volumes;
     }
 
     @Override
@@ -441,7 +446,7 @@ public final class ReplicationSupervisor {
         LOG.warn("Failed {}", this, e);
         failureCounter.get(task.getMetricName()).incrementAndGet();
       } finally {
-        for (HddsVolume vol : task.getVolumes()) {
+        for (HddsVolume vol : acquiredVolumes) {
           vol.decActiveOutboundReplications();
         }
         if (executor instanceof ThreadPoolExecutor) {
@@ -680,6 +685,7 @@ public final class ReplicationSupervisor {
         }
         if (canRun) {
           it.remove();
+          taskRunner.setAcquiredVolumes(volumes);
           // Pre-increment to reserve the slot
           for (HddsVolume vol : volumes) {
             vol.incActiveOutboundReplications();

@@ -678,14 +678,20 @@ public class TestReplicationSupervisor {
         ReplicationSupervisorMetrics.create(replicationSupervisor);
 
     try {
-      //WHEN
+      doAnswer(invocation -> {
+        Thread.sleep(1);
+        return null;
+      }).when(mockController).reconcileContainer(any(), anyLong(), any());
       replicationSupervisor.addTask(createReconciliationTask(1L));
       replicationSupervisor.addTask(createReconciliationTask(2L));
 
       ReconcileContainerTask reconciliationTask = createReconciliationTask(6L);
       clock.fastForward(15000);
       replicationSupervisor.addTask(reconciliationTask);
-      doThrow(IOException.class).when(mockController).reconcileContainer(any(), anyLong(), any());
+      doAnswer(invocation -> {
+        Thread.sleep(1);
+        throw new IOException("mocked failure");
+      }).when(mockController).reconcileContainer(any(), anyLong(), any());
       replicationSupervisor.addTask(createReconciliationTask(7L));
 
       //THEN
