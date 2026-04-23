@@ -58,8 +58,6 @@ public class TestReconstructECContainersCommandHandler {
   private OzoneContainer ozoneContainer;
   private StateContext stateContext;
   private SCMConnectionManager connectionManager;
-  private DatanodeStateMachine datanodeStateMachine;
-  private DatanodeDetails self;
 
   @BeforeEach
   public void setUp() {
@@ -69,8 +67,8 @@ public class TestReconstructECContainersCommandHandler {
     ozoneContainer = mock(OzoneContainer.class);
     connectionManager = mock(SCMConnectionManager.class);
     stateContext = mock(StateContext.class);
-    datanodeStateMachine = mock(DatanodeStateMachine.class);
-    self = MockDatanodeDetails.randomDatanodeDetails();
+    DatanodeStateMachine datanodeStateMachine = mock(DatanodeStateMachine.class);
+    DatanodeDetails self = MockDatanodeDetails.randomDatanodeDetails();
     when(stateContext.getParent()).thenReturn(datanodeStateMachine);
     when(datanodeStateMachine.getDatanodeDetails()).thenReturn(self);
   }
