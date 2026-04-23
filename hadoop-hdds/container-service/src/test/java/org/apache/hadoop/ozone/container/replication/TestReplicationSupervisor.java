@@ -36,7 +36,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
