@@ -37,6 +37,7 @@ import org.apache.hadoop.hdds.protocol.MockDatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.SCMCommandProto;
 import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
 import org.apache.hadoop.ozone.container.common.helpers.CommandHandlerMetrics;
+import org.apache.hadoop.ozone.container.common.statemachine.DatanodeStateMachine;
 import org.apache.hadoop.ozone.container.common.statemachine.SCMConnectionManager;
 import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.ec.reconstruction.ECReconstructionCoordinator;
@@ -57,6 +58,8 @@ public class TestReconstructECContainersCommandHandler {
   private OzoneContainer ozoneContainer;
   private StateContext stateContext;
   private SCMConnectionManager connectionManager;
+  private DatanodeStateMachine datanodeStateMachine;
+  private DatanodeDetails self;
 
   @BeforeEach
   public void setUp() {
@@ -66,6 +69,10 @@ public class TestReconstructECContainersCommandHandler {
     ozoneContainer = mock(OzoneContainer.class);
     connectionManager = mock(SCMConnectionManager.class);
     stateContext = mock(StateContext.class);
+    datanodeStateMachine = mock(DatanodeStateMachine.class);
+    self = MockDatanodeDetails.randomDatanodeDetails();
+    when(stateContext.getParent()).thenReturn(datanodeStateMachine);
+    when(datanodeStateMachine.getDatanodeDetails()).thenReturn(self);
   }
 
   @Test
