@@ -898,7 +898,9 @@ public final class HttpServer2 implements FilterContainer {
   public void addServlet(String name, String pathSpec,
       Class<? extends HttpServlet> clazz, boolean requireAuth) {
     addInternalServlet(name, pathSpec, clazz, requireAuth);
-    addFilterPathMapping(pathSpec, webAppContext);
+    if (!requireAuth) {
+      addFilterPathMapping(pathSpec, webAppContext);
+    }
   }
 
   /**
