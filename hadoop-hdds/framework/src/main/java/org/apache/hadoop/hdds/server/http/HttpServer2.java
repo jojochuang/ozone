@@ -179,7 +179,7 @@ public final class HttpServer2 implements FilterContainer {
   // The ServletContext attribute where the daemon Configuration
   // gets stored.
   public static final String CONF_CONTEXT_ATTRIBUTE = "hadoop.conf";
-  private static final String ADMINS_ACL = "admins.acl";
+  public static final String ADMINS_ACL = "admins.acl";
   private static final String SPNEGO_FILTER = "SpnegoFilter";
   private static final String NO_CACHE_FILTER = "NoCacheFilter";
 
@@ -841,10 +841,10 @@ public final class HttpServer2 implements FilterContainer {
    */
   protected void addDefaultServlets() {
     // set up default servlets
-    addServlet("stacks", "/stacks", StackServlet.class);
-    addServlet("logLevel", "/logLevel", LogLevel.Servlet.class);
-    addServlet("jmx", "/jmx", JMXJsonServlet.class);
-    addServlet("conf", "/conf", ConfServlet.class);
+    addServlet("stacks", "/stacks", StackServlet.class, true);
+    addServlet("logLevel", "/logLevel", LogLevel.Servlet.class, true);
+    addServlet("jmx", "/jmx", JMXJsonServlet.class, true);
+    addServlet("conf", "/conf", ConfServlet.class, true);
   }
 
   public void addContext(ServletContextHandler ctxt, boolean isFiltered) {
@@ -885,7 +885,19 @@ public final class HttpServer2 implements FilterContainer {
    */
   public void addServlet(String name, String pathSpec,
       Class<? extends HttpServlet> clazz) {
-    addInternalServlet(name, pathSpec, clazz, false);
+    addServlet(name, pathSpec, clazz, false);
+  }
+
+  /**
+   * Add a servlet in the server.
+   * @param name The name of the servlet (can be passed as null)
+   * @param pathSpec The path spec for the servlet
+   * @param clazz The servlet class
+   * @param requireAuth Require Kerberos authenticate to access servlet
+   */
+  public void addServlet(String name, String pathSpec,
+      Class<? extends HttpServlet> clazz, boolean requireAuth) {
+    addInternalServlet(name, pathSpec, clazz, requireAuth);
     addFilterPathMapping(pathSpec, webAppContext);
   }
 
