@@ -841,10 +841,10 @@ public final class HttpServer2 implements FilterContainer {
    */
   protected void addDefaultServlets() {
     // set up default servlets
-    addServlet("stacks", "/stacks", StackServlet.class, true);
+    addServlet("stacks", "/stacks", StackServlet.class, false);
     addServlet("logLevel", "/logLevel", LogLevel.Servlet.class, true);
-    addServlet("jmx", "/jmx", JMXJsonServlet.class, true);
-    addServlet("conf", "/conf", ConfServlet.class, true);
+    addServlet("jmx", "/jmx", JMXJsonServlet.class, false);
+    addServlet("conf", "/conf", ConfServlet.class, false);
   }
 
   public void addContext(ServletContextHandler ctxt, boolean isFiltered) {
