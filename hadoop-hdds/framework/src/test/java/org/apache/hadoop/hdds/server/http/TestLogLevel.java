@@ -17,17 +17,17 @@
 
 package org.apache.hadoop.hdds.server.http;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.net.HttpURLConnection;
 import java.net.URL;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test for /logLevel endpoint authentication.
