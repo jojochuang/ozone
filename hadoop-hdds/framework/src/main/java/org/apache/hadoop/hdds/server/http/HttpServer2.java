@@ -483,6 +483,10 @@ public final class HttpServer2 implements FilterContainer {
         server.initSpnego(conf, hostName, usernameConfKey, keytabConfKey);
       }
 
+      if (!this.skipDefaultApps) {
+        server.addDefaultServlets();
+      }
+
       for (URI ep : endpoints) {
         if (HTTPS_SCHEME.equals(ep.getScheme())) {
           loadSSLConfiguration();
@@ -683,10 +687,6 @@ public final class HttpServer2 implements FilterContainer {
       for (FilterInitializer c : initializers) {
         c.initFilter(this, copy);
       }
-    }
-
-    if (!builder.skipDefaultApps) {
-      addDefaultServlets();
     }
 
     if (builder.pathSpecs != null) {
@@ -898,9 +898,7 @@ public final class HttpServer2 implements FilterContainer {
   public void addServlet(String name, String pathSpec,
       Class<? extends HttpServlet> clazz, boolean requireAuth) {
     addInternalServlet(name, pathSpec, clazz, requireAuth);
-    if (!requireAuth) {
-      addFilterPathMapping(pathSpec, webAppContext);
-    }
+    addFilterPathMapping(pathSpec, webAppContext);
   }
 
   /**
@@ -982,14 +980,32 @@ public final class HttpServer2 implements FilterContainer {
     }
 
     if (requireAuth && UserGroupInformation.isSecurityEnabled()) {
-      LOG.info("Adding Kerberos (SPNEGO) filter to {}", name);
       ServletHandler handler = webAppContext.getServletHandler();
-      FilterMapping fmap = new FilterMapping();
-      fmap.setPathSpec(pathSpec);
-      fmap.setFilterName(SPNEGO_FILTER);
-      fmap.setDispatches(FilterMapping.ALL);
-      handler.addFilterMapping(fmap);
+      if (handler.getFilter(SPNEGO_FILTER) != null && !hasAuthenticationFilter()) {
+        LOG.info("Adding Kerberos (SPNEGO) filter to {}", name);
+        FilterMapping fmap = new FilterMapping();
+        fmap.setPathSpec(pathSpec);
+        fmap.setFilterName(SPNEGO_FILTER);
+        fmap.setDispatches(FilterMapping.ALL);
+        handler.addFilterMapping(fmap);
+      }
     }
+  }
+
+  private boolean hasAuthenticationFilter() {
+    for (String filterName : filterNames) {
+      if (isAuthenticationFilter(filterName)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean isAuthenticationFilter(String filterName) {
+    ServletHandler handler = webAppContext.getServletHandler();
+    FilterHolder holder = handler.getFilter(filterName);
+    return holder != null && holder.getClassName().equals(
+        AuthenticationFilter.class.getName());
   }
 
   /**
@@ -1114,6 +1130,11 @@ public final class HttpServer2 implements FilterContainer {
       ServletContextHandler webAppCtx) {
     ServletHandler handler = webAppCtx.getServletHandler();
     for (String name : filterNames) {
+      if (isAuthenticationFilter(name)) {
+        // Skip redundant mapping for authentication filter.
+        // It's already mapped to /* via addFilter.
+        continue;
+      }
       FilterMapping fmap = new FilterMapping();
       fmap.setPathSpec(pathSpec);
       fmap.setFilterName(name);
