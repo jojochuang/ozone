@@ -28,4 +28,13 @@ if [[ "$@" =~ "-Ptest-" ]] && [[ ! "$@" =~ "-Ptest-filesystem" ]]; then
   args="$args -DskipShade"
 fi
 
+if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
+  if [[ "$@" =~ "-Ptest-recon" ]]; then
+    args="$args -pl hadoop-ozone/integration-test-recon"
+  else
+    args="$args -pl hadoop-ozone/integration-test"
+  fi
+fi
+
 source "${DIR}/junit.sh" $args "$@"
+
