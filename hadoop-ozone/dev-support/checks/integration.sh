@@ -29,6 +29,8 @@ if [[ "$@" =~ "-Ptest-" ]] && [[ ! "$@" =~ "-Ptest-filesystem" ]]; then
 fi
 
 if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
+  sudo mount -t tmpfs -o size=3G tmpfs /tmp
+  sudo chmod 1777 /tmp
   if [[ "$@" =~ "-Ptest-recon" ]]; then
     args="$args -pl hadoop-ozone/integration-test-recon"
   else
