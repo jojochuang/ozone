@@ -71,3 +71,4 @@ OM_SERVICE_ID=omservice
 # Explicitly enable filesystem snapshot feature for this Docker compose cluster
 # Does not take effect on Ozone versions < 1.4.0
 OZONE-SITE.XML_ozone.filesystem.snapshot.enabled=true
+OTEL_TRACES_EXPORTER=none

@@ -35,3 +35,4 @@ OZONE-SITE.XML_hdds.datanode.volume.min.free.space.percent=0
 OZONE-SITE.XML_ozone.http.basedir=/tmp/ozone_http
 
 no_proxy=om1,om2,om3,scm,s3g,recon,kdc,localhost,127.0.0.1
+OTEL_TRACES_EXPORTER=none

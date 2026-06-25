@@ -41,3 +41,4 @@ HDDS_DN_OPTS="-Dhdds.dn.opts=test"
 OZONE_SERVER_OPTS="-Dserver.opt=test"
 
 no_proxy=om,scm,s3g,recon,kdc,localhost,127.0.0.1
+OTEL_TRACES_EXPORTER=none

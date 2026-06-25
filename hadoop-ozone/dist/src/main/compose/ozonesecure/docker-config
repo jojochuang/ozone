@@ -179,3 +179,4 @@ OZONE-SITE.XML_ozone.om.tenant.dev.skip.ranger=true
 
 # Explicitly enable filesystem snapshot feature for this Docker compose cluster
 OZONE-SITE.XML_ozone.filesystem.snapshot.enabled=true
+OTEL_TRACES_EXPORTER=none
