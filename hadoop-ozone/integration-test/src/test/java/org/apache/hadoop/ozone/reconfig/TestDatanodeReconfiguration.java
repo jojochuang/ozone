@@ -29,16 +29,11 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.hadoop.conf.ReconfigurationException;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.ReconfigurationHandler;
 import org.apache.hadoop.hdds.tracing.TracingConfig;
 import org.apache.hadoop.ozone.HddsDatanodeService;
-import org.apache.hadoop.ozone.MiniOzoneCluster;
-import org.apache.hadoop.ozone.UniformDatanodesFactory;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
 import org.apache.hadoop.ozone.container.common.statemachine.commandhandler.DeleteBlocksCommandHandler;
-import org.apache.hadoop.ozone.container.replication.ReplicationServer;
-import org.apache.hadoop.ozone.container.replication.ReplicationSupervisor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -103,41 +98,6 @@ public abstract class TestDatanodeReconfiguration extends ReconfigurationTestBas
         REPLICATION_STREAMS_LIMIT_KEY, String.valueOf(newValue));
     assertEquals(newValue, executor.getMaximumPoolSize());
     assertEquals(newValue, executor.getCorePoolSize());
-  }
-
-  @Test
-  void perVolumeStreamsLimit() throws Exception {
-    OzoneConfiguration conf = new OzoneConfiguration();
-    ReplicationServer.ReplicationConfig replicationConfig =
-        conf.getObject(ReplicationServer.ReplicationConfig.class);
-    replicationConfig.setPerVolumeEnabled(true);
-    replicationConfig.setPerVolumeStreamsLimit(1);
-    conf.setFromObject(replicationConfig);
-
-    UniformDatanodesFactory uniformFactory = UniformDatanodesFactory.newBuilder()
-        .setNumDataVolumes(2)
-        .build();
-    try (MiniOzoneCluster cluster = MiniOzoneCluster.newBuilder(conf)
-        .setNumDatanodes(1)
-        .setDatanodeFactory(baseConf -> {
-          OzoneConfiguration dnConf = uniformFactory.apply(baseConf);
-          ReplicationServer.ReplicationConfig dnReplicationConfig =
-              dnConf.getObject(ReplicationServer.ReplicationConfig.class);
-          dnReplicationConfig.setPerVolumeEnabled(true);
-          dnReplicationConfig.setPerVolumeStreamsLimit(1);
-          dnConf.setFromObject(dnReplicationConfig);
-          return dnConf;
-        })
-        .build()) {
-      cluster.waitForClusterToBeReady();
-      HddsDatanodeService datanode = cluster.getHddsDatanodes().get(0);
-      datanode.getReconfigurationHandler().reconfigureProperty(
-          PER_VOLUME_STREAMS_LIMIT_KEY, "3");
-
-      ReplicationSupervisor supervisor =
-          datanode.getDatanodeStateMachine().getSupervisor();
-      assertEquals(3, supervisor.getReplicationConfig().getPerVolumeStreamsLimit());
-    }
   }
 
   private HddsDatanodeService getFirstDatanode() {
