@@ -128,11 +128,9 @@ class TestPerVolumePushReplication {
   private static final String OM_SERVICE_ID = "om-service-per-volume-test";
   private static final String SCM_SERVICE_ID = "scm-service-per-volume-test";
   private static final long LARGE_CONTAINER_SIZE = 50L * 1024L * 1024L;
-  private static final Object MINI_CLUSTER_LOCK = new Object();
 
   @Test
   void testPushAndScmReplicationWithPerVolumeEnabled() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(true, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
         XceiverClientFactory clientFactory = new XceiverClientManager(conf);
@@ -164,12 +162,10 @@ class TestPerVolumePushReplication {
       cluster.shutdownHddsDatanode(replicaDn);
       waitForReplicaCount(scmContainerId, 3, cluster);
     }
-    });
   }
 
   @Test
   void testHealthyVolumeReplicationAfterVolumeFailure() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(true, 1);
     configureVolumeFailureDetection(conf);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
@@ -216,12 +212,10 @@ class TestPerVolumePushReplication {
 
       DatanodeTestUtils.restoreBadVolume(vol0);
     }
-    });
   }
 
   @Test
   void testDecommissionWithPerVolumePools() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createDecommissionConfig(true, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 7);
         OzoneClient client = cluster.newClient();
@@ -269,12 +263,10 @@ class TestPerVolumePushReplication {
       TestDataUtil.createKey(bucket, "sanityKey", RATIS_THREE,
           "still healthy".getBytes(StandardCharsets.UTF_8));
     }
-    });
   }
 
   @Test
   void testPerVolumeStreamsLimitReconfiguration() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(true, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 1)) {
       cluster.waitForClusterToBeReady();
@@ -285,12 +277,10 @@ class TestPerVolumePushReplication {
           ReplicationServer.ReplicationConfig.PER_VOLUME_STREAMS_LIMIT_KEY, "3");
       assertVolumePools(datanode, DATA_VOLUMES, 3);
     }
-    });
   }
 
   @Test
   void testCrossVolumePushIsolation() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(true, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
         XceiverClientFactory clientFactory = new XceiverClientManager(conf)) {
@@ -326,12 +316,10 @@ class TestPerVolumePushReplication {
       assertNotNull(getContainer(cluster, target, smallOnVol1));
       assertNotNull(getContainer(cluster, target, largeOnVol0));
     }
-    });
   }
 
   @Test
   void testScmFailoverDuringReplication() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createDecommissionConfig(true, 1);
     conf.setLong(ScmConfigKeys.OZONE_SCM_HA_RATIS_SNAPSHOT_THRESHOLD, 5);
     MiniOzoneHAClusterImpl cluster = newHaCluster(conf, 5);
@@ -378,12 +366,10 @@ class TestPerVolumePushReplication {
     } finally {
       cluster.shutdown();
     }
-    });
   }
 
   @Test
   void testDefaultOffBackwardCompatibility() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(false, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
         XceiverClientFactory clientFactory = new XceiverClientManager(conf)) {
@@ -400,12 +386,10 @@ class TestPerVolumePushReplication {
           source, ReplicationSupervisor::getReplicationSuccessCount);
       assertNotNull(getContainer(cluster, target, containerId));
     }
-    });
   }
 
   @Test
   void testNonPushReplicationUsesGlobalPool() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createPerVolumeConfig(true, 1);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
         XceiverClientFactory clientFactory = new XceiverClientManager(conf)) {
@@ -432,12 +416,10 @@ class TestPerVolumePushReplication {
           supervisor.getReplicationSuccessCount(ReconcileContainerTask.METRIC_NAME));
       assertEquals(0, pools.getTotalQueueSize());
     }
-    });
   }
 
   @Test
   void testPerVolumePoolScalingOnDecommission() throws Exception {
-    runLocked(() -> {
     OzoneConfiguration conf = createDecommissionConfig(true, 2);
     try (MiniOzoneCluster cluster = newCluster(conf, 3);
         ContainerOperationClient scmClient = new ContainerOperationClient(conf)) {
@@ -466,22 +448,6 @@ class TestPerVolumePushReplication {
             == expectedPoolSize;
       }, 200, 180000);
       assertVolumePools(toDecommissionDn, DATA_VOLUMES, expectedPoolSize);
-    }
-    });
-  }
-
-  @FunctionalInterface
-  private interface LockedTest {
-    void run() throws Exception;
-  }
-
-  private static void runLocked(LockedTest test) throws Exception {
-    synchronized (MINI_CLUSTER_LOCK) {
-      try {
-        test.run();
-      } finally {
-        Thread.sleep(3000);
-      }
     }
   }
 
@@ -650,10 +616,6 @@ class TestPerVolumePushReplication {
       }
     }
     return null;
-  }
-
-  private static DatanodeDetails getOneDnHostingReplica(Set<ContainerReplica> replicas) {
-    return replicas.iterator().next().getDatanodeDetails();
   }
 
   private static MiniOzoneCluster newCluster(OzoneConfiguration conf, int numDatanodes)
