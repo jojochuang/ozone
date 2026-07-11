@@ -86,7 +86,6 @@ import org.apache.hadoop.ozone.recon.tasks.ReconTaskConfig;
 import org.apache.ozone.recon.schema.ContainerSchemaDefinition.UnHealthyContainerStates;
 import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.LambdaTestUtils;
-import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -109,6 +108,8 @@ class TestReconAndAdminContainerCLI {
   private static final int RM_RECON_COMPARE_POLL_INTERVAL_MS = 1000;
   /** Max wait (Recon can trail SCM briefly). */
   private static final int RM_RECON_COMPARE_WAIT_MS = 90_000;
+  /** Longer wait for decommission/maintenance where RM and Recon drift longer. */
+  private static final int RM_RECON_DECOM_COMPARE_WAIT_MS = 120_000;
   /**
    * Two matches in a row on purpose. A single agreeing poll can be luck while RM and Recon counts
    * are still drifting past each other (HDDS-15223).
@@ -231,7 +232,6 @@ class TestReconAndAdminContainerCLI {
 
   @ParameterizedTest
   @MethodSource("outOfServiceNodeStateArgs")
-  @Flaky("HDDS-11128")
   void testNodesInDecommissionOrMaintenance(
       NodeOperationalState initialState, NodeOperationalState finalState,
       boolean isMaintenance) throws Exception {
@@ -263,8 +263,8 @@ class TestReconAndAdminContainerCLI {
     TestNodeUtil.waitForDnToReachOpState(scmNodeManager,
         nodeToGoOffline1, initialState);
 
-    compareRMReportToReconResponse(underReplicatedState);
-    compareRMReportToReconResponse(overReplicatedState);
+    compareRMReportToReconResponse(underReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+    compareRMReportToReconResponse(overReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
 
     TestNodeUtil.waitForDnToReachOpState(scmNodeManager,
         nodeToGoOffline1, finalState);
@@ -275,8 +275,8 @@ class TestReconAndAdminContainerCLI {
       TestHelper.waitForReplicaCount(containerIdR3, 4, cluster);
     }
 
-    compareRMReportToReconResponse(underReplicatedState);
-    compareRMReportToReconResponse(overReplicatedState);
+    compareRMReportToReconResponse(underReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+    compareRMReportToReconResponse(overReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
 
     // Second node goes offline.
     if (isMaintenance) {
@@ -290,8 +290,8 @@ class TestReconAndAdminContainerCLI {
     TestNodeUtil.waitForDnToReachOpState(scmNodeManager,
         nodeToGoOffline2, initialState);
 
-    compareRMReportToReconResponse(underReplicatedState);
-    compareRMReportToReconResponse(overReplicatedState);
+    compareRMReportToReconResponse(underReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+    compareRMReportToReconResponse(overReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
 
     TestNodeUtil.waitForDnToReachOpState(scmNodeManager,
         nodeToGoOffline2, finalState);
@@ -301,8 +301,8 @@ class TestReconAndAdminContainerCLI {
     int expectedReplicaNum = isMaintenance ? 4 : 5;
     TestHelper.waitForReplicaCount(containerIdR3, expectedReplicaNum, cluster);
 
-    compareRMReportToReconResponse(underReplicatedState);
-    compareRMReportToReconResponse(overReplicatedState);
+    compareRMReportToReconResponse(underReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+    compareRMReportToReconResponse(overReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
 
     scmClient.recommissionNodes(Arrays.asList(
         TestNodeUtil.getDNHostAndPort(nodeToGoOffline1),
@@ -316,8 +316,21 @@ class TestReconAndAdminContainerCLI {
     TestNodeUtil.waitForDnToReachPersistedOpState(nodeToGoOffline1, IN_SERVICE);
     TestNodeUtil.waitForDnToReachPersistedOpState(nodeToGoOffline2, IN_SERVICE);
 
-    compareRMReportToReconResponse(underReplicatedState);
-    compareRMReportToReconResponse(overReplicatedState);
+    waitForRmUnderOverReplicatedClear();
+    compareRMReportToReconResponse(underReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+    compareRMReportToReconResponse(overReplicatedState, RM_RECON_DECOM_COMPARE_WAIT_MS);
+  }
+
+  private static void waitForRmUnderOverReplicatedClear() throws Exception {
+    GenericTestUtils.waitFor(() -> {
+      try {
+        ReplicationManagerReport rmReport = scmClient.getReplicationManagerReport();
+        return rmReport.getStat(ContainerHealthState.UNDER_REPLICATED) == 0
+            && rmReport.getStat(ContainerHealthState.OVER_REPLICATED) == 0;
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }, 1000, RM_RECON_DECOM_COMPARE_WAIT_MS);
   }
 
   /**
@@ -327,6 +340,11 @@ class TestReconAndAdminContainerCLI {
    */
   private static void compareRMReportToReconResponse(UnHealthyContainerStates containerState)
       throws Exception {
+    compareRMReportToReconResponse(containerState, RM_RECON_COMPARE_WAIT_MS);
+  }
+
+  private static void compareRMReportToReconResponse(UnHealthyContainerStates containerState,
+      int waitMs) throws Exception {
     assertNotNull(containerState);
 
     AtomicInteger stablePolls = new AtomicInteger(0);
@@ -336,7 +354,7 @@ class TestReconAndAdminContainerCLI {
       }
       stablePolls.set(0);
       return false;
-    }, RM_RECON_COMPARE_POLL_INTERVAL_MS, RM_RECON_COMPARE_WAIT_MS);
+    }, RM_RECON_COMPARE_POLL_INTERVAL_MS, waitMs);
   }
 
   private static boolean assertReportsMatch(UnHealthyContainerStates state) {
