@@ -1352,18 +1352,15 @@ function ozone_os_tricks
         TARGET_FILE="libhadoop_osx_aarch_64.dylib"
       fi
 
-     pushd . > /dev/null && cd lib/native
-      # If no matching file variant was found for the current environment
-      if [ -z "$TARGET_FILE" ]; then
-        echo "Error: libhadoop doesn't support platform combination ($OS_TYPE / $ARCH_TYPE)." >&2
-      else
-        LINK_FILE="libhadoop.dylib"
-        if [ ! -f "$LINK_FILE" ]; then
-          ln -s "$TARGET_FILE" "$LINK_FILE"
+      if [ -n "$TARGET_FILE" ] && [ -d "$OZONE_HOME/lib/native" ]; then
+        LINK_FILE="$OZONE_HOME/lib/native/libhadoop.dylib"
+        # Create the symlink only when missing and the directory is writable;
+        # a read-only install (e.g. container) keeps working without it.
+        if [ ! -e "$LINK_FILE" ] && [ -w "$OZONE_HOME/lib/native" ]; then
+          ln -s "$TARGET_FILE" "$LINK_FILE" 2> /dev/null || true
         fi
         export DYLD_LIBRARY_PATH=$OZONE_HOME/lib/native:$DYLD_LIBRARY_PATH
       fi
-      popd > /dev/null
     ;;
     Linux)
 
@@ -1398,19 +1395,15 @@ function ozone_os_tricks
         TARGET_FILE="libhadoop_linux_x86_64.so"
       fi
 
-      pushd . > /dev/null && cd lib/native
-      # If no matching file variant was found for the current environment
-      if [ -z "$TARGET_FILE" ]; then
-        echo "Error: libhadoop doesn't support platform combination ($OS_TYPE / $ARCH_TYPE)." >&2
-      else
-        LINK_FILE="libhadoop.so"
-        # If the symbolic file is already exist, skip create it again
-        if [ ! -f "$LINK_FILE" ]; then
-          ln -s "$TARGET_FILE" "$LINK_FILE"
+      if [ -n "$TARGET_FILE" ] && [ -d "$OZONE_HOME/lib/native" ]; then
+        LINK_FILE="$OZONE_HOME/lib/native/libhadoop.so"
+        # Create the symlink only when missing and the directory is writable;
+        # a read-only install (e.g. container) keeps working without it.
+        if [ ! -e "$LINK_FILE" ] && [ -w "$OZONE_HOME/lib/native" ]; then
+          ln -s "$TARGET_FILE" "$LINK_FILE" 2> /dev/null || true
         fi
         export LD_LIBRARY_PATH=$OZONE_HOME/lib/native:$LD_LIBRARY_PATH
       fi
-      popd > /dev/null
     ;;
     CYGWIN*)
       # Flag that we're running on Cygwin to trigger path translation later.
