@@ -30,9 +30,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.server.http.HttpConfig;
 import org.apache.hadoop.hdds.utils.HddsServerUtil;
@@ -63,6 +71,80 @@ public class TestReconRDBSnapshotProvider {
   private void writeFile(File dir, String name, String content)
       throws IOException {
     FileUtils.write(new File(dir, name), content, UTF_8);
+  }
+
+  private static void writeTar(File tarFile, Map<String, String> entries)
+      throws IOException {
+    try (TarArchiveOutputStream tarOut =
+        new TarArchiveOutputStream(new FileOutputStream(tarFile))) {
+      for (Map.Entry<String, String> entry : entries.entrySet()) {
+        byte[] bytes = entry.getValue().getBytes(UTF_8);
+        TarArchiveEntry tarEntry = new TarArchiveEntry(entry.getKey());
+        tarEntry.setSize(bytes.length);
+        tarOut.putArchiveEntry(tarEntry);
+        tarOut.write(bytes);
+        tarOut.closeArchiveEntry();
+      }
+    }
+  }
+
+  /**
+   * HDDS-15766: When OM leadership changes during a chunked checkpoint transfer,
+   * Recon must pin the transfer leader or reset the candidate dir before
+   * continuing. This test asserts the safe behavior and fails on the current
+   * implementation, which re-resolves the leader on every chunk via
+   * {@code leaderInfoSupplier.get()} without re-running
+   * {@link org.apache.hadoop.hdds.utils.RDBSnapshotProvider#checkLeaderConsistency}.
+   */
+  @Test
+  public void testLeaderChangeMidTransferUsesNewLeaderWithoutResettingCandidate(
+      @TempDir File snapshotDir) throws IOException {
+    ServiceInfo leaderA = mock(ServiceInfo.class);
+    when(leaderA.getHostname()).thenReturn("om-leader-a");
+    when(leaderA.getPort(any())).thenReturn(9874);
+    ServiceInfo leaderB = mock(ServiceInfo.class);
+    when(leaderB.getHostname()).thenReturn("om-leader-b");
+    when(leaderB.getPort(any())).thenReturn(9874);
+
+    AtomicInteger supplierCalls = new AtomicInteger();
+    Supplier<ServiceInfo> leaderSupplier = () ->
+        supplierCalls.getAndIncrement() == 0 ? leaderA : leaderB;
+
+    List<String> leadersUsedPerChunk = new ArrayList<>();
+
+    ReconRDBSnapshotProvider provider =
+        new ReconRDBSnapshotProvider(snapshotDir, null, false,
+            HttpConfig.Policy.HTTP_ONLY, false, true, leaderSupplier) {
+          @Override
+          public void downloadSnapshot(String leaderNodeID, File targetFile)
+              throws IOException {
+            ServiceInfo leader = leaderSupplier.get();
+            leadersUsedPerChunk.add(leader.getHostname());
+            if (leadersUsedPerChunk.size() == 1) {
+              Map<String, String> chunkOne = new HashMap<>();
+              chunkOne.put("fromLeaderA.sst", "partial-a");
+              chunkOne.put("CURRENT", "MANIFEST");
+              writeTar(targetFile, chunkOne);
+            } else {
+              Map<String, String> chunkTwo = new HashMap<>();
+              chunkTwo.put(HddsServerUtil.OZONE_RATIS_SNAPSHOT_COMPLETE_FLAG_NAME, "");
+              writeTar(targetFile, chunkTwo);
+            }
+          }
+        };
+
+    long initCountBefore = provider.getInitCount();
+    provider.downloadDBSnapshotFromLeader("leader-a-node-id");
+
+    boolean pinnedLeader = leadersUsedPerChunk.stream()
+        .allMatch("om-leader-a"::equals);
+    boolean resetCandidate = provider.getInitCount() > initCountBefore;
+    assertTrue(pinnedLeader || resetCandidate,
+        "When the resolved OM leader changes mid-transfer, Recon must either "
+            + "pin the original leader for all chunks or reset the candidate "
+            + "dir before continuing; leadersUsedPerChunk=" + leadersUsedPerChunk
+            + ", initCountBefore=" + initCountBefore
+            + ", initCountAfter=" + provider.getInitCount());
   }
 
   @Test
