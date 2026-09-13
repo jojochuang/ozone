@@ -52,6 +52,41 @@ public class TestReplicatedBlockChecksumComputer {
   }
 
   @Test
+  public void testComputeCompositeCrcUsesLogicalLen() throws IOException {
+    final int logicalLen = 128;
+    final int compressedLen = 64;
+    byte[] randomChunkChecksum = RandomUtils.secure().randomBytes(4);
+
+    ContainerProtos.ChecksumData checksumData =
+        ContainerProtos.ChecksumData.newBuilder()
+            .addChecksums(ByteString.copyFrom(randomChunkChecksum))
+            .setBytesPerChecksum(4)
+            .setType(ContainerProtos.ChecksumType.CRC32C)
+            .build();
+    ContainerProtos.ChunkInfo chunkInfo =
+        ContainerProtos.ChunkInfo.newBuilder()
+            .setChecksumData(checksumData)
+            .setChunkName("compressed_chunk")
+            .setOffset(0)
+            .setLen(compressedLen)
+            .setLogicalLen(logicalLen)
+            .build();
+
+    AbstractBlockChecksumComputer computer =
+        new ReplicatedBlockChecksumComputer(Collections.singletonList(chunkInfo));
+    computer.compute(COMPOSITE_CRC);
+    ByteBuffer output = computer.getOutByteBuffer();
+
+    CrcComposer chunkComposer =
+        CrcComposer.newCrcComposer(DataChecksum.Type.CRC32C, 4);
+    chunkComposer.update(CrcUtil.readInt(randomChunkChecksum, 0), 4);
+    CrcComposer blockComposer =
+        CrcComposer.newCrcComposer(DataChecksum.Type.CRC32C, logicalLen);
+    blockComposer.update(CrcUtil.readInt(chunkComposer.digest(), 0), logicalLen);
+    assertArrayEquals(blockComposer.digest(), output.array());
+  }
+
+  @Test
   public void testComputeCompositeCrc() throws IOException {
     final int lenOfBytes = 32;
     byte[] randomChunkChecksum = RandomUtils.secure().randomBytes(lenOfBytes);

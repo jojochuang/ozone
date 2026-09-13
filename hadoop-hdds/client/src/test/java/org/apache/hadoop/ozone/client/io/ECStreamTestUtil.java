@@ -43,6 +43,7 @@ import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 import org.apache.ozone.erasurecode.rawcoder.RawErasureEncoder;
 import org.apache.ozone.erasurecode.rawcoder.util.CodecUtil;
@@ -261,7 +262,8 @@ public final class ECStreamTestUtil {
         Token<OzoneBlockTokenIdentifier> token,
         XceiverClientFactory xceiverFactory,
         Function<BlockID, BlockLocationInfo> refreshFunction,
-        OzoneClientConfig config) {
+        OzoneClientConfig config,
+        CompressionCodec compressionCodec) {
 
       int repInd = currentPipeline.getReplicaIndex(pipeline.getNodes().get(0));
       TestBlockInputStream stream = new TestBlockInputStream(

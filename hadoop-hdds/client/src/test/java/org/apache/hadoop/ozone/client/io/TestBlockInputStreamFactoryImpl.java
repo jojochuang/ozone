@@ -39,6 +39,7 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -65,7 +66,7 @@ public class TestBlockInputStreamFactoryImpl {
     BlockExtendedInputStream stream =
         factory.create(repConfig, blockInfo, blockInfo.getPipeline(),
             blockInfo.getToken(), null, null,
-            clientConfig);
+            clientConfig, CompressionCodec.NONE);
     assertInstanceOf(BlockInputStream.class, stream);
     assertEquals(stream.getBlockID(), blockInfo.getBlockID());
     assertEquals(stream.getLength(), blockInfo.getLength());
@@ -85,7 +86,7 @@ public class TestBlockInputStreamFactoryImpl {
     BlockExtendedInputStream stream =
         factory.create(repConfig, blockInfo, blockInfo.getPipeline(),
             blockInfo.getToken(), null, null,
-            clientConfig);
+            clientConfig, CompressionCodec.NONE);
     assertInstanceOf(ECBlockInputStreamProxy.class, stream);
     assertEquals(stream.getBlockID(), blockInfo.getBlockID());
     assertEquals(stream.getLength(), blockInfo.getLength());

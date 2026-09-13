@@ -38,6 +38,7 @@ import org.apache.hadoop.hdds.scm.storage.BlockOutputStream;
 import org.apache.hadoop.hdds.scm.storage.BufferPool;
 import org.apache.hadoop.hdds.scm.storage.RatisBlockOutputStream;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.util.MetricUtil;
 import org.apache.hadoop.security.token.Token;
 import org.apache.ratis.util.JavaUtils;
@@ -70,6 +71,7 @@ public class BlockOutputStreamEntry extends OutputStream {
   private final ContainerClientMetrics clientMetrics;
   private final StreamBufferArgs streamBufferArgs;
   private final Supplier<ExecutorService> executorServiceSupplier;
+  private final CompressionCodec compressionCodec;
 
   /**
    * An indicator that this BlockOutputStream is created to handoff writes from another faulty BlockOutputStream.
@@ -97,6 +99,7 @@ public class BlockOutputStreamEntry extends OutputStream {
     this.streamBufferArgs = b.streamBufferArgs;
     this.executorServiceSupplier = b.executorServiceSupplier;
     this.isHandlingRetry = b.forRetry;
+    this.compressionCodec = b.compressionCodec;
   }
 
   @Override
@@ -155,7 +158,7 @@ public class BlockOutputStreamEntry extends OutputStream {
   void createOutputStream() throws IOException {
     outputStream = new RatisBlockOutputStream(blockID, length, xceiverClientManager,
         pipeline, bufferPool, config, token, clientMetrics, streamBufferArgs,
-        executorServiceSupplier);
+        compressionCodec, executorServiceSupplier);
   }
 
   ContainerClientMetrics getClientMetrics() {
@@ -415,6 +418,7 @@ public class BlockOutputStreamEntry extends OutputStream {
     private StreamBufferArgs streamBufferArgs;
     private Supplier<ExecutorService> executorServiceSupplier;
     private boolean forRetry;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
 
     public Pipeline getPipeline() {
       return pipeline;
@@ -482,6 +486,11 @@ public class BlockOutputStreamEntry extends OutputStream {
 
     public Builder setForRetry(boolean forRetry) {
       this.forRetry = forRetry;
+      return this;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
       return this;
     }
 

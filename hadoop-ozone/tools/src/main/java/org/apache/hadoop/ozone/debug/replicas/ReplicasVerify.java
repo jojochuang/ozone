@@ -265,7 +265,8 @@ public class ReplicasVerify extends Handler {
         int replicaIndex = keyLocation.getPipeline().getReplicaIndex(datanode);
 
         for (ReplicaVerifier verifier : replicaVerifiers) {
-          BlockVerificationResult result = verifier.verifyBlock(datanode, keyLocation);
+          BlockVerificationResult result = verifier.verifyBlock(datanode, keyLocation,
+              keyInfo.getCompressionCodec());
           ObjectNode checkNode = checksArray.addObject();
           checkNode.put("type", verifier.getType());
           checkNode.put("completed", result.isCompleted());

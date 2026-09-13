@@ -34,6 +34,7 @@ import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
 import org.apache.hadoop.hdds.utils.db.Proto2Codec;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.audit.Auditable;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketInfo;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
@@ -87,6 +88,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    * Optional default replication for bucket.
    */
   private final DefaultReplicationConfig defaultReplicationConfig;
+  private final CompressionCodec compressionCodec;
 
   private final String sourceVolume;
 
@@ -131,6 +133,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     this.bucketLayout = b.bucketLayout;
     this.owner = b.owner;
     this.defaultReplicationConfig = b.defaultReplicationConfig;
+    this.compressionCodec = b.compressionCodec;
   }
 
   public static Codec<OmBucketInfo> getCodec() {
@@ -247,6 +250,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    */
   public DefaultReplicationConfig getDefaultReplicationConfig() {
     return defaultReplicationConfig;
+  }
+
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
   }
 
   public String getSourceVolume() {
@@ -429,7 +436,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         .setSnapshotUsedNamespace(snapshotUsedNamespace)
         .setBucketLayout(bucketLayout)
         .setOwner(owner)
-        .setDefaultReplicationConfig(defaultReplicationConfig);
+        .setDefaultReplicationConfig(defaultReplicationConfig)
+        .setCompressionCodec(compressionCodec);
   }
 
   /**
@@ -453,6 +461,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     private BucketLayout bucketLayout = BucketLayout.DEFAULT;
     private String owner;
     private DefaultReplicationConfig defaultReplicationConfig;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
     private long snapshotUsedBytes;
     private long snapshotUsedNamespace;
 
@@ -605,6 +614,11 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
+      return this;
+    }
+
     /**
      * Constructs the OmBucketInfo.
      * @return instance of OmBucketInfo.
@@ -647,6 +661,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     }
     if (defaultReplicationConfig != null) {
       bib.setDefaultReplicationConfig(defaultReplicationConfig.toProto());
+    }
+    if (compressionCodec != null && compressionCodec.isEnabled()) {
+      bib.setCompressionCodec(compressionCodec.toOmProto());
     }
     if (sourceVolume != null) {
       bib.setSourceVolume(sourceVolume);
@@ -702,6 +719,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       obib.setDefaultReplicationConfig(
           DefaultReplicationConfig.fromProto(
               bucketInfo.getDefaultReplicationConfig()));
+    }
+    if (bucketInfo.hasCompressionCodec()) {
+      obib.setCompressionCodec(
+          CompressionCodec.fromOmProto(bucketInfo.getCompressionCodec()));
     }
     if (bucketInfo.hasObjectID()) {
       obib.setObjectID(bucketInfo.getObjectID());
@@ -777,7 +798,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         Objects.equals(getMetadata(), that.getMetadata()) &&
         Objects.equals(bekInfo, that.bekInfo) &&
         Objects.equals(owner, that.owner) &&
-        Objects.equals(defaultReplicationConfig, that.defaultReplicationConfig);
+        Objects.equals(defaultReplicationConfig, that.defaultReplicationConfig) &&
+        Objects.equals(compressionCodec, that.compressionCodec);
   }
 
   @Override

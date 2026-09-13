@@ -37,6 +37,7 @@ import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ExcludeList;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.storage.BufferPool;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
@@ -85,6 +86,7 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
   private final ContainerClientMetrics clientMetrics;
   private final StreamBufferArgs streamBufferArgs;
   private final Supplier<ExecutorService> executorServiceSupplier;
+  private final CompressionCodec compressionCodec;
   // update blocks on OM
   private ContainerBlockID lastUpdatedBlockId = new ContainerBlockID(-1, -1);
 
@@ -114,6 +116,7 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
                 .createByteBufferConversion(b.isUnsafeByteBufferConversionEnabled()));
     this.clientMetrics = b.getClientMetrics();
     this.executorServiceSupplier = b.getExecutorServiceSupplier();
+    this.compressionCodec = info.getCompressionCodec();
   }
 
   ExcludeList createExcludeList() {
@@ -165,6 +168,7 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
             .setClientMetrics(clientMetrics)
             .setStreamBufferArgs(streamBufferArgs)
             .setExecutorServiceSupplier(executorServiceSupplier)
+            .setCompressionCodec(compressionCodec)
             .setForRetry(forRetry)
             .build();
   }

@@ -108,7 +108,7 @@ public class ReplicatedBlockChecksumComputer extends
       throw new IllegalArgumentException("unsupported checksum type: " +
           firstChunkInfo.getChecksumData().getType());
     }
-    chunkSize = firstChunkInfo.getLen();
+    chunkSize = getChunkLogicalLen(firstChunkInfo);
     bytesPerCrc = firstChunkInfo.getChecksumData().getBytesPerChecksum();
 
 
@@ -136,7 +136,7 @@ public class ReplicatedBlockChecksumComputer extends
       int chunkChecksumCrc = CrcUtil.readInt(chunkCrcComposer.digest(), 0);
 
       //update block checksum using chunk checksum
-      blockCrcComposer.update(chunkChecksumCrc, chunkInfo.getLen());
+      blockCrcComposer.update(chunkChecksumCrc, getChunkLogicalLen(chunkInfo));
     }
 
     //compute the composite-crc checksum of the whole block
@@ -146,5 +146,12 @@ public class ReplicatedBlockChecksumComputer extends
     LOG.debug("number of chunks = {}, chunk checksum type is {}, " +
             "composite checksum = {}", chunkInfoList.size(), dataChecksumType,
         compositeCrcChunkChecksum);
+  }
+
+  private static long getChunkLogicalLen(ContainerProtos.ChunkInfo chunkInfo) {
+    if (chunkInfo.hasLogicalLen() && chunkInfo.getLogicalLen() > 0) {
+      return chunkInfo.getLogicalLen();
+    }
+    return chunkInfo.getLen();
   }
 }

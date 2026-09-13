@@ -35,6 +35,8 @@ import org.apache.hadoop.ozone.om.OzoneConfigUtil;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionPolicy;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.KeyValueUtil;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
@@ -160,11 +162,16 @@ public class S3InitiateMultipartUploadRequestWithFSO
               bucketInfo != null ?
                   bucketInfo.getDefaultReplicationConfig() :
                   null, ozoneManager);
+      final CompressionCodec compressionCodec = CompressionPolicy.resolveKeyCodec(
+          bucketInfo, keyName, keyArgs.hasFileEncryptionInfo() ?
+              OMPBHelper.convert(keyArgs.getFileEncryptionInfo()) : null,
+          ozoneManager.getConfig());
 
       multipartKeyInfo = new OmMultipartKeyInfo.Builder()
           .setUploadID(keyArgs.getMultipartUploadID())
           .setCreationTime(keyArgs.getModificationTime())
           .setReplicationConfig(replicationConfig)
+          .setCompressionCodec(compressionCodec)
           .setObjectID(pathInfoFSO.getLeafNodeObjectId())
           .setUpdateID(transactionLogIndex)
           .setParentID(pathInfoFSO.getLastKnownParentId())
@@ -178,6 +185,7 @@ public class S3InitiateMultipartUploadRequestWithFSO
           .setCreationTime(keyArgs.getModificationTime())
           .setModificationTime(keyArgs.getModificationTime())
           .setReplicationConfig(replicationConfig)
+          .setCompressionCodec(compressionCodec)
           .setOmKeyLocationInfos(Collections.singletonList(
               new OmKeyLocationInfoGroup(0, new ArrayList<>(), true)))
           .setAcls(getAclsForKey(keyArgs, bucketInfo, pathInfoFSO,

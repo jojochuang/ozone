@@ -30,6 +30,7 @@ import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.io.ByteBufferPool;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 
 /**
  * Factory class to create various BlockStream instances.
@@ -77,14 +78,16 @@ public final class ECBlockInputStreamFactoryImpl implements
       BlockLocationInfo blockInfo,
       XceiverClientFactory xceiverFactory,
       Function<BlockID, BlockLocationInfo> refreshFunction,
-      OzoneClientConfig config) {
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) {
     if (missingLocations) {
       // We create the reconstruction reader
       ECBlockReconstructedStripeInputStream sis =
           new ECBlockReconstructedStripeInputStream(
               (ECReplicationConfig)repConfig, blockInfo,
               xceiverFactory, refreshFunction, inputStreamFactory,
-              byteBufferPool, ecReconstructExecutorSupplier.get(), config);
+              byteBufferPool, ecReconstructExecutorSupplier.get(), config,
+              compressionCodec);
       if (failedLocations != null) {
         sis.addFailedDatanodes(failedLocations);
       }
@@ -94,7 +97,7 @@ public final class ECBlockInputStreamFactoryImpl implements
       // Otherwise create the more efficient non-reconstruction reader
       return new ECBlockInputStream((ECReplicationConfig)repConfig, blockInfo,
           xceiverFactory, refreshFunction, inputStreamFactory,
-          config);
+          config, compressionCodec);
     }
   }
 

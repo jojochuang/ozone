@@ -65,6 +65,8 @@ import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionPolicy;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OmConfig;
@@ -996,6 +998,8 @@ public abstract class OMKeyRequest extends OMClientRequest {
       }
 
       dbKeyInfo.setFileEncryptionInfo(encInfo);
+      dbKeyInfo.setCompressionCodec(resolveCompressionCodec(omBucketInfo,
+          keyArgs.getKeyName(), encInfo, config, null));
       return dbKeyInfo;
     }
 
@@ -1051,7 +1055,20 @@ public abstract class OMKeyRequest extends OMClientRequest {
       builder.setFileName(omPathInfoFSO.getLeafNodeName());
     }
     builder.setObjectID(objectID);
+    builder.setCompressionCodec(resolveCompressionCodec(omBucketInfo,
+        keyArgs.getKeyName(), encInfo, config, null));
     return builder.build();
+  }
+
+  private CompressionCodec resolveCompressionCodec(
+      @Nullable OmBucketInfo omBucketInfo, String keyName,
+      @Nullable FileEncryptionInfo encInfo, OmConfig config,
+      @Nullable CompressionCodec inheritedCodec) {
+    if (inheritedCodec != null) {
+      return inheritedCodec;
+    }
+    return CompressionPolicy.resolveKeyCodec(omBucketInfo, keyName, encInfo,
+        config);
   }
 
   /**
@@ -1105,9 +1122,11 @@ public abstract class OMKeyRequest extends OMClientRequest {
     }
     // For this upload part we don't need to check in KeyTable. As this
     // is not an actual key, it is a part of the key.
-    return createFileInfo(args, locations, partKeyInfo.getReplicationConfig(),
-            size, encInfo, prefixManager, omBucketInfo, omPathInfo,
-            transactionLogIndex, objectID, configuration);
+    OmKeyInfo partOmKeyInfo = createFileInfo(args, locations,
+        partKeyInfo.getReplicationConfig(), size, encInfo, prefixManager,
+        omBucketInfo, omPathInfo, transactionLogIndex, objectID, configuration);
+    partOmKeyInfo.setCompressionCodec(partKeyInfo.getCompressionCodec());
+    return partOmKeyInfo;
   }
 
   /**

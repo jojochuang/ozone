@@ -31,6 +31,7 @@ import org.apache.hadoop.hdds.utils.db.Codec;
 import org.apache.hadoop.hdds.utils.db.CopyObject;
 import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
 import org.apache.hadoop.hdds.utils.db.Proto2Codec;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
 
@@ -48,6 +49,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
   private final String uploadID;
   private final long creationTime;
   private final ReplicationConfig replicationConfig;
+  private final CompressionCodec compressionCodec;
   private PartKeyInfoMap partKeyInfoMap;
 
   /**
@@ -168,6 +170,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     this.uploadID = b.uploadID;
     this.creationTime = b.creationTime;
     this.replicationConfig = b.replicationConfig;
+    this.compressionCodec = b.compressionCodec;
     this.partKeyInfoMap = new PartKeyInfoMap(b.partKeyInfoList);
     this.parentID = b.parentID;
   }
@@ -178,6 +181,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     this.uploadID = b.uploadID;
     this.creationTime = b.creationTime;
     this.replicationConfig = b.replicationConfig;
+    this.compressionCodec = b.compressionCodec;
     // PartKeyInfoMap is an immutable data structure. Whenever a PartKeyInfo
     // is added, it returns a new shallow copy of the PartKeyInfoMap Object
     // so here we can directly pass in partKeyInfoMap
@@ -222,6 +226,10 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     return replicationConfig;
   }
 
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
   /**
    * Builder of OmMultipartKeyInfo.
    */
@@ -229,6 +237,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     private String uploadID;
     private long creationTime;
     private ReplicationConfig replicationConfig;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
     private final TreeMap<Integer, PartKeyInfo> partKeyInfoList;
     private long parentID;
 
@@ -248,6 +257,11 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
 
     public Builder setReplicationConfig(ReplicationConfig replConfig) {
       this.replicationConfig = replConfig;
+      return this;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
       return this;
     }
 
@@ -304,15 +318,19 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
         multipartKeyInfo.getEcReplicationConfig()
     );
 
-    return new Builder()
+    Builder builder = new Builder()
         .setUploadID(multipartKeyInfo.getUploadID())
         .setCreationTime(multipartKeyInfo.getCreationTime())
         .setReplicationConfig(replicationConfig)
         .setPartKeyInfoList(list)
         .setObjectID(multipartKeyInfo.getObjectID())
         .setUpdateID(multipartKeyInfo.getUpdateID())
-        .setParentID(multipartKeyInfo.getParentID())
-        .build();
+        .setParentID(multipartKeyInfo.getParentID());
+    if (multipartKeyInfo.hasCompressionCodec()) {
+      builder.setCompressionCodec(
+          CompressionCodec.fromOmProto(multipartKeyInfo.getCompressionCodec()));
+    }
+    return builder.build();
   }
 
   /**
@@ -336,6 +354,9 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     }
 
     builder.addAllPartKeyInfoList(partKeyInfoMap);
+    if (compressionCodec != null && compressionCodec.isEnabled()) {
+      builder.setCompressionCodec(compressionCodec.toOmProto());
+    }
     return builder.build();
   }
 

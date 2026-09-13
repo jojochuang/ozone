@@ -34,6 +34,7 @@ import org.apache.hadoop.hdds.scm.cli.ContainerOperationClient;
 import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 
 /**
@@ -82,7 +83,8 @@ public class ContainerStateVerifier implements ReplicaVerifier {
   }
 
   @Override
-  public BlockVerificationResult verifyBlock(DatanodeDetails datanode, OmKeyLocationInfo keyLocation) {
+  public BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation, CompressionCodec compressionCodec) {
     try {
       StringBuilder replicaCheckMsg = new StringBuilder().append("Replica state is ");
       boolean pass = false;

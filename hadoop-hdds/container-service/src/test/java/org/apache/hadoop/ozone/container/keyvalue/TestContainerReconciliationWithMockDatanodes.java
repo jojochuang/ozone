@@ -27,6 +27,7 @@ import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.create
 import static org.apache.hadoop.ozone.container.common.impl.ContainerImplTestUtils.newContainerSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -42,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -75,6 +77,12 @@ import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.common.Checksum;
 import org.apache.hadoop.ozone.common.ChecksumData;
+import org.apache.hadoop.ozone.common.ChunkBuffer;
+import org.apache.hadoop.ozone.common.ChunkBufferToByteString;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionStreams;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.setDataChecksum;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
 import org.apache.hadoop.ozone.container.checksum.ContainerChecksumTreeManager;
 import org.apache.hadoop.ozone.container.checksum.DNContainerOperationClient;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
@@ -311,6 +319,58 @@ public class TestContainerReconciliationWithMockDatanodes {
   }
 
   @Test
+  public void testCompressedMultiChunkBlockReconciliation() throws Exception {
+    final long compressedContainerId = 201L;
+    final long blockLocalId = 0L;
+    final int chunksPerBlock = 3;
+    final int logicalLen = 512;
+    Path reconcileDir = Files.createTempDirectory("compressed-reconcile");
+
+    List<MockDatanode> compressedNodes = new ArrayList<>();
+    for (int i = 0; i < 2; i++) {
+      DatanodeDetails dnDetails = randomDatanodeDetails();
+      dnDetails.setHostName("compressed-dn" + (i + 1));
+      MockDatanode dn = new MockDatanode(dnDetails, reconcileDir);
+      dn.addContainerWithCompressedBlocks(compressedContainerId, blockLocalId,
+          chunksPerBlock, logicalLen);
+      dn.scanContainer(compressedContainerId);
+      compressedNodes.add(dn);
+    }
+
+    long uniqueChecksums = compressedNodes.stream()
+        .mapToLong(d -> d.checkAndGetDataChecksum(compressedContainerId))
+        .distinct()
+        .count();
+    assertEquals(1, uniqueChecksums);
+    long healthyChecksum = compressedNodes.get(0)
+        .checkAndGetDataChecksum(compressedContainerId);
+
+    Map<DatanodeDetails, MockDatanode> dnMap = compressedNodes.stream()
+        .collect(Collectors.toMap(MockDatanode::getDnDetails,
+            Function.identity()));
+    mockCompressedContainerProtocolCalls(containerProtocolMock, dnMap);
+    try {
+      MockDatanode corruptedNode = compressedNodes.get(0);
+      MockDatanode healthyNode = compressedNodes.get(1);
+      corruptedNode.deleteBlock(compressedContainerId, blockLocalId);
+      corruptedNode.scanContainer(compressedContainerId);
+      assertNotEquals(healthyChecksum,
+          corruptedNode.checkAndGetDataChecksum(compressedContainerId));
+
+      corruptedNode.reconcileContainerSuccess(dnClient,
+          Collections.singletonList(healthyNode.getDnDetails()),
+          compressedContainerId);
+
+      assertEquals(healthyChecksum,
+          corruptedNode.checkAndGetDataChecksum(compressedContainerId));
+      corruptedNode.assertCompressedBlock(compressedContainerId, blockLocalId,
+          chunksPerBlock, logicalLen);
+    } finally {
+      mockContainerProtocolCalls();
+    }
+  }
+
+  @Test
   public void testContainerReconciliationFailureContainerScan()
       throws Exception {
     // Use synchronous on-demand scans to re-build the merkle trees after corruption.
@@ -367,6 +427,42 @@ public class TestContainerReconciliationWithMockDatanodes {
   private static void mockContainerProtocolCalls() {
     // Mock network calls without injecting failures.
     mockContainerProtocolCalls(null, null);
+  }
+
+  private static void mockCompressedContainerProtocolCalls(
+      MockedStatic<ContainerProtocolCalls> containerProtocolMock,
+      Map<DatanodeDetails, MockDatanode> dnMap) {
+    containerProtocolMock.when(() -> ContainerProtocolCalls.getContainerChecksumInfo(
+        any(), anyLong(), any()))
+        .thenAnswer(inv -> {
+          XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
+          long containerID = inv.getArgument(1);
+          DatanodeDetails dn = xceiverClientSpi.getPipeline().getFirstNode();
+          return dnMap.get(dn).getChecksumInfo(containerID);
+        });
+
+    containerProtocolMock.when(() -> ContainerProtocolCalls.getBlock(any(), any(),
+        any(), any(), anyMap()))
+        .thenAnswer(inv -> {
+          XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
+          BlockID blockID = inv.getArgument(2);
+          DatanodeDetails dn = xceiverClientSpi.getPipeline().getFirstNode();
+          return dnMap.get(dn).getBlock(blockID);
+        });
+
+    containerProtocolMock.when(() -> ContainerProtocolCalls.readChunk(any(), any(),
+        any(), any(), any()))
+        .thenAnswer(inv -> {
+          XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
+          ContainerProtos.ChunkInfo chunkInfo = inv.getArgument(1);
+          ContainerProtos.DatanodeBlockID blockId = inv.getArgument(2);
+          List<XceiverClientSpi.Validator> checksumValidators = inv.getArgument(3);
+          DatanodeDetails dn = xceiverClientSpi.getPipeline().getFirstNode();
+          return dnMap.get(dn).readChunk(blockId, chunkInfo, checksumValidators);
+        });
+
+    containerProtocolMock.when(() -> ContainerProtocolCalls.toValidatorList(any()))
+        .thenCallRealMethod();
   }
 
   private static void mockContainerProtocolCalls(FailureLocation failureLocation, DatanodeDetails failingPeerDetails) {
@@ -662,6 +758,116 @@ public class TestContainerReconciliationWithMockDatanodes {
       ContainerLayoutTestInfo.FILE_PER_BLOCK.validateFileCount(chunksPath, blocks, (long) blocks * CHUNKS_PER_BLOCK);
       container.markContainerForClose();
       handler.closeContainer(container);
+    }
+
+    public void addContainerWithCompressedBlocks(long containerId, long blockLocalId,
+        int chunksPerBlock, int logicalLen) throws Exception {
+      ContainerProtos.CreateContainerRequestProto createRequest =
+          ContainerProtos.CreateContainerRequestProto.newBuilder()
+              .setContainerType(ContainerProtos.ContainerType.KeyValueContainer)
+              .build();
+      ContainerProtos.ContainerCommandRequestProto request =
+          ContainerProtos.ContainerCommandRequestProto.newBuilder()
+              .setCmdType(ContainerProtos.Type.CreateContainer)
+              .setCreateContainer(createRequest)
+              .setContainerID(containerId)
+              .setDatanodeUuid(dnDetails.getUuidString())
+              .build();
+
+      handler.handleCreateContainer(request, null);
+      KeyValueContainer container = getContainer(containerId);
+      File chunksPath = new File(container.getContainerData().getChunksPath());
+      ContainerLayoutTestInfo.FILE_PER_BLOCK.validateFileCount(chunksPath, 0, 0);
+
+      BlockID blockID = new BlockID(containerId, blockLocalId);
+      BlockData blockData = new BlockData(blockID);
+      blockData.setCompressionCodec(CompressionCodec.ZSTD.toDnProto());
+      List<ContainerProtos.ChunkInfo> chunkProtos = new ArrayList<>();
+      long physicalOffset = 0;
+
+      for (int chunkIndex = 0; chunkIndex < chunksPerBlock; chunkIndex++) {
+        byte[] logicalData = padToLength(
+            ("compressed-chunk-" + chunkIndex).getBytes(), logicalLen);
+        byte[] compressed = CompressionStreams.compress(
+            CompressionCodec.ZSTD, logicalData);
+
+        ChunkInfo info = new ChunkInfo(
+            String.format("%d.data.%d", blockLocalId, chunkIndex),
+            physicalOffset, compressed.length);
+        info.setLogicalLen(logicalLen);
+        ChunkBuffer data = ChunkBuffer.wrap(ByteBuffer.wrap(compressed));
+        setDataChecksum(info, data);
+        handler.getChunkManager().writeChunk(container, blockID, info, data,
+            WRITE_STAGE);
+        chunkProtos.add(info.getProtoBufMessage());
+        physicalOffset += CompressedChunkLayout.segmentPhysicalLen(
+            compressed.length);
+      }
+
+      handler.getChunkManager().finishWriteChunks(container, blockData);
+      blockData.setChunks(chunkProtos);
+      blockData.setBlockCommitSequenceId(blockLocalId);
+      handler.getBlockManager().putBlock(container, blockData);
+
+      ContainerLayoutTestInfo.FILE_PER_BLOCK.validateFileCount(chunksPath, 1,
+          chunksPerBlock);
+      container.markContainerForClose();
+      handler.closeContainer(container);
+    }
+
+    public void deleteBlock(long containerId, long blockLocalId)
+        throws IOException {
+      KeyValueContainer container = getContainer(containerId);
+      KeyValueContainerData containerData = container.getContainerData();
+      File blockFile = TestContainerCorruptions.getBlock(container, blockLocalId);
+      Assertions.assertTrue(blockFile.delete());
+      try (DBHandle handle = BlockUtils.getDB(containerData, conf);
+           BatchOperation batch = handle.getStore().getBatchHandler()
+               .initBatchOperation()) {
+        handle.getStore().getBlockDataTable().deleteWithBatch(batch,
+            containerData.getBlockKey(blockLocalId));
+        handle.getStore().getBatchHandler().commitBatchOperation(batch);
+      }
+    }
+
+    public void assertCompressedBlock(long containerId, long blockLocalId,
+        int expectedChunks, int logicalLen) throws IOException {
+      KeyValueContainer container = getContainer(containerId);
+      BlockID blockID = new BlockID(containerId, blockLocalId);
+      BlockData blockData = handler.getBlockManager().getBlock(container, blockID);
+      assertEquals(expectedChunks, blockData.getChunks().size());
+      assertTrue(blockData.isCompressionEnabled());
+
+      File blockFile = TestContainerCorruptions.getBlock(container, blockLocalId);
+      try (FileChannel channel = FileChannel.open(blockFile.toPath(),
+          StandardOpenOption.READ)) {
+        assertEquals(expectedChunks,
+            CompressedChunkLayout.parseOzciFooter(channel).size());
+      }
+
+      long physicalOffset = 0;
+      for (ContainerProtos.ChunkInfo chunkProto : blockData.getChunks()) {
+        ChunkInfo chunkInfo = ChunkInfo.getFromProtoBuf(chunkProto);
+        assertEquals(physicalOffset, chunkInfo.getOffset());
+        assertEquals(logicalLen, chunkInfo.getLogicalLen());
+        ChunkBufferToByteString read = handler.getChunkManager().readChunk(
+            container, blockID, chunkInfo, null);
+        int chunkIndex = Integer.parseInt(
+            chunkProto.getChunkName().substring(
+                chunkProto.getChunkName().lastIndexOf('.') + 1));
+        byte[] expected = CompressionStreams.compress(CompressionCodec.ZSTD,
+            padToLength(("compressed-chunk-" + chunkIndex).getBytes(),
+                logicalLen));
+        assertArrayEquals(expected, read.toByteString().toByteArray());
+        physicalOffset += CompressedChunkLayout.segmentPhysicalLen(
+            chunkInfo.getLen());
+      }
+    }
+
+    private static byte[] padToLength(byte[] data, int length) {
+      byte[] padded = new byte[length];
+      System.arraycopy(data, 0, padded, 0, Math.min(data.length, length));
+      return padded;
     }
 
     @Override

@@ -200,6 +200,10 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
         bucketInfoBuilder.setDefaultReplicationConfig(defaultReplicationConfig);
       }
 
+      if (omBucketArgs.hasCompressionCodec()) {
+        bucketInfoBuilder.setCompressionCodec(omBucketArgs.getCompressionCodec());
+      }
+
       BucketEncryptionKeyInfo bek = omBucketArgs.getBucketEncryptionKeyInfo();
       if (bek != null && bek.getKeyName() != null) {
         bucketInfoBuilder.setBucketEncryptionKey(bek);
@@ -371,6 +375,31 @@ public class OMBucketSetPropertyRequest extends OMClientRequest {
             + " Storage support feature finalized yet, but the request contains"
             + " an Erasure Coded replication type. Rejecting the request,"
             + " please finalize the cluster upgrade and then try again.",
+            OMException.ResultCodes.NOT_SUPPORTED_OPERATION_PRIOR_FINALIZATION);
+      }
+    }
+    return req;
+  }
+
+  @RequestFeatureValidator(
+      conditions = ValidationCondition.CLUSTER_NEEDS_FINALIZATION,
+      processingPhase = RequestProcessingPhase.PRE_PROCESS,
+      requestType = Type.SetBucketProperty
+  )
+  public static OMRequest disallowSetBucketPropertyWithCompressionCodec(
+      OMRequest req, ValidationContext ctx) throws OMException {
+    if (!ctx.versionManager()
+        .isAllowed(OMLayoutFeature.COMPRESSION_SUPPORT)) {
+      SetBucketPropertyRequest propReq =
+          req.getSetBucketPropertyRequest();
+      if (propReq.hasBucketArgs()
+          && propReq.getBucketArgs().hasCompressionCodec()
+          && propReq.getBucketArgs().getCompressionCodec()
+          != OzoneManagerProtocolProtos.CompressionCodecProto.COMPRESSION_NONE) {
+        throw new OMException("Cluster does not have the compression support"
+            + " feature finalized yet, but the request contains a compression"
+            + " codec. Rejecting the request, please finalize the cluster"
+            + " upgrade and then try again.",
             OMException.ResultCodes.NOT_SUPPORTED_OPERATION_PRIOR_FINALIZATION);
       }
     }

@@ -51,6 +51,7 @@ import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
 import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.KeyValueContainerLocationUtil;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerScanError;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerScanError.FailureType;
@@ -436,10 +437,15 @@ public class KeyValueContainerCheck {
     Checksum cal = new Checksum(checksumData.getChecksumType(),
         bytesPerChecksum);
     long bytesRead = 0;
+    long readOffset = chunk.getOffset();
+    long expectedPayloadLen = chunk.getLen();
+    if (chunk.hasLogicalLen() && chunk.getLogicalLen() > 0) {
+      readOffset = CompressedChunkLayout.readChunkPayloadOffset(chunk.getOffset());
+    }
     try (FileChannel channel = FileChannel.open(chunkFile.toPath(),
         ChunkUtils.READ_OPTIONS, ChunkUtils.NO_ATTRIBUTES)) {
       if (layout == ContainerLayoutVersion.FILE_PER_BLOCK) {
-        channel.position(chunk.getOffset());
+        channel.position(readOffset);
       }
       for (int i = 0; i < checksumCount; i++) {
         // limit last read for FILE_PER_BLOCK, to avoid reading next chunk
@@ -486,13 +492,13 @@ public class KeyValueContainerCheck {
       observedChunkBuilder.setLen(bytesRead);
       // If we haven't seen any errors after scanning the whole chunk, verify that the length stored in the metadata
       // matches the number of bytes seen on the disk.
-      if (chunkHealthy && bytesRead != chunk.getLen()) {
+      if (chunkHealthy && bytesRead != expectedPayloadLen) {
         if (bytesRead == 0) {
           // If we could not find any data for the chunk, report it as missing.
           chunkMissing = true;
           chunkHealthy = false;
           String message = String.format("Missing chunk=%s with expected length=%d for block %s",
-                  chunk.getChunkName(), chunk.getLen(), block.getBlockID());
+                  chunk.getChunkName(), expectedPayloadLen, block.getBlockID());
           scanErrors.add(new ContainerScanError(FailureType.MISSING_CHUNK, chunkFile, new IOException(message)));
         } else {
           // We found data for the chunk, but it was shorter than expected.
@@ -500,7 +506,7 @@ public class KeyValueContainerCheck {
               .format("Inconsistent read for chunk=%s expected length=%d"
                       + " actual length=%d for block %s",
                   chunk.getChunkName(),
-                  chunk.getLen(), bytesRead, block.getBlockID());
+                  expectedPayloadLen, bytesRead, block.getBlockID());
           chunkHealthy = false;
           scanErrors.add(new ContainerScanError(FailureType.INCONSISTENT_CHUNK_LENGTH, chunkFile,
               new IOException(message)));

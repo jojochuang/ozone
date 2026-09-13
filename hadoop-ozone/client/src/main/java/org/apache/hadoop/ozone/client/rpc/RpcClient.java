@@ -2563,7 +2563,8 @@ public class RpcClient implements ClientProtocol {
         .setClientMetrics(clientMetrics)
         .setExecutorServiceSupplier(writeExecutor)
         .setStreamBufferArgs(streamBufferArgs)
-        .setOmVersion(omVersion);
+        .setOmVersion(omVersion)
+        .setCompressionCodec(openKey.getKeyInfo().getCompressionCodec());
   }
 
   @Override

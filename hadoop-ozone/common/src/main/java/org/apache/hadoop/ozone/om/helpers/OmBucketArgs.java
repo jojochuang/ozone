@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.audit.Auditable;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketArgs;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
@@ -58,6 +59,8 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
   private final boolean quotaInBytesSet;
   private final boolean quotaInNamespaceSet;
   private final DefaultReplicationConfig defaultReplicationConfig;
+  private final CompressionCodec compressionCodec;
+  private final boolean compressionCodecSet;
   /**
    * Bucket Owner Name.
    */
@@ -71,6 +74,9 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     this.storageType = b.storageType;
     this.ownerName = b.ownerName;
     this.defaultReplicationConfig = b.defaultReplicationConfig;
+    this.compressionCodecSet = b.compressionCodecSet;
+    this.compressionCodec = compressionCodecSet ?
+        b.compressionCodec : CompressionCodec.NONE;
     this.quotaInBytesSet = b.quotaInBytesSet;
     this.quotaInBytes = quotaInBytesSet ? b.quotaInBytes : OzoneConsts.QUOTA_RESET;
     this.quotaInNamespaceSet = b.quotaInNamespaceSet;
@@ -147,6 +153,14 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     return defaultReplicationConfig;
   }
 
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
+  public boolean hasCompressionCodec() {
+    return compressionCodecSet;
+  }
+
   public BucketEncryptionKeyInfo getBucketEncryptionKeyInfo() {
     return bekInfo;
   }
@@ -221,6 +235,8 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     private long quotaInNamespace;
     private BucketEncryptionKeyInfo bekInfo;
     private DefaultReplicationConfig defaultReplicationConfig;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
+    private boolean compressionCodecSet = false;
     private String ownerName;
 
     /**
@@ -283,6 +299,12 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
       return this;
     }
 
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      compressionCodecSet = true;
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
+      return this;
+    }
+
     public Builder setOwnerName(String owner) {
       ownerName = owner;
       return this;
@@ -323,6 +345,9 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
     if (defaultReplicationConfig != null) {
       builder.setDefaultReplicationConfig(defaultReplicationConfig.toProto());
     }
+    if (compressionCodecSet) {
+      builder.setCompressionCodec(compressionCodec.toOmProto());
+    }
     if (ownerName != null) {
       builder.setOwnerName(ownerName);
     }
@@ -358,6 +383,10 @@ public final class OmBucketArgs extends WithMetadata implements Auditable {
       builder.setDefaultReplicationConfig(
           DefaultReplicationConfig.fromProto(
               bucketArgs.getDefaultReplicationConfig()));
+    }
+    if (bucketArgs.hasCompressionCodec()) {
+      builder.setCompressionCodec(
+          CompressionCodec.fromOmProto(bucketArgs.getCompressionCodec()));
     }
 
     if (bucketArgs.hasQuotaInBytes()) {

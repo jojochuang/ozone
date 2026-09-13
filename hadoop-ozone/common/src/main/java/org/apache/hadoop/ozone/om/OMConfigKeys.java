@@ -335,6 +335,11 @@ public final class OMConfigKeys {
       "ozone.om.security.admin.protocol.acl";
 
   @Deprecated
+  public static final String OZONE_OM_COMPRESSION_SKIP_EXTENSIONS =
+      OmConfig.Keys.COMPRESSION_SKIP_EXTENSIONS;
+  public static final String OZONE_OM_COMPRESSION_SKIP_EXTENSIONS_DEFAULT =
+      org.apache.hadoop.ozone.compression.CompressionPolicy.DEFAULT_SKIP_EXTENSIONS;
+
   public static final String OZONE_OM_ENABLE_FILESYSTEM_PATHS =
       OmConfig.Keys.ENABLE_FILESYSTEM_PATHS;
   @Deprecated

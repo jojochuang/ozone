@@ -38,6 +38,7 @@ import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
 import org.apache.hadoop.hdds.utils.db.Proto2Codec;
 import org.apache.hadoop.ozone.ClientVersion;
 import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.FileChecksumProto;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyInfo;
@@ -74,6 +75,7 @@ public final class OmKeyInfo extends WithParentObjectId
   private final long creationTime;
   private long modificationTime;
   private ReplicationConfig replicationConfig;
+  private CompressionCodec compressionCodec = CompressionCodec.NONE;
   private FileEncryptionInfo encInfo;
   private final FileChecksum fileChecksum;
 
@@ -118,6 +120,7 @@ public final class OmKeyInfo extends WithParentObjectId
     this.creationTime = b.creationTime;
     this.modificationTime = b.modificationTime;
     this.replicationConfig = b.replicationConfig;
+    this.compressionCodec = b.compressionCodec;
     this.encInfo = b.encInfo;
     this.acls = new CopyOnWriteArrayList<>(b.acls);
     this.fileChecksum = b.fileChecksum;
@@ -151,6 +154,14 @@ public final class OmKeyInfo extends WithParentObjectId
 
   public ReplicationConfig getReplicationConfig() {
     return replicationConfig;
+  }
+
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
+  public void setCompressionCodec(CompressionCodec codec) {
+    this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
   }
 
   public String getKeyName() {
@@ -484,6 +495,7 @@ public final class OmKeyInfo extends WithParentObjectId
     private long creationTime;
     private long modificationTime;
     private ReplicationConfig replicationConfig;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
     private FileEncryptionInfo encInfo;
     private final List<OzoneAcl> acls = new ArrayList<>();
     // not persisted to DB. FileName will be the last element in path keyName.
@@ -554,6 +566,11 @@ public final class OmKeyInfo extends WithParentObjectId
 
     public Builder setReplicationConfig(ReplicationConfig replConfig) {
       this.replicationConfig = replConfig;
+      return this;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
       return this;
     }
 
@@ -747,6 +764,9 @@ public final class OmKeyInfo extends WithParentObjectId
     if (ownerName != null) {
       kb.setOwnerName(ownerName);
     }
+    if (compressionCodec != null && compressionCodec.isEnabled()) {
+      kb.setCompressionCodec(compressionCodec.toOmProto());
+    }
     return kb.build();
   }
 
@@ -800,6 +820,10 @@ public final class OmKeyInfo extends WithParentObjectId
 
     if (keyInfo.hasOwnerName()) {
       builder.setOwnerName(keyInfo.getOwnerName());
+    }
+    if (keyInfo.hasCompressionCodec()) {
+      builder.setCompressionCodec(
+          CompressionCodec.fromOmProto(keyInfo.getCompressionCodec()));
     }
     // not persisted to DB. FileName will be filtered out from keyName
     builder.setFileName(OzoneFSUtils.getFileName(keyInfo.getKeyName()));
@@ -893,6 +917,7 @@ public final class OmKeyInfo extends WithParentObjectId
         .setModificationTime(modificationTime)
         .setDataSize(dataSize)
         .setReplicationConfig(replicationConfig)
+        .setCompressionCodec(compressionCodec)
         .setFileEncryptionInfo(encInfo)
         .setAcls(acls)
         .setFileName(fileName)

@@ -577,6 +577,24 @@
     </description>
   </property>
   <property>
+    <name>ozone.om.compression.skip.extensions</name>
+    <value>.parquet,.orc,.gz,.zip,.bz2,.zst,.jpg,.jpeg,.png,.gif,.mp4,.avi,.pdf,.doc,.docx,.xls,.xlsx</value>
+    <tag>OM, OZONE</tag>
+    <description>
+      Comma-separated file extensions for which transparent compression is skipped
+      even when enabled on the bucket.
+    </description>
+  </property>
+  <property>
+    <name>ozone.om.compression.skip.extensions</name>
+    <value>.parquet,.orc,.gz,.zip,.bz2,.zst,.jpg,.jpeg,.png,.gif,.mp4,.avi,.pdf,.doc,.docx,.xls,.xlsx</value>
+    <tag>OM, OZONE</tag>
+    <description>
+      Comma-separated file extensions for which transparent compression is skipped
+      even when enabled on the bucket.
+    </description>
+  </property>
+  <property>
     <name>ozone.om.http-address</name>
     <value>0.0.0.0:9874</value>
     <tag>OM, MANAGEMENT</tag>

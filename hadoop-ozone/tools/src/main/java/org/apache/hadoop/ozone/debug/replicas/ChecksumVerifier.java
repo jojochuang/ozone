@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.ozone.debug.replicas;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
 import org.apache.commons.io.IOUtils;
@@ -27,8 +28,10 @@ import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientManager;
 import org.apache.hadoop.hdds.scm.cli.ContainerOperationClient;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
+import org.apache.hadoop.ozone.client.io.BlockInputStreamFactory;
 import org.apache.hadoop.ozone.client.io.BlockInputStreamFactoryImpl;
 import org.apache.hadoop.ozone.common.OzoneChecksumException;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 
 /**
@@ -37,7 +40,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
  */
 public class ChecksumVerifier implements ReplicaVerifier {
   private final OzoneConfiguration conf;
-  private final ContainerOperationClient containerClient;
+  private final BlockInputStreamFactory blockInputStreamFactory;
   private final XceiverClientManager xceiverClientManager;
   private static final String CHECK_TYPE = "checksum";
 
@@ -47,23 +50,33 @@ public class ChecksumVerifier implements ReplicaVerifier {
   }
 
   public ChecksumVerifier(OzoneConfiguration conf) throws IOException {
+    this(conf, new BlockInputStreamFactoryImpl(),
+        new ContainerOperationClient(conf).getXceiverClientManager());
+  }
+
+  @VisibleForTesting
+  ChecksumVerifier(OzoneConfiguration conf,
+      BlockInputStreamFactory blockInputStreamFactory,
+      XceiverClientManager xceiverClientManager) {
     this.conf = conf;
-    this.containerClient = new ContainerOperationClient(conf);
-    this.xceiverClientManager = containerClient.getXceiverClientManager();
+    this.blockInputStreamFactory = blockInputStreamFactory;
+    this.xceiverClientManager = xceiverClientManager;
   }
 
   @Override
-  public BlockVerificationResult verifyBlock(DatanodeDetails datanode, OmKeyLocationInfo keyLocation) {
+  public BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation, CompressionCodec compressionCodec) {
     Pipeline pipeline = keyLocation.getPipeline().copyForReadFromNode(datanode);
 
-    try (InputStream is = new BlockInputStreamFactoryImpl().create(
+    try (InputStream is = blockInputStreamFactory.create(
         keyLocation.getPipeline().getReplicationConfig(),
         keyLocation,
         pipeline,
         keyLocation.getToken(),
         xceiverClientManager,
         null,
-        conf.getObject(OzoneClientConfig.class))) {
+        conf.getObject(OzoneClientConfig.class),
+        compressionCodec)) {
       IOUtils.copyLarge(is, NullOutputStream.INSTANCE);
       return BlockVerificationResult.pass();
     } catch (IOException e) {

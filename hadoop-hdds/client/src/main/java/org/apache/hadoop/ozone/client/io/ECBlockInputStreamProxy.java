@@ -34,6 +34,7 @@ import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +60,7 @@ public class ECBlockInputStreamProxy extends BlockExtendedInputStream {
   private List<DatanodeDetails> failedLocations = new ArrayList<>();
   private boolean closed = false;
   private OzoneClientConfig config;
+  private final CompressionCodec compressionCodec;
 
   /**
    * Given the ECReplicationConfig and the block length, calculate how many
@@ -101,13 +103,16 @@ public class ECBlockInputStreamProxy extends BlockExtendedInputStream {
       XceiverClientFactory xceiverClientFactory, Function<BlockID,
       BlockLocationInfo> refreshFunction,
       ECBlockInputStreamFactory streamFactory,
-      OzoneClientConfig config) {
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) {
     this.repConfig = repConfig;
     this.blockInfo = blockInfo;
     this.ecBlockInputStreamFactory = streamFactory;
     this.xceiverClientFactory = xceiverClientFactory;
     this.refreshFunction = refreshFunction;
     this.config = config;
+    this.compressionCodec = compressionCodec != null ?
+        compressionCodec : CompressionCodec.NONE;
 
     setReaderType();
     createBlockReader();
@@ -129,7 +134,7 @@ public class ECBlockInputStreamProxy extends BlockExtendedInputStream {
     }
     blockReader = ecBlockInputStreamFactory.create(reconstructionReader,
         failedLocations, repConfig, blockInfo,
-        xceiverClientFactory, refreshFunction, config);
+        xceiverClientFactory, refreshFunction, config, compressionCodec);
   }
 
   @Override

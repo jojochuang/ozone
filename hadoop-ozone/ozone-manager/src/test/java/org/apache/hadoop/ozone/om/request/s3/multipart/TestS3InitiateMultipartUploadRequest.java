@@ -30,8 +30,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
@@ -111,6 +113,41 @@ public class TestS3InitiateMultipartUploadRequest
         modifiedRequest.getInitiateMultiPartUploadRequest().getKeyArgs()
             .getModificationTime(), openMPUKeyInfo.getCreationTime());
 
+  }
+
+  @Test
+  public void testValidateAndUpdateCacheSetsCompressionCodec() throws Exception {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    String keyName = "data.csv";
+
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, omMetadataManager,
+        OmBucketInfo.newBuilder()
+            .setVolumeName(volumeName)
+            .setBucketName(bucketName)
+            .setCompressionCodec(CompressionCodec.ZSTD)
+            .setBucketLayout(getBucketLayout()));
+
+    OMRequest modifiedRequest = doPreExecuteInitiateMPU(volumeName, bucketName,
+        keyName);
+    S3InitiateMultipartUploadRequest request =
+        getS3InitiateMultipartUploadReq(modifiedRequest);
+    OMClientResponse response =
+        request.validateAndUpdateCache(ozoneManager, 100L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+        response.getOMResponse().getStatus());
+
+    String multipartKey = getMultipartKey(volumeName, bucketName, keyName,
+        modifiedRequest.getInitiateMultiPartUploadRequest()
+            .getKeyArgs().getMultipartUploadID());
+    OmMultipartKeyInfo multipartKeyInfo =
+        omMetadataManager.getMultipartInfoTable().get(multipartKey);
+    OmKeyInfo openKeyInfo = omMetadataManager
+        .getOpenKeyTable(request.getBucketLayout()).get(multipartKey);
+
+    assertEquals(CompressionCodec.ZSTD, multipartKeyInfo.getCompressionCodec());
+    assertEquals(CompressionCodec.ZSTD, openKeyInfo.getCompressionCodec());
   }
 
   @Test

@@ -23,12 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
@@ -46,6 +48,54 @@ import org.junit.jupiter.api.Test;
  */
 public class TestS3InitiateMultipartUploadRequestWithFSO
     extends TestS3InitiateMultipartUploadRequest {
+
+  @Override
+  @Test
+  public void testValidateAndUpdateCacheSetsCompressionCodec() throws Exception {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    String prefix = "a/b/";
+    String fileName = "data.csv";
+    String keyName = prefix + fileName;
+
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, omMetadataManager,
+        OmBucketInfo.newBuilder()
+            .setVolumeName(volumeName)
+            .setBucketName(bucketName)
+            .setCompressionCodec(CompressionCodec.ZSTD)
+            .setBucketLayout(getBucketLayout()));
+
+    Map<String, String> customMetadata = new HashMap<>();
+    Map<String, String> tags = new HashMap<>();
+    OMRequest modifiedRequest = doPreExecuteInitiateMPUWithFSO(volumeName,
+        bucketName, keyName, customMetadata, tags);
+    S3InitiateMultipartUploadRequest request =
+        getS3InitiateMultipartUploadReq(modifiedRequest);
+    OMClientResponse response =
+        request.validateAndUpdateCache(ozoneManager, 100L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.OK,
+        response.getOMResponse().getStatus());
+
+    String uploadId = modifiedRequest.getInitiateMultiPartUploadRequest()
+        .getKeyArgs().getMultipartUploadID();
+    String multipartFileKey = getMultipartKey(volumeName, bucketName, keyName,
+        uploadId);
+    OmMultipartKeyInfo multipartKeyInfo =
+        omMetadataManager.getMultipartInfoTable().get(multipartFileKey);
+
+    final long volumeId = omMetadataManager.getVolumeId(volumeName);
+    final long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    long parentId = verifyDirectoriesInDB(
+        Arrays.asList("a", "b"), volumeId, bucketId);
+    String multipartOpenFileKey = omMetadataManager.getMultipartKey(volumeId,
+        bucketId, parentId, fileName, uploadId);
+    OmKeyInfo openKeyInfo = omMetadataManager
+        .getOpenKeyTable(request.getBucketLayout()).get(multipartOpenFileKey);
+
+    assertEquals(CompressionCodec.ZSTD, multipartKeyInfo.getCompressionCodec());
+    assertEquals(CompressionCodec.ZSTD, openKeyInfo.getCompressionCodec());
+  }
 
   @Override
   @Test

@@ -46,6 +46,7 @@ import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.security.exception.SCMSecurityException;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
 import org.apache.hadoop.io.retry.RetryPolicy;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.slf4j.Logger;
@@ -112,6 +113,7 @@ public class BlockInputStream extends BlockExtendedInputStream {
   private final Function<BlockID, BlockLocationInfo> refreshFunction;
 
   private BlockData blockData;
+  private final CompressionCodec compressionCodec;
 
   public BlockInputStream(
       BlockLocationInfo blockInfo,
@@ -120,6 +122,18 @@ public class BlockInputStream extends BlockExtendedInputStream {
       XceiverClientFactory xceiverClientFactory,
       Function<BlockID, BlockLocationInfo> refreshFunction,
       OzoneClientConfig config) throws IOException {
+    this(blockInfo, pipeline, token, xceiverClientFactory, refreshFunction,
+        config, CompressionCodec.NONE);
+  }
+
+  public BlockInputStream(
+      BlockLocationInfo blockInfo,
+      Pipeline pipeline,
+      Token<OzoneBlockTokenIdentifier> token,
+      XceiverClientFactory xceiverClientFactory,
+      Function<BlockID, BlockLocationInfo> refreshFunction,
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) throws IOException {
     this.blockInfo = blockInfo;
     this.blockID = blockInfo.getBlockID();
     this.length = blockInfo.getLength();
@@ -131,6 +145,8 @@ public class BlockInputStream extends BlockExtendedInputStream {
     this.retryPolicy =
         HddsClientUtils.createRetryPolicy(config.getMaxReadRetryCount(),
             TimeUnit.SECONDS.toMillis(config.getReadRetryInterval()));
+    this.compressionCodec = compressionCodec != null ?
+        compressionCodec : CompressionCodec.NONE;
   }
 
   // only for unit tests
@@ -201,7 +217,7 @@ public class BlockInputStream extends BlockExtendedInputStream {
       for (int i = 0; i < chunks.size(); i++) {
         addStream(chunks.get(i));
         chunkOffsets[i] = tempOffset;
-        tempOffset += chunks.get(i).getLen();
+        tempOffset += getChunkLength(chunks.get(i));
       }
 
       initialized = true;
@@ -345,7 +361,15 @@ public class BlockInputStream extends BlockExtendedInputStream {
 
   protected ChunkInputStream createChunkInputStream(ChunkInfo chunkInfo) {
     return new ChunkInputStream(chunkInfo, blockID,
-        xceiverClientFactory, pipelineRef::get, verifyChecksum, tokenRef::get);
+        xceiverClientFactory, pipelineRef::get, verifyChecksum, tokenRef::get,
+        compressionCodec);
+  }
+
+  private static long getChunkLength(ChunkInfo chunk) {
+    if (chunk.hasLogicalLen() && chunk.getLogicalLen() > 0) {
+      return chunk.getLogicalLen();
+    }
+    return chunk.getLen();
   }
 
   @Override

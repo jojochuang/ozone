@@ -26,6 +26,7 @@ import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 
 /**
  * Interface used by factories which create ECBlockInput streams for
@@ -53,5 +54,6 @@ public interface ECBlockInputStreamFactory {
       BlockLocationInfo blockInfo,
       XceiverClientFactory xceiverFactory,
       Function<BlockID, BlockLocationInfo> refreshFunction,
-      OzoneClientConfig config);
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec);
 }

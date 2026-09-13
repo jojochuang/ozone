@@ -38,6 +38,7 @@ import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -348,7 +349,7 @@ public class TestECBlockInputStreamProxy {
     clientConfig.setChecksumVerify(true);
     return new ECBlockInputStreamProxy(
         rConfig, blockInfo, null, null, streamFactory,
-        clientConfig);
+        clientConfig, CompressionCodec.NONE);
   }
 
   private static class TestECBlockInputStreamFactory
@@ -379,7 +380,8 @@ public class TestECBlockInputStreamProxy {
         ReplicationConfig repConfig, BlockLocationInfo blockInfo,
         XceiverClientFactory xceiverFactory,
         Function<BlockID, BlockLocationInfo> refreshFunction,
-        OzoneClientConfig config) {
+        OzoneClientConfig config,
+        CompressionCodec compressionCodec) {
       this.failedLocations = failedDatanodes;
       ByteBuffer wrappedBuffer =
           ByteBuffer.wrap(data.array(), 0, data.capacity());

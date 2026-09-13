@@ -46,6 +46,8 @@ import org.apache.hadoop.ozone.common.Checksum;
 import org.apache.hadoop.ozone.common.ChecksumData;
 import org.apache.hadoop.ozone.common.OzoneChecksumException;
 import org.apache.hadoop.ozone.common.utils.BufferUtils;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionStreams;
 import org.apache.hadoop.security.token.Token;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
@@ -97,6 +99,7 @@ public class ChunkInputStream extends InputStream
   private long chunkPosition = -1;
 
   private final Supplier<Token<?>> tokenSupplier;
+  private final CompressionCodec compressionCodec;
 
   private static final int EOF = -1;
   private final List<Validator> validators;
@@ -106,8 +109,20 @@ public class ChunkInputStream extends InputStream
       Supplier<Pipeline> pipelineSupplier,
       boolean verifyChecksum,
       Supplier<Token<?>> tokenSupplier) {
+    this(chunkInfo, blockId, xceiverClientFactory, pipelineSupplier,
+        verifyChecksum, tokenSupplier, CompressionCodec.NONE);
+  }
+
+  ChunkInputStream(ChunkInfo chunkInfo, BlockID blockId,
+      XceiverClientFactory xceiverClientFactory,
+      Supplier<Pipeline> pipelineSupplier,
+      boolean verifyChecksum,
+      Supplier<Token<?>> tokenSupplier,
+      CompressionCodec compressionCodec) {
     this.chunkInfo = chunkInfo;
-    this.length = chunkInfo.getLen();
+    this.compressionCodec = compressionCodec != null ?
+        compressionCodec : CompressionCodec.NONE;
+    this.length = getLogicalChunkLength(chunkInfo);
     this.blockID = blockId;
     this.xceiverClientFactory = xceiverClientFactory;
     this.pipelineSupplier = pipelineSupplier;
@@ -360,6 +375,10 @@ public class ChunkInputStream extends InputStream
    * to Datanode
    */
   private synchronized void readChunkFromContainer(int len) throws IOException {
+    if (compressionCodec.isEnabled()) {
+      readCompressedChunkFromContainer(len);
+      return;
+    }
 
     // index of first byte to be read from the chunk
     long startByteIndex;
@@ -412,10 +431,28 @@ public class ChunkInputStream extends InputStream
     adjustBufferPosition(startByteIndex - bufferOffsetWrtChunkData);
   }
 
+  private void readCompressedChunkFromContainer(int len) throws IOException {
+    long startByteIndex;
+    if (chunkPosition >= 0) {
+      startByteIndex = chunkPosition;
+    } else {
+      startByteIndex = bufferOffsetWrtChunkData + buffersSize;
+    }
+    storePosition();
+
+    final ChunkInfo readChunkInfo = ChunkInfo.newBuilder(chunkInfo)
+        .setOffset(chunkInfo.getOffset())
+        .setLen(chunkInfo.getLen())
+        .build();
+    readChunkDataIntoBuffers(readChunkInfo);
+    bufferOffsetWrtChunkData = 0;
+    adjustBufferPosition(startByteIndex);
+  }
+
   private void readChunkDataIntoBuffers(ChunkInfo readChunkInfo)
       throws IOException {
     buffers = readChunk(readChunkInfo);
-    buffersSize = readChunkInfo.getLen();
+    buffersSize = compressionCodec.isEnabled() ? length : readChunkInfo.getLen();
 
     bufferOffsets = new long[buffers.length];
     int tempOffset = 0;
@@ -440,17 +477,43 @@ public class ChunkInputStream extends InputStream
         ContainerProtocolCalls.readChunk(xceiverClient, readChunkInfo, datanodeBlockID, validators,
             tokenSupplier.get());
 
+    ByteBuffer[] chunkBuffers;
     if (readChunkResponse.hasData()) {
-      return readChunkResponse.getData().asReadOnlyByteBufferList()
+      chunkBuffers = readChunkResponse.getData().asReadOnlyByteBufferList()
           .toArray(new ByteBuffer[0]);
     } else if (readChunkResponse.hasDataBuffers()) {
       List<ByteString> buffersList = readChunkResponse.getDataBuffers()
           .getBuffersList();
-      return BufferUtils.getReadOnlyByteBuffersArray(buffersList);
+      chunkBuffers = BufferUtils.getReadOnlyByteBuffersArray(buffersList);
     } else {
       throw new IOException("Unexpected error while reading chunk data " +
           "from container. No data returned.");
     }
+    return decompressChunkBuffers(chunkBuffers, (int) readChunkInfo.getLen());
+  }
+
+  private ByteBuffer[] decompressChunkBuffers(ByteBuffer[] chunkBuffers,
+      int compressedLen) throws IOException {
+    if (!compressionCodec.isEnabled()) {
+      return chunkBuffers;
+    }
+    byte[] compressed = new byte[compressedLen];
+    int offset = 0;
+    for (ByteBuffer buffer : chunkBuffers) {
+      int readLen = buffer.remaining();
+      buffer.get(compressed, offset, readLen);
+      offset += readLen;
+    }
+    byte[] decompressed = CompressionStreams.decompress(
+        compressionCodec, compressed);
+    return new ByteBuffer[] {ByteBuffer.wrap(decompressed)};
+  }
+
+  private static long getLogicalChunkLength(ChunkInfo info) {
+    if (info.hasLogicalLen() && info.getLogicalLen() > 0) {
+      return info.getLogicalLen();
+    }
+    return info.getLen();
   }
 
   private void validateChunk(

@@ -100,7 +100,8 @@ public class KeyInputStream extends MultipartInputStream {
               omKeyLocationInfo.getToken(),
               xceiverClientFactory,
               retry,
-              config);
+              config,
+              keyInfo.getCompressionCodec());
       partStreams.add(stream);
     }
     return partStreams;

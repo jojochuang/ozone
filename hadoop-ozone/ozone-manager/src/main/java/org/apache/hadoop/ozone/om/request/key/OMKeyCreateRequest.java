@@ -413,6 +413,32 @@ public class OMKeyCreateRequest extends OMKeyRequest {
       processingPhase = RequestProcessingPhase.PRE_PROCESS,
       requestType = Type.CreateKey
   )
+  public static OMRequest disallowCreateKeyInCompressionBucket(
+      OMRequest req, ValidationContext ctx) throws OMException, IOException {
+    if (!ctx.versionManager()
+        .isAllowed(OMLayoutFeature.COMPRESSION_SUPPORT)) {
+      KeyArgs keyArgs = req.getCreateKeyRequest().getKeyArgs();
+      if (keyArgs.hasVolumeName() && keyArgs.hasBucketName()) {
+        OmBucketInfo bucketInfo = ctx.getBucketInfo(keyArgs.getVolumeName(),
+            keyArgs.getBucketName());
+        if (bucketInfo != null
+            && bucketInfo.getCompressionCodec().isEnabled()) {
+          throw new OMException("Cluster does not have the compression support"
+              + " feature finalized yet, but the target bucket has a"
+              + " compression codec configured. Rejecting the request, please"
+              + " finalize the cluster upgrade and then try again.",
+              OMException.ResultCodes.NOT_SUPPORTED_OPERATION_PRIOR_FINALIZATION);
+        }
+      }
+    }
+    return req;
+  }
+
+  @RequestFeatureValidator(
+      conditions = ValidationCondition.CLUSTER_NEEDS_FINALIZATION,
+      processingPhase = RequestProcessingPhase.PRE_PROCESS,
+      requestType = Type.CreateKey
+  )
   public static OMRequest disallowCreateKeyWithECReplicationConfig(
       OMRequest req, ValidationContext ctx) throws OMException {
     if (!ctx.versionManager()
