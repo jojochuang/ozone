@@ -198,6 +198,8 @@ public final class CompressedChunkLayout {
     return Collections.emptyList();
   }
 
+  /** One entry in the on-disk compressed chunk index. */
+  /** One entry in the on-disk compressed chunk index. */
   public static final class OzciEntry {
     private final long logicalOffset;
     private final long physicalOffset;
@@ -223,6 +225,8 @@ public final class CompressedChunkLayout {
     }
   }
 
+  /** In-memory builder for a compressed chunk index. */
+  /** In-memory builder for a compressed chunk index. */
   public static final class OzciIndex {
     private long logicalOffset;
     private final List<OzciEntry> entries = new ArrayList<>();

@@ -34,8 +34,8 @@ import org.apache.hadoop.hdds.scm.storage.BlockInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
 import org.apache.hadoop.io.ByteBufferPool;
-import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.io.ElasticByteBufferPool;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 
 /**
