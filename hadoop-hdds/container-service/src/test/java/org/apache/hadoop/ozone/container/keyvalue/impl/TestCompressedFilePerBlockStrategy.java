@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -68,7 +69,8 @@ public class TestCompressedFilePerBlockStrategy extends TestFilePerBlockStrategy
     long physicalOffset = 0;
 
     for (int i = 0; i < chunkCount; i++) {
-      byte[] logicalData = ("chunk-" + i + "-payload-").getBytes();
+      byte[] logicalData = ("chunk-" + i + "-payload-")
+          .getBytes(StandardCharsets.UTF_8);
       logicalData = padToLength(logicalData, logicalLen);
       byte[] compressed = CompressionStreams.compress(
           CompressionCodec.ZSTD, logicalData);
@@ -99,7 +101,8 @@ public class TestCompressedFilePerBlockStrategy extends TestFilePerBlockStrategy
 
     physicalOffset = 0;
     for (int i = 0; i < chunkCount; i++) {
-      byte[] logicalData = ("chunk-" + i + "-payload-").getBytes();
+      byte[] logicalData = ("chunk-" + i + "-payload-")
+          .getBytes(StandardCharsets.UTF_8);
       logicalData = padToLength(logicalData, logicalLen);
       byte[] compressed = CompressionStreams.compress(
           CompressionCodec.ZSTD, logicalData);

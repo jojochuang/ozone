@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.hdds.client.BlockID;
@@ -61,7 +62,8 @@ public class TestCompressedKeyValueContainerCheck
     long physicalOffset = 0;
 
     for (int i = 0; i < chunkCount; i++) {
-      byte[] logicalData = padToLength(("chunk-" + i).getBytes(), logicalLen);
+      byte[] logicalData = padToLength(
+          ("chunk-" + i).getBytes(StandardCharsets.UTF_8), logicalLen);
       byte[] compressed = CompressionStreams.compress(
           CompressionCodec.ZSTD, logicalData);
 

@@ -35,8 +35,8 @@ import java.util.List;
 public final class CompressedChunkLayout {
 
   public static final int CHUNK_HEADER_SIZE = 10;
-  public static final byte[] CHUNK_MAGIC = {'O', 'C'};
-  public static final byte[] OZCI_MAGIC = {'O', 'Z', 'C', 'I'};
+  static final byte[] CHUNK_MAGIC = {'O', 'C'};
+  static final byte[] OZCI_MAGIC = {'O', 'Z', 'C', 'I'};
 
   private static final int OZCI_FOOTER_HEADER_SIZE = 8;
   private static final int OZCI_ENTRY_SIZE = 24;

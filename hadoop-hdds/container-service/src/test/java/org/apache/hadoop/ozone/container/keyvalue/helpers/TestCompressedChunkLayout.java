@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -45,7 +46,7 @@ public class TestCompressedChunkLayout {
     try (FileChannel channel = FileChannel.open(file,
         StandardOpenOption.CREATE, StandardOpenOption.WRITE,
         StandardOpenOption.READ)) {
-      byte[] payload = "compressed".getBytes();
+      byte[] payload = "compressed".getBytes(StandardCharsets.UTF_8);
       CompressedChunkLayout.writeChunkHeader(channel, 0, 100, payload.length);
       channel.write(ByteBuffer.wrap(payload),
           CompressedChunkLayout.readChunkPayloadOffset(0));
@@ -66,7 +67,8 @@ public class TestCompressedChunkLayout {
       ByteBuffer payload = ByteBuffer.allocate("compressed".length());
       channel.read(payload,
           CompressedChunkLayout.readChunkPayloadOffset(0));
-      assertArrayEquals("compressed".getBytes(), payload.array());
+      assertArrayEquals("compressed".getBytes(StandardCharsets.UTF_8),
+          payload.array());
     }
   }
 
@@ -106,8 +108,8 @@ public class TestCompressedChunkLayout {
   public void populateOzciIndexFromBlockFile() throws IOException {
     Path file = tempDir.resolve("multi-chunk-block");
     int logicalLen = 128;
-    byte[] payload1 = "compressed-1".getBytes();
-    byte[] payload2 = "compressed-2".getBytes();
+    byte[] payload1 = "compressed-1".getBytes(StandardCharsets.UTF_8);
+    byte[] payload2 = "compressed-2".getBytes(StandardCharsets.UTF_8);
 
     try (FileChannel channel = FileChannel.open(file,
         StandardOpenOption.CREATE, StandardOpenOption.WRITE,

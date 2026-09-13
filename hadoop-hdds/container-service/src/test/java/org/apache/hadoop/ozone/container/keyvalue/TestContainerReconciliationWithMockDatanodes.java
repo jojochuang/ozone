@@ -44,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -787,7 +788,8 @@ public class TestContainerReconciliationWithMockDatanodes {
 
       for (int chunkIndex = 0; chunkIndex < chunksPerBlock; chunkIndex++) {
         byte[] logicalData = padToLength(
-            ("compressed-chunk-" + chunkIndex).getBytes(), logicalLen);
+            ("compressed-chunk-" + chunkIndex).getBytes(StandardCharsets.UTF_8),
+            logicalLen);
         byte[] compressed = CompressionStreams.compress(
             CompressionCodec.ZSTD, logicalData);
 
@@ -856,8 +858,8 @@ public class TestContainerReconciliationWithMockDatanodes {
             chunkProto.getChunkName().substring(
                 chunkProto.getChunkName().lastIndexOf('.') + 1));
         byte[] expected = CompressionStreams.compress(CompressionCodec.ZSTD,
-            padToLength(("compressed-chunk-" + chunkIndex).getBytes(),
-                logicalLen));
+            padToLength(("compressed-chunk-" + chunkIndex)
+                .getBytes(StandardCharsets.UTF_8), logicalLen));
         assertArrayEquals(expected, read.toByteString().toByteArray());
         physicalOffset += CompressedChunkLayout.segmentPhysicalLen(
             chunkInfo.getLen());
