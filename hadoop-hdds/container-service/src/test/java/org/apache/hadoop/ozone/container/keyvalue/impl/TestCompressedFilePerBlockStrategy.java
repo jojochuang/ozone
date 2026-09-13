@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.ozone.container.keyvalue.impl;
 
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.setDataChecksum;
 import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,8 +31,6 @@ import org.apache.hadoop.ozone.common.ChunkBuffer;
 import org.apache.hadoop.ozone.common.ChunkBufferToByteString;
 import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.compression.CompressionStreams;
-import org.apache.hadoop.ozone.container.ContainerTestHelper;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.setDataChecksum;
 import org.apache.hadoop.ozone.container.common.helpers.BlockData;
 import org.apache.hadoop.ozone.container.common.helpers.ChunkInfo;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;

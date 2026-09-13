@@ -21,6 +21,7 @@ import static org.apache.hadoop.hdds.HddsConfigKeys.OZONE_METADATA_DIRS;
 import static org.apache.hadoop.hdds.HddsUtils.checksumToString;
 import static org.apache.hadoop.hdds.protocol.MockDatanodeDetails.randomDatanodeDetails;
 import static org.apache.hadoop.hdds.scm.ScmConfigKeys.HDDS_DATANODE_DIR_KEY;
+import static org.apache.hadoop.ozone.container.ContainerTestHelper.setDataChecksum;
 import static org.apache.hadoop.ozone.container.checksum.ContainerMerkleTreeTestUtils.verifyAllDataChecksumsMatch;
 import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.WRITE_STAGE;
 import static org.apache.hadoop.ozone.container.common.ContainerTestUtils.createDbInstancesForTestIfNeeded;
@@ -81,8 +82,6 @@ import org.apache.hadoop.ozone.common.ChunkBuffer;
 import org.apache.hadoop.ozone.common.ChunkBufferToByteString;
 import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.compression.CompressionStreams;
-import static org.apache.hadoop.ozone.container.ContainerTestHelper.setDataChecksum;
-import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
 import org.apache.hadoop.ozone.container.checksum.ContainerChecksumTreeManager;
 import org.apache.hadoop.ozone.container.checksum.DNContainerOperationClient;
 import org.apache.hadoop.ozone.container.common.ContainerTestUtils;
@@ -93,6 +92,7 @@ import org.apache.hadoop.ozone.container.common.interfaces.DBHandle;
 import org.apache.hadoop.ozone.container.common.volume.MutableVolumeSet;
 import org.apache.hadoop.ozone.container.common.volume.StorageVolume;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerController;
 import org.apache.hadoop.ozone.container.ozoneimpl.ContainerScannerConfiguration;
 import org.apache.hadoop.ozone.container.ozoneimpl.OnDemandContainerScanner;
@@ -430,9 +430,9 @@ public class TestContainerReconciliationWithMockDatanodes {
   }
 
   private static void mockCompressedContainerProtocolCalls(
-      MockedStatic<ContainerProtocolCalls> containerProtocolMock,
+      MockedStatic<ContainerProtocolCalls> protocolMock,
       Map<DatanodeDetails, MockDatanode> dnMap) {
-    containerProtocolMock.when(() -> ContainerProtocolCalls.getContainerChecksumInfo(
+    protocolMock.when(() -> ContainerProtocolCalls.getContainerChecksumInfo(
         any(), anyLong(), any()))
         .thenAnswer(inv -> {
           XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
@@ -441,7 +441,7 @@ public class TestContainerReconciliationWithMockDatanodes {
           return dnMap.get(dn).getChecksumInfo(containerID);
         });
 
-    containerProtocolMock.when(() -> ContainerProtocolCalls.getBlock(any(), any(),
+    protocolMock.when(() -> ContainerProtocolCalls.getBlock(any(), any(),
         any(), any(), anyMap()))
         .thenAnswer(inv -> {
           XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
@@ -450,7 +450,7 @@ public class TestContainerReconciliationWithMockDatanodes {
           return dnMap.get(dn).getBlock(blockID);
         });
 
-    containerProtocolMock.when(() -> ContainerProtocolCalls.readChunk(any(), any(),
+    protocolMock.when(() -> ContainerProtocolCalls.readChunk(any(), any(),
         any(), any(), any()))
         .thenAnswer(inv -> {
           XceiverClientSpi xceiverClientSpi = inv.getArgument(0);
@@ -461,7 +461,7 @@ public class TestContainerReconciliationWithMockDatanodes {
           return dnMap.get(dn).readChunk(blockId, chunkInfo, checksumValidators);
         });
 
-    containerProtocolMock.when(() -> ContainerProtocolCalls.toValidatorList(any()))
+    protocolMock.when(() -> ContainerProtocolCalls.toValidatorList(any()))
         .thenCallRealMethod();
   }
 

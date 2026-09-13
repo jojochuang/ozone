@@ -1906,14 +1906,7 @@ public class KeyValueHandler extends Handler {
         .build();
     // Under construction is set here, during BlockInputStream#initialize() it is used to update the block length.
     blkInfo.setUnderConstruction(true);
-    OzoneClientConfig reconcileReadConfig = conf.getObject(OzoneClientConfig.class);
-    // Reconciliation copies on-disk chunk bytes from the peer. Checksum verification
-    // on the read path expands compressed chunks to their logical length, which does
-    // not match the compressed payload size stored on the datanode.
-    OzoneClientConfig readConfig = new OzoneClientConfig();
-    readConfig.setChecksumVerify(false);
-    readConfig.setMaxReadRetryCount(reconcileReadConfig.getMaxReadRetryCount());
-    readConfig.setReadRetryInterval(reconcileReadConfig.getReadRetryInterval());
+    OzoneClientConfig readConfig = createReconcileReadConfig();
     try (BlockInputStream blockInputStream = (BlockInputStream) blockInputStreamFactory.create(
         RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE),
         blkInfo, pipeline, blockToken, dnClient.getXceiverClientManager(),
@@ -2017,6 +2010,18 @@ public class KeyValueHandler extends Handler {
     }
 
     return numSuccessfulChunks;
+  }
+
+  private OzoneClientConfig createReconcileReadConfig() {
+    OzoneClientConfig reconcileReadConfig = conf.getObject(OzoneClientConfig.class);
+    // Reconciliation copies on-disk chunk bytes from the peer. Checksum verification
+    // on the read path expands compressed chunks to their logical length, which does
+    // not match the compressed payload size stored on the datanode.
+    OzoneClientConfig readConfig = new OzoneClientConfig();
+    readConfig.setChecksumVerify(false);
+    readConfig.setMaxReadRetryCount(reconcileReadConfig.getMaxReadRetryCount());
+    readConfig.setReadRetryInterval(reconcileReadConfig.getReadRetryInterval());
+    return readConfig;
   }
 
   private void verifyChunksLength(ContainerProtos.ChunkInfo peerChunkInfo, ContainerProtos.ChunkInfo localChunkInfo)
