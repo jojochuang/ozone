@@ -676,6 +676,10 @@ public class RpcClient implements ClientProtocol {
       builder.setDefaultReplicationConfig(defaultReplicationConfig);
     }
 
+    if (bucketArgs.getCompressionCodec() != null) {
+      builder.setCompressionCodec(bucketArgs.getCompressionCodec());
+    }
+
     String replicationType = defaultReplicationConfig == null 
         ? "server-side default replication type"
         : defaultReplicationConfig.getType().toString();
@@ -1264,6 +1268,21 @@ public class RpcClient implements ClientProtocol {
   }
 
   @Override
+  public void setCompressionCodec(
+      String volumeName, String bucketName,
+      org.apache.hadoop.ozone.compression.CompressionCodec compressionCodec)
+      throws IOException {
+    verifyVolumeName(volumeName);
+    verifyBucketName(bucketName);
+    Preconditions.checkNotNull(compressionCodec);
+    OmBucketArgs.Builder builder = OmBucketArgs.newBuilder();
+    builder.setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setCompressionCodec(compressionCodec);
+    ozoneManagerClient.setBucketProperty(builder.build());
+  }
+
+  @Override
   public void deleteBucket(
       String volumeName, String bucketName) throws IOException {
     verifyVolumeName(volumeName);
@@ -1303,6 +1322,7 @@ public class RpcClient implements ClientProtocol {
         .setBucketLayout(bucketInfo.getBucketLayout())
         .setOwner(bucketInfo.getOwner())
         .setDefaultReplicationConfig(bucketInfo.getDefaultReplicationConfig())
+        .setCompressionCodec(bucketInfo.getCompressionCodec())
         .build();
   }
 
@@ -1335,6 +1355,7 @@ public class RpcClient implements ClientProtocol {
                 .setOwner(bucket.getOwner())
                 .setDefaultReplicationConfig(
                     bucket.getDefaultReplicationConfig())
+                .setCompressionCodec(bucket.getCompressionCodec())
                 .build())
         .collect(Collectors.toList());
   }

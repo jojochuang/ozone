@@ -51,6 +51,7 @@ import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.client.protocol.ClientProtocol;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BasicOmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
@@ -152,6 +153,11 @@ public class OzoneBucket extends WithMetadata {
    */
   private String owner;
 
+  /**
+   * Default transparent compression codec for keys in this bucket.
+   */
+  private CompressionCodec compressionCodec = CompressionCodec.NONE;
+
   protected OzoneBucket(Builder builder) {
     super(builder);
     this.proxy = builder.proxy;
@@ -191,6 +197,9 @@ public class OzoneBucket extends WithMetadata {
       this.bucketLayout = builder.bucketLayout;
     }
     this.owner = builder.owner;
+    if (builder.compressionCodec != null) {
+      this.compressionCodec = builder.compressionCodec;
+    }
   }
 
   /**
@@ -406,6 +415,25 @@ public class OzoneBucket extends WithMetadata {
   public void setReplicationConfig(ReplicationConfig replicationConfig)
       throws IOException {
     proxy.setReplicationConfig(volumeName, name, replicationConfig);
+  }
+
+  /**
+   * Returns the default compression codec for this bucket.
+   */
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
+  /**
+   * Sets/Changes the default compression codec of this bucket.
+   *
+   * @param compressionCodec compression codec to apply to bucket
+   * @throws IOException
+   */
+  public void setCompressionCodec(CompressionCodec compressionCodec)
+      throws IOException {
+    proxy.setCompressionCodec(volumeName, name, compressionCodec);
+    this.compressionCodec = compressionCodec;
   }
 
   public void setListCacheSize(int listCacheSize) {
@@ -1127,6 +1155,7 @@ public class OzoneBucket extends WithMetadata {
     private long quotaInNamespace;
     private BucketLayout bucketLayout;
     private String owner;
+    private CompressionCodec compressionCodec;
 
     protected Builder() {
     }
@@ -1220,6 +1249,11 @@ public class OzoneBucket extends WithMetadata {
 
     public Builder setOwner(String owner) {
       this.owner = owner;
+      return this;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec compressionCodec) {
+      this.compressionCodec = compressionCodec;
       return this;
     }
 

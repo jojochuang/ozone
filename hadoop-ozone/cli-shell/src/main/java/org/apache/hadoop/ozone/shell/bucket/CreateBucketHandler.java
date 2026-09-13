@@ -27,6 +27,7 @@ import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.shell.OzoneAddress;
 import org.apache.hadoop.ozone.shell.SetSpaceQuotaOptions;
@@ -67,6 +68,12 @@ public class CreateBucketHandler extends BucketHandler {
 
   @CommandLine.Mixin
   private SetSpaceQuotaOptions quotaOptions;
+
+  @Option(names = {"--compression-codec", "-c"},
+      converter = CompressionCodecConverter.class,
+      description = "Default compression codec for keys in this bucket. "
+          + "Allowed values: NONE, ZSTD, SNAPPY, LZ4, GZIP")
+  private CompressionCodec compressionCodec;
 
   /**
    * Executes create bucket.
@@ -116,6 +123,11 @@ public class CreateBucketHandler extends BucketHandler {
       bb.setQuotaInNamespace(OzoneQuota.parseNameSpaceQuota(
           quotaOptions.getQuotaInNamespace()).getQuotaInNamespace());
     }
+
+    if (compressionCodec != null) {
+      bb.setCompressionCodec(compressionCodec);
+    }
+
     String volumeName = address.getVolumeName();
     String bucketName = address.getBucketName();
 

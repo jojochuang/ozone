@@ -38,6 +38,7 @@ import picocli.CommandLine.Command;
         SetAclBucketHandler.class,
         ClearQuotaHandler.class,
         SetReplicationConfigHandler.class,
+        SetCompressionCodecHandler.class,
         UpdateBucketHandler.class,
         SetEncryptionKey.class
     },
