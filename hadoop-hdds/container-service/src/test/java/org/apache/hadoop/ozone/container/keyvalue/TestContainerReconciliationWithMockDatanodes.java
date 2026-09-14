@@ -325,17 +325,14 @@ public class TestContainerReconciliationWithMockDatanodes {
     final long blockLocalId = 0L;
     final int chunksPerBlock = 3;
     final int logicalLen = 512;
-    Path reconcileDir = Files.createTempDirectory("compressed-reconcile");
 
-    List<MockDatanode> compressedNodes = new ArrayList<>();
-    for (int i = 0; i < 2; i++) {
-      DatanodeDetails dnDetails = randomDatanodeDetails();
-      dnDetails.setHostName("compressed-dn" + (i + 1));
-      MockDatanode dn = new MockDatanode(dnDetails, reconcileDir);
+    // Reuse existing mock datanodes from @BeforeAll to avoid registering a
+    // second VolumeHealthMetrics-DATA_VOLUME source per JVM.
+    List<MockDatanode> compressedNodes = datanodes.subList(0, 2);
+    for (MockDatanode dn : compressedNodes) {
       dn.addContainerWithCompressedBlocks(compressedContainerId, blockLocalId,
           chunksPerBlock, logicalLen);
       dn.scanContainer(compressedContainerId);
-      compressedNodes.add(dn);
     }
 
     long uniqueChecksums = compressedNodes.stream()
