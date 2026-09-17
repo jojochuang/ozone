@@ -158,6 +158,20 @@ volume.getBucket(bucketName).setCompressionCodec(CompressionCodec.ZSTD);
 * Reconcile: `testCompressedMultiChunkBlockReconciliation` — multi-chunk compressed block repair via mock datanodes.
 * CLI: handler and converter unit tests in `hadoop-ozone/cli-shell`.
 
+## Benchmarking
+
+Manual MiniOzone write/read benchmarks compare **NONE**, **ZSTD**, **SNAPPY**, **LZ4**, and **GZIP** against a **pre-compression baseline** (git worktree at commit before the feature).
+
+```bash
+bash dev-support/run-transparent-compression-benchmark.sh
+```
+
+* Tests: `TransparentCompressionWriteReadBenchmark`, `OzoneWriteReadBaselineBenchmark` (enabled only with `-Dozone.run.benchmark=true`).
+* Default sizes: 1KB, 1MB, 10MB, 100MB; 5 files per round; 1 warmup + 3 measured rounds.
+* Report: `dev-support/compression-benchmark/REPORT.md` (mean/median latency and throughput; stored/logical ratio per codec).
+
+Results are for local regression analysis only, not production SLAs.
+
 ## Implementation plan (follow-on)
 
 | Item | Priority |
