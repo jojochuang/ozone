@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
@@ -38,7 +40,6 @@ import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerException;
 import org.apache.hadoop.ozone.HddsDatanodeService;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
-import org.apache.hadoop.ozone.TestDataUtil;
 import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
@@ -111,7 +112,7 @@ public class TestTransparentCompression {
     String keyName = "compressed-" + UUID.randomUUID();
     byte[] data = RandomUtils.secure().randomBytes(16 * 1024);
     ReplicationConfig replication = RatisReplicationConfig.getInstance(THREE);
-    TestDataUtil.createKey(bucket, keyName, replication, data);
+    writeKey(bucket, keyName, replication, data);
 
     try (InputStream in = bucket.readKey(keyName)) {
       assertArrayEquals(data, IOUtils.readFully(in, data.length));
@@ -140,7 +141,7 @@ public class TestTransparentCompression {
     String keyName = "compressible-" + UUID.randomUUID();
     byte[] data = compressiblePayload(16 * 1024);
     ReplicationConfig replication = RatisReplicationConfig.getInstance(THREE);
-    TestDataUtil.createKey(bucket, keyName, replication, data);
+    writeKey(bucket, keyName, replication, data);
 
     try (InputStream in = bucket.readKey(keyName)) {
       assertArrayEquals(data, IOUtils.readFully(in, data.length));
@@ -186,7 +187,7 @@ public class TestTransparentCompression {
     String keyName = "data.parquet";
     byte[] data = RandomUtils.secure().randomBytes(2048);
     ReplicationConfig replication = RatisReplicationConfig.getInstance(THREE);
-    TestDataUtil.createKey(bucket, keyName, replication, data);
+    writeKey(bucket, keyName, replication, data);
 
     OmKeyInfo keyInfo = omClient.getKeyInfo(new OmKeyArgs.Builder()
         .setVolumeName(volumeName)
@@ -195,6 +196,14 @@ public class TestTransparentCompression {
         .build(), false).getKeyInfo();
     assertEquals(CompressionCodec.NONE, keyInfo.getCompressionCodec());
     assertEquals(data.length, keyInfo.getDataSize());
+  }
+
+  private static void writeKey(OzoneBucket bucket, String keyName,
+      ReplicationConfig replication, byte[] data) throws IOException {
+    try (OutputStream out = bucket.createKey(keyName, data.length, replication,
+        Collections.emptyMap())) {
+      out.write(data);
+    }
   }
 
   private static byte[] compressiblePayload(int length) {
