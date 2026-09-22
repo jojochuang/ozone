@@ -101,7 +101,6 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
-import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
@@ -117,6 +116,7 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.PutSmallFi
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.ReadBlockRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.Type;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos.WriteChunkRequestProto;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.scm.ByteStringConversion;
 import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
@@ -2120,30 +2120,45 @@ public class KeyValueHandler extends Handler {
         }
       }
 
-      // Do not update block metadata in this container if we did not ingest any chunks for the block.
       if (!localOffset2Chunk.isEmpty()) {
-        List<ContainerProtos.ChunkInfo> allChunks = new ArrayList<>(localOffset2Chunk.values());
-        localBlockData.setChunks(allChunks);
-        // The peer's BCSID attests exactly the chunk list in its committed BlockData, so that list is the oracle for
-        // adopting it -- not the diff-derived peerChunkList, which omits chunks the peer's scanner marked unhealthy
-        // (and the in-loop unhealthy skip above does not clear allChunksSuccessful). Without this check a trailing
-        // unrepairable peer chunk lets the BCSID advance past data we do not hold: the replica would then admit
-        // reads it cannot serve and look complete to SCM's sequenceId-based source and delete selection.
-        adoptPeerBcsId = allChunksSuccessful && coversPeerBlock(peerBlockData, localOffset2Chunk);
+        localBlockData.setChunks(new ArrayList<>(localOffset2Chunk.values()));
+        adoptPeerBcsId = shouldAdoptPeerBcsId(allChunksSuccessful, peerBlockData, localOffset2Chunk);
         adoptedBcsId = adoptPeerBcsId ? maxBcsId : 0;
-        if (allChunksSuccessful && !adoptPeerBcsId) {
-          LOG.warn("Repaired all {} diff chunks for block {} in container {} from peer {}, but the local block does " +
-              "not cover the peer's committed chunk list. BCSID stays at the local value.",
-              peerChunkList.size(), localID, containerID, peer);
-        }
+        warnIfRepairedDiffWithoutFullPeerCoverage(
+            allChunksSuccessful, adoptPeerBcsId, peerChunkList.size(), localID, containerID, peer);
         putBlockForClosedContainer(container, localBlockData, maxBcsId, adoptPeerBcsId, false);
-        // Invalidate the file handle cache, so new read requests get the new file if one was created.
         chunkManager.finishWriteChunks(container, localBlockData);
       }
     }
 
     logBlockRepairOutcome(allChunksSuccessful, numSuccessfulChunks, peerChunkList.size(), localID, containerID, peer);
     return new BlockRepairResult(numSuccessfulChunks, adoptPeerBcsId, adoptedBcsId);
+  }
+
+  private static boolean shouldAdoptPeerBcsId(
+      boolean allChunksSuccessful,
+      ContainerProtos.BlockData peerBlockData,
+      NavigableMap<Long, ContainerProtos.ChunkInfo> localOffset2Chunk) {
+    // The peer's BCSID attests exactly the chunk list in its committed BlockData, so that list is the oracle for
+    // adopting it -- not the diff-derived peerChunkList, which omits chunks the peer's scanner marked unhealthy
+    // (and the in-loop unhealthy skip above does not clear allChunksSuccessful). Without this check a trailing
+    // unrepairable peer chunk lets the BCSID advance past data we do not hold: the replica would then admit
+    // reads it cannot serve and look complete to SCM's sequenceId-based source and delete selection.
+    return allChunksSuccessful && coversPeerBlock(peerBlockData, localOffset2Chunk);
+  }
+
+  private static void warnIfRepairedDiffWithoutFullPeerCoverage(
+      boolean allChunksSuccessful,
+      boolean adoptPeerBcsId,
+      int peerChunkListSize,
+      long localID,
+      long containerID,
+      DatanodeDetails peer) {
+    if (allChunksSuccessful && !adoptPeerBcsId) {
+      LOG.warn("Repaired all {} diff chunks for block {} in container {} from peer {}, but the local block does " +
+          "not cover the peer's committed chunk list. BCSID stays at the local value.",
+          peerChunkListSize, localID, containerID, peer);
+    }
   }
 
   private static void logBlockRepairOutcome(boolean allChunksSuccessful, int numSuccessfulChunks, int peerListSize,

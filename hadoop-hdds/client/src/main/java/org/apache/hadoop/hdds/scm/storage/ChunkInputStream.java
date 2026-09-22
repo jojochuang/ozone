@@ -562,11 +562,11 @@ public class ChunkInputStream extends InputStream
    * override this method to ignore {@code client} and read through their own mechanism.
    */
   private ByteBuffer[] readChunk(
-      ChunkInfo chunk, XceiverClientSpi client, DatanodeBlockID blockID,
-      List<Validator> validators, Token<? extends TokenIdentifier> token) throws IOException {
+      ChunkInfo chunk, XceiverClientSpi client, DatanodeBlockID chunkBlockId,
+      List<Validator> chunkValidators, Token<? extends TokenIdentifier> token) throws IOException {
     Objects.requireNonNull(client, "client");
     final ReadChunkResponseProto readChunkResponse = ContainerProtocolCalls.readChunk(
-        client, chunk, blockID, validators, token);
+        client, chunk, chunkBlockId, chunkValidators, token);
 
     ByteBuffer[] chunkBuffers;
     if (readChunkResponse.hasData()) {

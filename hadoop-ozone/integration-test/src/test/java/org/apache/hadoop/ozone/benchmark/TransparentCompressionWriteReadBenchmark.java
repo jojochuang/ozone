@@ -136,10 +136,14 @@ public class TransparentCompressionWriteReadBenchmark {
 
   private static CompressionCodec[] codecsToRun() {
     String prop = System.getProperty("ozone.benchmark.codecs");
-    if (prop == null || prop.trim().isEmpty()) {
+    if (prop == null) {
       return CODECS;
     }
-    String[] names = prop.split(",");
+    String trimmedCodecs = prop.trim();
+    if (trimmedCodecs.isEmpty()) {
+      return CODECS;
+    }
+    String[] names = trimmedCodecs.split(",");
     CompressionCodec[] codecs = new CompressionCodec[names.length];
     for (int i = 0; i < names.length; i++) {
       codecs[i] = CompressionCodec.valueOf(names[i].trim().toUpperCase());
