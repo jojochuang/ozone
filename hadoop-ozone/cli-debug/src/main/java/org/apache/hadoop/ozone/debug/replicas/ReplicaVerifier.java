@@ -18,13 +18,20 @@
 package org.apache.hadoop.ozone.debug.replicas;
 
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 
 /**
  * Functional interface for implementing a block verifier.
  */
 public interface ReplicaVerifier {
-  BlockVerificationResult verifyBlock(DatanodeDetails datanode, OmKeyLocationInfo keyLocation);
+  default BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation) {
+    return verifyBlock(datanode, keyLocation, CompressionCodec.NONE);
+  }
+
+  BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation, CompressionCodec compressionCodec);
 
   String getType();
 }

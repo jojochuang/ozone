@@ -561,7 +561,7 @@ public class ChunkInputStream extends InputStream
    * Subclasses that do not use an xceiver client (e.g. local short-circuit reads) should
    * override this method to ignore {@code client} and read through their own mechanism.
    */
-  private static ByteBuffer[] readChunk(
+  private ByteBuffer[] readChunk(
       ChunkInfo chunk, XceiverClientSpi client, DatanodeBlockID blockID,
       List<Validator> validators, Token<? extends TokenIdentifier> token) throws IOException {
     Objects.requireNonNull(client, "client");
@@ -580,7 +580,7 @@ public class ChunkInputStream extends InputStream
       throw new IOException("Unexpected error while reading chunk data " +
           "from container. No data returned.");
     }
-    return decompressChunkBuffers(chunkBuffers, (int) readChunkInfo.getLen());
+    return decompressChunkBuffers(chunkBuffers, (int) chunk.getLen());
   }
 
   private ByteBuffer[] decompressChunkBuffers(ByteBuffer[] chunkBuffers,

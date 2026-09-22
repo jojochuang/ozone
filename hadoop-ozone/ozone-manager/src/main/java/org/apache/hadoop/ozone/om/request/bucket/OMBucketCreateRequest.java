@@ -415,6 +415,29 @@ public class OMBucketCreateRequest extends OMClientRequest {
       processingPhase = RequestProcessingPhase.PRE_PROCESS,
       requestType = Type.CreateBucket
   )
+  public static OMRequest disallowCreateBucketWithCompressionCodec(
+      OMRequest req, ValidationContext ctx) throws OMException {
+    if (!ctx.versionManager()
+        .isAllowed(OMLayoutFeature.COMPRESSION_SUPPORT)) {
+      BucketInfo bucketInfo = req.getCreateBucketRequest().getBucketInfo();
+      if (bucketInfo.hasCompressionCodec()
+          && bucketInfo.getCompressionCodec()
+          != OzoneManagerProtocolProtos.CompressionCodecProto.COMPRESSION_NONE) {
+        throw new OMException("Cluster does not have the compression support"
+            + " feature finalized yet, but the request contains a compression"
+            + " codec. Rejecting the request, please finalize the cluster"
+            + " upgrade and then try again.",
+            OMException.ResultCodes.NOT_SUPPORTED_OPERATION_PRIOR_FINALIZATION);
+      }
+    }
+    return req;
+  }
+
+  @RequestFeatureValidator(
+      conditions = ValidationCondition.CLUSTER_NEEDS_FINALIZATION,
+      processingPhase = RequestProcessingPhase.PRE_PROCESS,
+      requestType = Type.CreateBucket
+  )
   public static OMRequest disallowCreateBucketWithECReplicationConfig(
       OMRequest req, ValidationContext ctx) throws OMException {
     if (!ctx.versionManager()

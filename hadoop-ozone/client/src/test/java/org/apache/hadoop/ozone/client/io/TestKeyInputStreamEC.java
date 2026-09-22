@@ -70,7 +70,7 @@ public class TestKeyInputStreamEC {
     BlockInputStreamFactory mockStreamFactory =
         mock(BlockInputStreamFactory.class);
     when(mockStreamFactory.create(any(), any(), any(), any(),
-        any(), any(), any())).thenReturn(blockInputStream);
+        any(), any(), any(), any())).thenReturn(blockInputStream);
 
     OzoneClientConfig clientConfig = conf.getObject(OzoneClientConfig.class);
     clientConfig.setChecksumVerify(true);

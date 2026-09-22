@@ -79,7 +79,7 @@ flowchart LR
 
 * **Bucket property** `compressionCodec` (`NONE`, `ZSTD`, `SNAPPY`, `LZ4`, `GZIP` in protobuf; Phase 1 testing focuses on **ZSTD**).
 * **Key property** `compressionCodec` recorded at create/overwrite/multipart initiate when layout allows.
-* **Layout feature** `OMLayoutFeature.COMPRESSION_SUPPORT` (layout version **9**): OM rejects non-`NONE` codec until the cluster has finalized this layout version.
+* **Layout feature** `OMLayoutFeature.COMPRESSION_SUPPORT` (layout version **12** on current `master`; was **9** on the 2.1.x line): OM rejects non-`NONE` codec until the cluster has finalized this layout version.
 * **Policy** `CompressionPolicy.resolveKeyCodec()` chooses the effective codec per key:
   * Bucket codec must be enabled.
   * **Encryption at rest** on the key disables compression.
@@ -111,7 +111,7 @@ flowchart LR
 
 ### Layout feature (HDDS)
 
-* `HDDSLayoutFeature.COMPRESSED_CHUNKS` (layout version **10**): datanodes accept and persist client-compressed chunk layout.
+* `HDDSLayoutFeature.COMPRESSED_CHUNKS` (layout version **11** on current `master`; was **10** on the 2.1.x line): datanodes accept and persist client-compressed chunk layout.
 
 ## User-facing configuration
 

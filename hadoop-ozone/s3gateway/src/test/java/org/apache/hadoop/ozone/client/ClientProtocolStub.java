@@ -744,6 +744,13 @@ public class ClientProtocolStub implements ClientProtocol {
 
   }
 
+  @Override
+  public void setCompressionCodec(String volumeName, String bucketName,
+      org.apache.hadoop.ozone.compression.CompressionCodec compressionCodec)
+      throws IOException {
+
+  }
+
   @Deprecated
   @Override
   public void setEncryptionKey(String volumeName, String bucketName,

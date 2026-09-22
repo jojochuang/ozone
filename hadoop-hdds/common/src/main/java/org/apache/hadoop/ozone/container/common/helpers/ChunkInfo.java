@@ -34,6 +34,7 @@ public class ChunkInfo {
   private final String chunkName;
   private final long offset;
   private final long len;
+  private long logicalLen;
   private ChecksumData checksumData;
   private final Map<String, String> metadata;
   private ByteString stripeChecksum;
@@ -97,6 +98,10 @@ public class ChunkInfo {
       chunkInfo.setStripeChecksum(info.getStripeChecksum());
     }
 
+    if (info.hasLogicalLen()) {
+      chunkInfo.setLogicalLen(info.getLogicalLen());
+    }
+
     return chunkInfo;
   }
 
@@ -112,6 +117,9 @@ public class ChunkInfo {
     builder.setChunkName(this.getChunkName());
     builder.setOffset(this.getOffset());
     builder.setLen(this.getLen());
+    if (hasLogicalLen()) {
+      builder.setLogicalLen(logicalLen);
+    }
     if (checksumData == null) {
       // ChecksumData cannot be null while computing the protobufMessage.
       // Set it to NONE type (equivalent to non checksum).
@@ -155,6 +163,18 @@ public class ChunkInfo {
    */
   public long getLen() {
     return len;
+  }
+
+  public boolean hasLogicalLen() {
+    return logicalLen > 0;
+  }
+
+  public long getLogicalLen() {
+    return logicalLen;
+  }
+
+  public void setLogicalLen(long logicalLen) {
+    this.logicalLen = logicalLen;
   }
 
   /**

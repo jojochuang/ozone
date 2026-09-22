@@ -102,6 +102,9 @@ public class ChunkKeyHandler extends KeyHandler {
         jsonGen.writeStringField("volumeName", volumeName);
         jsonGen.writeStringField("bucketName", bucketName);
         jsonGen.writeStringField("name", keyName);
+        jsonGen.writeNumberField("dataSize", keyInfo.getDataSize());
+        jsonGen.writeStringField("compressionCodec",
+            keyInfo.getCompressionCodec().name());
 
         // Start keyLocations array
         jsonGen.writeArrayFieldStart("keyLocations");
@@ -180,6 +183,9 @@ public class ChunkKeyHandler extends KeyHandler {
                   jsonGen.writeStartObject();
                   jsonGen.writeNumberField("offset", chunk.getOffset());
                   jsonGen.writeNumberField("len", chunk.getLen());
+                  if (chunk.hasLogicalLen() && chunk.getLogicalLen() > 0) {
+                    jsonGen.writeNumberField("logicalLen", chunk.getLogicalLen());
+                  }
 
                   if (chunk.hasChecksumData()) {
                     jsonGen.writeArrayFieldStart("checksums");
@@ -207,6 +213,32 @@ public class ChunkKeyHandler extends KeyHandler {
                 }
 
                 jsonGen.writeEndArray(); // End chunks array
+                long totalStoredLen = 0;
+                long totalLogicalLen = 0;
+                for (ContainerProtos.ChunkInfo chunk : blockData.getChunksList()) {
+                  totalStoredLen += chunk.getLen();
+                  if (chunk.hasLogicalLen() && chunk.getLogicalLen() > 0) {
+                    totalLogicalLen += chunk.getLogicalLen();
+                  } else {
+                    totalLogicalLen += chunk.getLen();
+                  }
+                }
+                if (blockData.hasCompressionCodec()
+                    && blockData.getCompressionCodec()
+                    != ContainerProtos.CompressionCodecProto.COMPRESSION_NONE
+                    && blockData.getSize() > totalLogicalLen) {
+                  totalLogicalLen = blockData.getSize();
+                }
+                jsonGen.writeNumberField("totalStoredLen", totalStoredLen);
+                jsonGen.writeNumberField("totalLogicalLen", totalLogicalLen);
+                if (totalLogicalLen > 0) {
+                  jsonGen.writeNumberField("storedToLogicalRatio",
+                      (double) totalStoredLen / totalLogicalLen);
+                }
+                if (blockData.hasCompressionCodec()) {
+                  jsonGen.writeStringField("compressionCodec",
+                      blockData.getCompressionCodec().name());
+                }
                 jsonGen.writeEndObject(); // End blockData object
 
                 if (isECKey) {

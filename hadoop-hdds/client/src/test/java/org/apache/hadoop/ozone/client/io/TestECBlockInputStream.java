@@ -48,6 +48,7 @@ import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -620,7 +621,8 @@ public class TestECBlockInputStream {
         Pipeline pipeline, Token<OzoneBlockTokenIdentifier> token,
         XceiverClientFactory xceiverFactory,
         Function<BlockID, BlockLocationInfo> refreshFunction,
-        OzoneClientConfig config) {
+        OzoneClientConfig config,
+        CompressionCodec compressionCodec) {
       TestBlockInputStream stream = new TestBlockInputStream(
           blockInfo.getBlockID(), blockInfo.getLength(),
           (byte)blockStreams.size());

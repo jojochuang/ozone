@@ -31,6 +31,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.StorageContainerExcep
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.ozone.client.io.BlockInputStreamFactoryImpl;
 import org.apache.hadoop.ozone.common.OzoneChecksumException;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 
 /**
@@ -55,7 +56,8 @@ public class ChecksumVerifier implements ReplicaVerifier {
   }
 
   @Override
-  public BlockVerificationResult verifyBlock(DatanodeDetails datanode, OmKeyLocationInfo keyLocation) {
+  public BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation, CompressionCodec compressionCodec) {
     Pipeline pipeline = keyLocation.getPipeline().copyForReadFromNode(datanode);
 
     try (InputStream is = new BlockInputStreamFactoryImpl().create(
@@ -65,7 +67,8 @@ public class ChecksumVerifier implements ReplicaVerifier {
         keyLocation.getToken(),
         xceiverClientManager,
         null,
-        conf.getObject(OzoneClientConfig.class))) {
+        conf.getObject(OzoneClientConfig.class),
+        compressionCodec)) {
       IOUtils.copyLarge(is, NullOutputStream.INSTANCE);
       return BlockVerificationResult.pass();
     } catch (IOException e) {

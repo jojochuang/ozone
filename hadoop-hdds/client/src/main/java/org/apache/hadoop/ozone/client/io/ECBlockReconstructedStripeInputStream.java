@@ -53,6 +53,7 @@ import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
 import org.apache.hadoop.io.ByteBufferPool;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.ozone.erasurecode.rawcoder.RawErasureDecoder;
 import org.apache.ozone.erasurecode.rawcoder.util.CodecUtil;
 import org.apache.ratis.util.Preconditions;
@@ -159,8 +160,23 @@ public class ECBlockReconstructedStripeInputStream extends ECBlockInputStream {
       ByteBufferPool byteBufferPool,
       ExecutorService ecReconstructExecutor,
       OzoneClientConfig config) {
+    this(repConfig, blockInfo, xceiverClientFactory, refreshFunction,
+        streamFactory, byteBufferPool, ecReconstructExecutor, config,
+        CompressionCodec.NONE);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public ECBlockReconstructedStripeInputStream(ECReplicationConfig repConfig,
+      BlockLocationInfo blockInfo,
+      XceiverClientFactory xceiverClientFactory,
+      Function<BlockID, BlockLocationInfo> refreshFunction,
+      BlockInputStreamFactory streamFactory,
+      ByteBufferPool byteBufferPool,
+      ExecutorService ecReconstructExecutor,
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) {
     super(repConfig, blockInfo, xceiverClientFactory,
-        refreshFunction, streamFactory, config);
+        refreshFunction, streamFactory, config, compressionCodec);
     this.byteBufferPool = byteBufferPool;
     this.executor = ecReconstructExecutor;
 

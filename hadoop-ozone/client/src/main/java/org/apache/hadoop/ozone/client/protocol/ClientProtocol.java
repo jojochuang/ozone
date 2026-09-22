@@ -1348,6 +1348,18 @@ public interface ClientProtocol {
       ReplicationConfig replicationConfig) throws IOException;
 
   /**
+   * Set Bucket compression codec.
+   *
+   * @param volumeName       Name of the Volume.
+   * @param bucketName       Name of the Bucket.
+   * @param compressionCodec The compression codec to set on bucket.
+   * @throws IOException
+   */
+  void setCompressionCodec(String volumeName, String bucketName,
+      org.apache.hadoop.ozone.compression.CompressionCodec compressionCodec)
+      throws IOException;
+
+  /**
    * Set Bucket Encryption Key (BEK).
    *
    * @param volumeName

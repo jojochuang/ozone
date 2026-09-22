@@ -28,6 +28,7 @@ import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.protocol.StorageType;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 
 /**
@@ -74,6 +75,11 @@ public final class BucketArgs {
    */
   private final BucketLayout bucketLayout;
 
+  /**
+   * Default transparent compression codec for keys in this bucket.
+   */
+  private final CompressionCodec compressionCodec;
+
   private BucketArgs(Builder b) {
     acls = b.acls == null ? ImmutableList.of() : ImmutableList.copyOf(b.acls);
     versioning = b.versioning;
@@ -87,6 +93,7 @@ public final class BucketArgs {
     bucketLayout = b.bucketLayout;
     owner = b.owner;
     defaultReplicationConfig = b.defaultReplicationConfig;
+    compressionCodec = b.compressionCodec;
   }
 
   /**
@@ -186,6 +193,13 @@ public final class BucketArgs {
   }
 
   /**
+   * Returns the default compression codec for this bucket.
+   */
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
+  /**
    * Builder for OmBucketInfo.
    */
   public static class Builder {
@@ -201,6 +215,7 @@ public final class BucketArgs {
     private BucketLayout bucketLayout;
     private String owner;
     private DefaultReplicationConfig defaultReplicationConfig;
+    private CompressionCodec compressionCodec;
 
     public Builder() {
       quotaInBytes = OzoneConsts.QUOTA_RESET;
@@ -271,6 +286,11 @@ public final class BucketArgs {
     public BucketArgs.Builder setDefaultReplicationConfig(
         DefaultReplicationConfig defaultReplConfig) {
       defaultReplicationConfig = defaultReplConfig;
+      return this;
+    }
+
+    public BucketArgs.Builder setCompressionCodec(CompressionCodec codec) {
+      compressionCodec = codec;
       return this;
     }
 

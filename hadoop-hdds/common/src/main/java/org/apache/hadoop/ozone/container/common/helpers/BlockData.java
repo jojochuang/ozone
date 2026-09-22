@@ -67,6 +67,9 @@ public class BlockData {
    */
   private long size;
 
+  private ContainerProtos.CompressionCodecProto compressionCodec =
+      ContainerProtos.CompressionCodecProto.COMPRESSION_NONE;
+
   /**
    * Constructs a BlockData Object.
    *
@@ -107,6 +110,9 @@ public class BlockData {
       blockData.addMetadata(meta.getKey(), meta.getValue(), CodecException::new);
     }
     blockData.setChunks(data.getChunksList());
+    if (data.hasCompressionCodec()) {
+      blockData.setCompressionCodec(data.getCompressionCodec());
+    }
     if (data.hasSize() && data.getSize() != blockData.getSize()) {
       throw new CodecException("Size mismatch: size (=" + data.getSize()
           + ") != sum of chunks (=" + blockData.getSize()
@@ -138,6 +144,9 @@ public class BlockData {
     }
     builder.addAllChunks(getChunks());
     builder.setSize(size);
+    if (isCompressionEnabled()) {
+      builder.setCompressionCodec(compressionCodec);
+    }
     return builder.build();
   }
 
@@ -198,7 +207,7 @@ public class BlockData {
       }
       list.add(chunkInfo);
     }
-    size += chunkInfo.getLen();
+    size += chunkLogicalSize(chunkInfo);
   }
 
   /**
@@ -220,7 +229,7 @@ public class BlockData {
     }
 
     if (removed) {
-      size -= chunkInfo.getLen();
+      size -= chunkLogicalSize(chunkInfo);
     }
     return removed;
   }
@@ -267,7 +276,7 @@ public class BlockData {
       } else if (n == 1) {
         ContainerProtos.ChunkInfo singleChunk = chunks.get(0);
         chunkList = singleChunk;
-        size = singleChunk.getLen();
+        size = chunkLogicalSize(singleChunk);
       } else {
         chunkList = chunks;
         size = computeSize(chunks);
@@ -277,8 +286,28 @@ public class BlockData {
 
   static long computeSize(List<ContainerProtos.ChunkInfo> chunks) {
     return chunks.stream()
-        .mapToLong(ContainerProtos.ChunkInfo::getLen)
+        .mapToLong(BlockData::chunkLogicalSize)
         .sum();
+  }
+
+  static long chunkLogicalSize(ContainerProtos.ChunkInfo chunk) {
+    return chunk.hasLogicalLen() ? chunk.getLogicalLen() : chunk.getLen();
+  }
+
+  public ContainerProtos.CompressionCodecProto getCompressionCodec() {
+    return compressionCodec;
+  }
+
+  public void setCompressionCodec(
+      ContainerProtos.CompressionCodecProto codec) {
+    this.compressionCodec = codec == null
+        ? ContainerProtos.CompressionCodecProto.COMPRESSION_NONE
+        : codec;
+  }
+
+  public boolean isCompressionEnabled() {
+    return compressionCodec != null
+        && compressionCodec != ContainerProtos.CompressionCodecProto.COMPRESSION_NONE;
   }
 
   /**

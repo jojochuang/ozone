@@ -26,6 +26,7 @@ import org.apache.hadoop.hdds.scm.OzoneClientConfig;
 import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 
 /**
  * Interface used by factories which create ECBlockInput streams for
@@ -48,10 +49,12 @@ public interface ECBlockInputStreamFactory {
    * @param refreshFunction Function to refresh the block location if needed
    * @return BlockExtendedInputStream of the correct type.
    */
+  @SuppressWarnings("checkstyle:ParameterNumber")
   BlockExtendedInputStream create(boolean missingLocations,
       List<DatanodeDetails> failedLocations, ReplicationConfig repConfig,
       BlockLocationInfo blockInfo,
       XceiverClientFactory xceiverFactory,
       Function<BlockID, BlockLocationInfo> refreshFunction,
-      OzoneClientConfig config);
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec);
 }

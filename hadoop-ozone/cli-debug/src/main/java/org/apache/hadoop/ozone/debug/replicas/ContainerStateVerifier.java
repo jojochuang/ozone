@@ -87,7 +87,9 @@ public class ContainerStateVerifier implements ReplicaVerifier {
   }
 
   @Override
-  public BlockVerificationResult verifyBlock(DatanodeDetails datanode, OmKeyLocationInfo keyLocation) {
+  public BlockVerificationResult verifyBlock(DatanodeDetails datanode,
+      OmKeyLocationInfo keyLocation,
+      org.apache.hadoop.ozone.compression.CompressionCodec compressionCodec) {
     try {
       StringBuilder replicaCheckMsg = new StringBuilder().append("Replica state is ");
       boolean pass = false;

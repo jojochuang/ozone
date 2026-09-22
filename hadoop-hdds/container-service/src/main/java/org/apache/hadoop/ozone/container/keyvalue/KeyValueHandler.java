@@ -100,6 +100,8 @@ import java.util.stream.Collectors;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.client.BlockID;
+import org.apache.hadoop.hdds.client.RatisReplicationConfig;
+import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.conf.StorageUnit;
@@ -2030,7 +2032,7 @@ public class KeyValueHandler extends Handler {
     blkInfo.setUnderConstruction(true);
     OzoneClientConfig readConfig = createReconcileReadConfig();
     try (BlockInputStream blockInputStream = (BlockInputStream) blockInputStreamFactory.create(
-        RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE),
+        RatisReplicationConfig.getInstance(ReplicationFactor.ONE),
         blkInfo, pipeline, blockToken, dnClient.getXceiverClientManager(),
         null, readConfig,
         org.apache.hadoop.ozone.compression.CompressionCodec.NONE)) {

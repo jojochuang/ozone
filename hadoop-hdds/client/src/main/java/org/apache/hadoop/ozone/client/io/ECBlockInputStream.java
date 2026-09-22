@@ -44,6 +44,7 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.ByteReaderStrategy;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +75,7 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
   private boolean closed = false;
   private boolean seeked = false;
   private OzoneClientConfig config;
+  private final CompressionCodec compressionCodec;
 
   protected ECReplicationConfig getRepConfig() {
     return repConfig;
@@ -112,6 +114,17 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
       Function<BlockID, BlockLocationInfo> refreshFunction,
       BlockInputStreamFactory streamFactory,
       OzoneClientConfig config) {
+    this(repConfig, blockInfo, xceiverClientFactory, refreshFunction,
+        streamFactory, config, CompressionCodec.NONE);
+  }
+
+  public ECBlockInputStream(ECReplicationConfig repConfig,
+      BlockLocationInfo blockInfo,
+      XceiverClientFactory xceiverClientFactory,
+      Function<BlockID, BlockLocationInfo> refreshFunction,
+      BlockInputStreamFactory streamFactory,
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) {
     this.repConfig = repConfig;
     this.ecChunkSize = repConfig.getEcChunkSize();
     this.blockInfo = blockInfo;
@@ -123,6 +136,8 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
     this.blockStreams =
         new BlockExtendedInputStream[repConfig.getRequiredNodes()];
     this.config = config;
+    this.compressionCodec = compressionCodec != null ?
+        compressionCodec : CompressionCodec.NONE;
 
     this.stripeSize = (long)ecChunkSize * repConfig.getData();
     setBlockLocations(this.blockInfo.getPipeline());
@@ -192,7 +207,7 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
           blkInfo, pipeline,
           blockInfo.getToken(), xceiverClientFactory,
           ecPipelineRefreshFunction(locationIndex + 1, refreshFunction),
-          config);
+          config, compressionCodec);
       blockStreams[locationIndex] = stream;
       LOG.debug("{}: created stream [{}]: {}", this, locationIndex, stream);
     }

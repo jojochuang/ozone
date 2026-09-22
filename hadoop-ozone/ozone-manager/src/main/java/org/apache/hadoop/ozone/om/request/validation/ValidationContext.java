@@ -22,6 +22,7 @@ import org.apache.hadoop.hdds.annotation.InterfaceStability;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneManagerUtils;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.upgrade.LayoutVersionManager;
 
 /**
@@ -49,6 +50,12 @@ public interface ValidationContext {
       throws IOException;
 
   /**
+   * Gets bucket metadata for the given volume and bucket.
+   */
+  OmBucketInfo getBucketInfo(String volumeName, String bucketName)
+      throws IOException;
+
+  /**
    * Creates a context object based on the given parameters.
    *
    * @param versionManager the {@link LayoutVersionManager} of the service
@@ -67,6 +74,13 @@ public interface ValidationContext {
       public BucketLayout getBucketLayout(String volumeName, String bucketName)
           throws IOException {
         return OzoneManagerUtils.getBucketLayout(omMetadataManager, volumeName,
+            bucketName);
+      }
+
+      @Override
+      public OmBucketInfo getBucketInfo(String volumeName, String bucketName)
+          throws IOException {
+        return OzoneManagerUtils.getBucketInfo(omMetadataManager, volumeName,
             bucketName);
       }
     };

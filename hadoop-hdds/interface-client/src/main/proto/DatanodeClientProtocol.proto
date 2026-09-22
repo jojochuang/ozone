@@ -326,12 +326,21 @@ message CloseContainerResponseProto {
   optional int64 containerID = 2;
 }
 
+enum CompressionCodecProto {
+  COMPRESSION_NONE = 0;
+  COMPRESSION_ZSTD = 1;
+  COMPRESSION_SNAPPY = 2;
+  COMPRESSION_LZ4 = 3;
+  COMPRESSION_GZIP = 4;
+}
+
 message BlockData {
   required DatanodeBlockID blockID = 1;
   optional int64 flags = 2; // for future use.
   repeated KeyValue metadata = 3;
   repeated ChunkInfo chunks = 4;
   optional int64 size = 5;
+  optional CompressionCodecProto compressionCodec = 6 [default = COMPRESSION_NONE];
 }
 
 // Block Messages.
@@ -431,6 +440,7 @@ message ChunkInfo {
   repeated KeyValue metadata = 4;
   required ChecksumData checksumData =5;
   optional bytes stripeChecksum = 6;
+  optional uint64 logicalLen = 7;
 }
 
 message ChunkInfoList {

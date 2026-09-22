@@ -35,6 +35,7 @@ import org.apache.hadoop.hdds.scm.XceiverClientFactory;
 import org.apache.hadoop.hdds.scm.XceiverClientReply;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.ozone.common.ChunkBuffer;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 
@@ -80,8 +81,27 @@ public class RatisBlockOutputStream extends BlockOutputStream
       ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
       Supplier<ExecutorService> blockOutputStreamResourceProvider
   ) throws IOException {
+    this(blockID, blockSize, xceiverClientManager, pipeline, bufferPool, config,
+        token, clientMetrics, streamBufferArgs, CompressionCodec.NONE,
+        blockOutputStreamResourceProvider);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public RatisBlockOutputStream(
+      BlockID blockID,
+      long blockSize,
+      XceiverClientFactory xceiverClientManager,
+      Pipeline pipeline,
+      BufferPool bufferPool,
+      OzoneClientConfig config,
+      Token<? extends TokenIdentifier> token,
+      ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
+      CompressionCodec compressionCodec,
+      Supplier<ExecutorService> blockOutputStreamResourceProvider
+  ) throws IOException {
     super(blockID, blockSize, xceiverClientManager, pipeline,
-        bufferPool, config, token, clientMetrics, streamBufferArgs, blockOutputStreamResourceProvider);
+        bufferPool, config, token, clientMetrics, streamBufferArgs,
+        compressionCodec, blockOutputStreamResourceProvider);
     this.commitWatcher = new CommitWatcher(bufferPool, getXceiverClient());
   }
 
