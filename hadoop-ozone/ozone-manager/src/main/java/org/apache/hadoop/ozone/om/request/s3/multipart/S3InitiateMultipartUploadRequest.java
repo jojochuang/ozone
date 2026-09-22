@@ -31,6 +31,8 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionPolicy;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneConfigUtil;
 import org.apache.hadoop.ozone.om.OzoneManager;
@@ -191,12 +193,17 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
               bucketInfo != null ?
                   bucketInfo.getDefaultReplicationConfig() :
                   null, ozoneManager);
+      final CompressionCodec compressionCodec = CompressionPolicy.resolveKeyCodec(
+          bucketInfo, keyName, keyArgs.hasFileEncryptionInfo() ?
+              OMPBHelper.convert(keyArgs.getFileEncryptionInfo()) : null,
+          ozoneManager.getConfig());
 
       multipartKeyInfo = new OmMultipartKeyInfo.Builder()
           .setUploadID(keyArgs.getMultipartUploadID())
           .setCreationTime(keyArgs.getModificationTime())
           .setReplicationConfig(
               replicationConfig)
+          .setCompressionCodec(compressionCodec)
           .setObjectID(objectID)
           .setUpdateID(transactionLogIndex)
           // Source of truth is the value stamped onto the proto in preExecute
@@ -211,6 +218,7 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
           .setCreationTime(keyArgs.getModificationTime())
           .setModificationTime(keyArgs.getModificationTime())
           .setReplicationConfig(replicationConfig)
+          .setCompressionCodec(compressionCodec)
           .setOmKeyLocationInfos(Collections.singletonList(
               new OmKeyLocationInfoGroup(0, new ArrayList<>(), true)))
           .setAcls(getAclsForKey(keyArgs, bucketInfo, pathInfo,
@@ -317,6 +325,32 @@ public class S3InitiateMultipartUploadRequest extends OMKeyRequest {
         .isAllowed(OMLayoutFeature.MPU_PARTS_TABLE_SPLIT)
         ? OmMultipartKeyInfo.SPLIT_PARTS_TABLE_SCHEMA_VERSION
         : OmMultipartKeyInfo.LEGACY_SCHEMA_VERSION;
+  }
+
+  @RequestFeatureValidator(
+      conditions = ValidationCondition.CLUSTER_NEEDS_FINALIZATION,
+      processingPhase = RequestProcessingPhase.PRE_PROCESS,
+      requestType = Type.InitiateMultiPartUpload
+  )
+  public static OMRequest disallowInitiateMultiPartUploadInCompressionBucket(
+      OMRequest req, ValidationContext ctx) throws OMException, IOException {
+    if (!ctx.versionManager()
+        .isAllowed(OMLayoutFeature.COMPRESSION_SUPPORT)) {
+      KeyArgs keyArgs = req.getInitiateMultiPartUploadRequest().getKeyArgs();
+      if (keyArgs.hasVolumeName() && keyArgs.hasBucketName()) {
+        OmBucketInfo bucketInfo = ctx.getBucketInfo(keyArgs.getVolumeName(),
+            keyArgs.getBucketName());
+        if (bucketInfo != null
+            && bucketInfo.getCompressionCodec().isEnabled()) {
+          throw new OMException("Cluster does not have the compression support"
+              + " feature finalized yet, but the target bucket has a"
+              + " compression codec configured. Rejecting the request, please"
+              + " finalize the cluster upgrade and then try again.",
+              OMException.ResultCodes.NOT_SUPPORTED_OPERATION_PRIOR_FINALIZATION);
+        }
+      }
+    }
+    return req;
   }
 
   @RequestFeatureValidator(

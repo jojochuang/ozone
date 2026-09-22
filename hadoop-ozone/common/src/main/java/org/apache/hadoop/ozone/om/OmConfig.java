@@ -28,6 +28,7 @@ import org.apache.hadoop.hdds.conf.ConfigTag;
 import org.apache.hadoop.hdds.conf.ConfigType;
 import org.apache.hadoop.hdds.conf.PostConstruct;
 import org.apache.hadoop.hdds.conf.ReconfigurableConfig;
+import org.apache.hadoop.ozone.compression.CompressionPolicy;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer.ACLType;
 
 /**
@@ -196,6 +197,15 @@ public class OmConfig extends ReconfigurableConfig {
   )
   private boolean sortDatanodesForWriteEnabled;
 
+  @Config(key = "ozone.om.compression.skip.extensions",
+      defaultValue = CompressionPolicy.DEFAULT_SKIP_EXTENSIONS,
+      type = ConfigType.STRING,
+      reconfigurable = true,
+      tags = {ConfigTag.OM, ConfigTag.OZONE},
+      description = "Comma-separated file extensions for which transparent "
+          + "compression is skipped even when enabled on the bucket.")
+  private String compressionSkipExtensions;
+
   public long getRatisBasedFinalizationTimeout() {
     return ratisBasedFinalizationTimeout;
   }
@@ -291,6 +301,14 @@ public class OmConfig extends ReconfigurableConfig {
         : ACLType.parseList(userDefaultRights);
   }
 
+  public String getCompressionSkipExtensions() {
+    return compressionSkipExtensions;
+  }
+
+  public void setCompressionSkipExtensions(String newValue) {
+    compressionSkipExtensions = newValue;
+  }
+
   public Set<ACLType> getGroupDefaultRights() {
     if (groupDefaultRightSet == null) {
       groupDefaultRightSet = getGroupDefaultRightSet();
@@ -339,7 +357,13 @@ public class OmConfig extends ReconfigurableConfig {
     maxUserVolumeCount = other.maxUserVolumeCount;
     userDefaultRights = other.userDefaultRights;
     groupDefaultRights = other.groupDefaultRights;
+    ignoreClientACLs = other.ignoreClientACLs;
     allowLeaderSkipLinearizableRead = other.allowLeaderSkipLinearizableRead;
+    followerReadLocalLeaseEnabled = other.followerReadLocalLeaseEnabled;
+    followerReadLocalLeaseLogLimit = other.followerReadLocalLeaseLogLimit;
+    followerReadLocalLeaseTimeMs = other.followerReadLocalLeaseTimeMs;
+    sortDatanodesForWriteEnabled = other.sortDatanodesForWriteEnabled;
+    compressionSkipExtensions = other.compressionSkipExtensions;
 
     validate();
   }
@@ -352,6 +376,8 @@ public class OmConfig extends ReconfigurableConfig {
     public static final String LIST_ALL_VOLUMES_ALLOWED = "ozone.om.volume.listall.allowed";
     public static final String SERVER_LIST_MAX_SIZE = "ozone.om.server.list.max.size";
     public static final String USER_MAX_VOLUME = "ozone.om.user.max.volume";
+    public static final String COMPRESSION_SKIP_EXTENSIONS =
+        "ozone.om.compression.skip.extensions";
   }
 
   /**

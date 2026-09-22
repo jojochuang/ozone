@@ -60,6 +60,8 @@ import org.apache.hadoop.ozone.common.Checksum;
 import org.apache.hadoop.ozone.common.ChecksumData;
 import org.apache.hadoop.ozone.common.ChunkBuffer;
 import org.apache.hadoop.ozone.common.OzoneChecksumException;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
+import org.apache.hadoop.ozone.compression.CompressionStreams;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.DirectBufferPool;
@@ -155,6 +157,7 @@ public class BlockOutputStream extends OutputStream {
   private final ContainerClientMetrics clientMetrics;
   private boolean allowPutBlockPiggybacking;
   private boolean supportIncrementalChunkList;
+  private final CompressionCodec compressionCodec;
 
   private CompletableFuture<Void> lastFlushFuture;
   private CompletableFuture<Void> allPendingFlushFutures = CompletableFuture.completedFuture(null);
@@ -179,6 +182,24 @@ public class BlockOutputStream extends OutputStream {
       ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
       Supplier<ExecutorService> blockOutputStreamResourceProvider
   ) throws IOException {
+    this(blockID, blockSize, xceiverClientManager, pipeline, bufferPool, config,
+        token, clientMetrics, streamBufferArgs, CompressionCodec.NONE,
+        blockOutputStreamResourceProvider);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public BlockOutputStream(
+      BlockID blockID,
+      long blockSize,
+      XceiverClientFactory xceiverClientManager,
+      Pipeline pipeline,
+      BufferPool bufferPool,
+      OzoneClientConfig config,
+      Token<? extends TokenIdentifier> token,
+      ContainerClientMetrics clientMetrics, StreamBufferArgs streamBufferArgs,
+      CompressionCodec compressionCodec,
+      Supplier<ExecutorService> blockOutputStreamResourceProvider
+  ) throws IOException {
     this.xceiverClientFactory = xceiverClientManager;
     this.config = config;
     this.blockID = new AtomicReference<>(blockID);
@@ -191,8 +212,15 @@ public class BlockOutputStream extends OutputStream {
         .setBlockID(blockID.getDatanodeBlockIDProtobufBuilder(replicationIndex))
         .addMetadata(keyValue);
     this.pipeline = pipeline;
+    this.compressionCodec = compressionCodec != null ?
+        compressionCodec : CompressionCodec.NONE;
+    if (this.compressionCodec.isEnabled()) {
+      this.containerBlockData.setCompressionCodec(
+          this.compressionCodec.toDnProto());
+    }
     // tell DataNode I will send incremental chunk list
-    this.supportIncrementalChunkList = canEnableIncrementalChunkList();
+    this.supportIncrementalChunkList = this.compressionCodec.isEnabled() ?
+        false : canEnableIncrementalChunkList();
     LOG.debug("incrementalChunkList is {}", supportIncrementalChunkList);
     if (supportIncrementalChunkList) {
       this.containerBlockData.addMetadata(INCREMENTAL_CHUNK_LIST_KV);
@@ -892,20 +920,34 @@ public class BlockOutputStream extends OutputStream {
    */
   private CompletableFuture<PutBlockResult> writeChunkToContainer(
       ChunkBuffer chunk, boolean putBlockPiggybacking, boolean close) throws IOException {
-    int effectiveChunkSize = chunk.remaining();
-    final long offset = chunkOffset.getAndAdd(effectiveChunkSize);
-    final ByteString data = chunk.toByteString(
-        bufferPool.byteStringConversion());
-    // chunk is incremental, don't cache its checksum
-    ChecksumData checksumData = checksum.computeChecksum(chunk, false);
+    final int logicalChunkSize = chunk.remaining();
+    final ByteString data;
+    final int effectiveChunkSize;
+    final ChecksumData checksumData;
+    if (compressionCodec.isEnabled()) {
+      final byte[] compressed = CompressionStreams.compress(compressionCodec,
+          chunk.toByteString(bufferPool.byteStringConversion()).toByteArray());
+      effectiveChunkSize = compressed.length;
+      data = ByteString.copyFrom(compressed);
+      checksumData = checksum.computeChecksum(compressed);
+    } else {
+      effectiveChunkSize = logicalChunkSize;
+      data = chunk.toByteString(bufferPool.byteStringConversion());
+      checksumData = checksum.computeChecksum(chunk, false);
+    }
+    final long offset = chunkOffset.getAndAdd(
+        segmentPhysicalLen(effectiveChunkSize));
     // side note: checksum object is shared with PutBlock's (blockData) checksum calc,
     // current impl does not support caching both
-    ChunkInfo chunkInfo = ChunkInfo.newBuilder()
+    ChunkInfo.Builder chunkInfoBuilder = ChunkInfo.newBuilder()
         .setChunkName(blockID.get().getLocalID() + "_chunk_" + ++chunkIndex)
         .setOffset(offset)
         .setLen(effectiveChunkSize)
-        .setChecksumData(checksumData.getProtoBufMessage())
-        .build();
+        .setChecksumData(checksumData.getProtoBufMessage());
+    if (compressionCodec.isEnabled()) {
+      chunkInfoBuilder.setLogicalLen(logicalChunkSize);
+    }
+    ChunkInfo chunkInfo = chunkInfoBuilder.build();
 
     long flushPos = totalWriteChunkLength;
 
@@ -917,7 +959,7 @@ public class BlockOutputStream extends OutputStream {
     final ChunkInfo previous = previousChunkInfo.getAndSet(chunkInfo);
     final long expectedOffset = previous == null ? 0
         : chunkInfo.getChunkName().equals(previous.getChunkName()) ?
-        previous.getOffset() : previous.getOffset() + previous.getLen();
+        previous.getOffset() : previous.getOffset() + segmentPhysicalLen(previous);
     if (chunkInfo.getOffset() != expectedOffset) {
       throw new IOException("Unexpected offset: "
           + chunkInfo.getOffset() + "(actual) != "
@@ -1163,6 +1205,16 @@ public class BlockOutputStream extends OutputStream {
   @VisibleForTesting
   public boolean isContainerAutoCreate() {
     return containerAutoCreate();
+  }
+
+  private long segmentPhysicalLen(long compressedLen) {
+    return compressionCodec.isEnabled()
+        ? CompressionStreams.CHUNK_HEADER_SIZE + compressedLen
+        : compressedLen;
+  }
+
+  private long segmentPhysicalLen(ChunkInfo chunk) {
+    return segmentPhysicalLen(chunk.getLen());
   }
 
   private boolean isFullChunk(ChunkInfo chunkInfo) {

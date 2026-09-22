@@ -836,12 +836,21 @@ message BucketInfo {
     optional uint64 snapshotUsedBytes = 21;
     optional uint64 snapshotUsedNamespace = 22;
     repeated hadoop.hdds.KeyValue tags = 23;
+    optional CompressionCodecProto compressionCodec = 24 [default = COMPRESSION_NONE];
 }
 
 enum BucketLayoutProto {
     LEGACY = 1;
     FILE_SYSTEM_OPTIMIZED = 2;
     OBJECT_STORE = 3;
+}
+
+enum CompressionCodecProto {
+    COMPRESSION_NONE = 0;
+    COMPRESSION_ZSTD = 1;
+    COMPRESSION_SNAPPY = 2;
+    COMPRESSION_LZ4 = 3;
+    COMPRESSION_GZIP = 4;
 }
 
 /**
@@ -910,6 +919,7 @@ message BucketArgs {
     optional hadoop.hdds.DefaultReplicationConfig defaultReplicationConfig = 11;
     optional BucketEncryptionInfoProto bekInfo = 12;
     repeated hadoop.hdds.KeyValue tags = 13;
+    optional CompressionCodecProto compressionCodec = 14;
 }
 
 message PrefixInfo {
@@ -1244,6 +1254,7 @@ message KeyInfo {
   // This allows a key to be created an committed atomically if the original has not
   // been modified.
     optional uint64 expectedDataGeneration = 22;
+    optional CompressionCodecProto compressionCodec = 23;
 }
 
 // KeyInfoProtoLight is a lightweight subset of KeyInfo message containing
@@ -1821,6 +1832,7 @@ message MultipartKeyInfo {
     optional string keyName = 13;
     optional string ownerName = 14;
     repeated OzoneAclInfo acls = 15;
+    optional CompressionCodecProto compressionCodec = 16;
 }
 
 message PartKeyInfo {

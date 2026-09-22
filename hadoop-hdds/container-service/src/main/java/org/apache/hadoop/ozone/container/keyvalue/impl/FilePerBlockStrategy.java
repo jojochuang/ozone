@@ -26,6 +26,8 @@ import static org.apache.hadoop.ozone.container.common.utils.StorageVolumeUtil.o
 import static org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils.limitReadSize;
 import static org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils.validateChunkForOverwrite;
 import static org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils.verifyChunkFileExists;
+import static org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout.readChunkPayloadOffset;
+import static org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout.segmentPhysicalLen;
 
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
@@ -56,6 +58,8 @@ import org.apache.hadoop.ozone.container.common.volume.HddsVolume;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainer;
 import org.apache.hadoop.ozone.container.keyvalue.KeyValueContainerData;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout.OzciIndex;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.BlockManager;
 import org.apache.hadoop.ozone.container.keyvalue.interfaces.ChunkManager;
 import org.apache.hadoop.util.Shell;
@@ -156,6 +160,7 @@ public class FilePerBlockStrategy implements ChunkManager {
 
     HddsVolume volume = containerData.getVolume();
 
+    final boolean compressedChunk = info.hasLogicalLen();
     FileChannel channel = null;
     boolean overwrite;
     try {
@@ -184,7 +189,25 @@ public class FilePerBlockStrategy implements ChunkManager {
           + chunkFile.getName(), CHUNK_FILE_INCONSISTENCY);
     }
 
-    ChunkUtils.writeData(channel, chunkFile.getName(), data, offset, chunkLength, volume);
+    if (compressedChunk) {
+      try {
+        CompressedChunkLayout.writeChunkHeader(channel, offset,
+            info.getLogicalLen(), chunkLength);
+      } catch (IOException e) {
+        onFailure(volume);
+        throw new StorageContainerException("Failed to write compressed chunk header for "
+            + chunkFile.getName(), CHUNK_FILE_INCONSISTENCY);
+      }
+      ChunkUtils.writeData(channel, chunkFile.getName(), data,
+          readChunkPayloadOffset(offset), chunkLength, volume);
+      files.getOzciIndex(chunkFile, doSyncWrite)
+          .addEntry(offset, info.getLogicalLen());
+    } else {
+      ChunkUtils.writeData(channel, chunkFile.getName(), data, offset, chunkLength, volume);
+    }
+
+    final long physicalChunkLen = compressedChunk
+        ? segmentPhysicalLen(chunkLength) : chunkLength;
 
     // Handle space accounting for overwrites that extend the file length.
     // For overwrites, we must distinguish between:
@@ -202,7 +225,7 @@ public class FilePerBlockStrategy implements ChunkManager {
     // - updateWriteStats(chunkLength, true): Updates I/O metrics (writeBytes, writeCount)
     //   but skips space updates because overwrite=true
     if (overwrite) {
-      long fileLengthAfterWrite = offset + chunkLength;
+      long fileLengthAfterWrite = offset + physicalChunkLen;
       if (fileLengthAfterWrite > fileLengthBeforeWrite) {
         long delta = fileLengthAfterWrite - fileLengthBeforeWrite;
         // Update disk space accounting for the file growth (delta only)
@@ -215,7 +238,7 @@ public class FilePerBlockStrategy implements ChunkManager {
     // Update I/O metrics (writeBytes, writeCount) and space metrics for new writes.
     // For overwrites (overwrite=true), this only updates I/O metrics.
     // For new writes (overwrite=false), this updates both I/O and space metrics.
-    containerData.updateWriteStats(chunkLength, overwrite);
+    containerData.updateWriteStats(physicalChunkLen, overwrite);
   }
 
   @Override
@@ -241,6 +264,9 @@ public class FilePerBlockStrategy implements ChunkManager {
 
     final long len = info.getLen();
     long offset = info.getOffset();
+    if (info.hasLogicalLen()) {
+      offset = readChunkPayloadOffset(offset);
+    }
     int bufferCapacity = ChunkManager.getBufferCapacityForChunkRead(info,
         defaultReadBufferCapacity);
 
@@ -287,6 +313,16 @@ public class FilePerBlockStrategy implements ChunkManager {
       BlockData blockData) throws IOException {
     final File chunkFile = getChunkFile(container, blockData.getBlockID());
     try {
+      if (blockData.isCompressionEnabled()) {
+        FileChannel channel = files.getChannel(chunkFile, doSyncWrite);
+        OzciIndex ozciIndex = files.getOzciIndex(chunkFile, doSyncWrite);
+        if (ozciIndex.getEntries().isEmpty()) {
+          CompressedChunkLayout.populateOzciIndexFromBlockFile(channel,
+              ozciIndex);
+        }
+        CompressedChunkLayout.writeOzciFooter(channel,
+            ozciIndex.getEntries());
+      }
       files.close(chunkFile);
       verifyChunkFileExists(chunkFile);
     } catch (IOException e) {
@@ -366,9 +402,18 @@ public class FilePerBlockStrategy implements ChunkManager {
 
     public FileChannel getChannel(File file, boolean sync)
         throws StorageContainerException {
+      return getOpenFile(file, sync).getChannel();
+    }
+
+    public OzciIndex getOzciIndex(File file, boolean sync)
+        throws StorageContainerException {
+      return getOpenFile(file, sync).getOzciIndex();
+    }
+
+    private OpenFile getOpenFile(File file, boolean sync)
+        throws StorageContainerException {
       try {
-        return files.get(file.getPath(),
-            () -> open(file, sync)).getChannel();
+        return files.get(file.getPath(), () -> open(file, sync));
       } catch (ExecutionException e) {
         if (e.getCause() instanceof IOException) {
           throw new UncheckedIOException((IOException) e.getCause());
@@ -414,6 +459,7 @@ public class FilePerBlockStrategy implements ChunkManager {
   private static final class OpenFile {
 
     private final RandomAccessFile file;
+    private final OzciIndex ozciIndex = new OzciIndex();
 
     private OpenFile(File file, boolean sync) throws FileNotFoundException {
       String mode = sync ? "rws" : "rw";
@@ -421,10 +467,26 @@ public class FilePerBlockStrategy implements ChunkManager {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Opened file {}", file);
       }
+      rebuildOzciIndexIfNeeded();
+    }
+
+    private void rebuildOzciIndexIfNeeded() {
+      try {
+        if (file.length() > CompressedChunkLayout.CHUNK_HEADER_SIZE) {
+          CompressedChunkLayout.populateOzciIndexFromBlockFile(
+              file.getChannel(), ozciIndex);
+        }
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
     }
 
     public FileChannel getChannel() {
       return file.getChannel();
+    }
+
+    public OzciIndex getOzciIndex() {
+      return ozciIndex;
     }
 
     public void close() {

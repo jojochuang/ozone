@@ -40,6 +40,7 @@ import org.apache.hadoop.hdds.scm.storage.BlockExtendedInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockInputStream;
 import org.apache.hadoop.hdds.scm.storage.BlockLocationInfo;
 import org.apache.hadoop.hdds.scm.storage.StreamBlockInputStream;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -70,7 +71,7 @@ public class TestBlockInputStreamFactoryImpl {
     BlockExtendedInputStream stream =
         factory.create(repConfig, blockInfo, blockInfo.getPipeline(),
             blockInfo.getToken(), null, null,
-            clientConfig);
+            clientConfig, CompressionCodec.NONE);
     if (streamReadBlockEnabled) {
       assertInstanceOf(StreamBlockInputStream.class, stream);
     } else {
@@ -94,7 +95,7 @@ public class TestBlockInputStreamFactoryImpl {
     BlockExtendedInputStream stream =
         factory.create(repConfig, blockInfo, blockInfo.getPipeline(),
             blockInfo.getToken(), null, null,
-            clientConfig);
+            clientConfig, CompressionCodec.NONE);
     assertInstanceOf(ECBlockInputStreamProxy.class, stream);
     assertEquals(stream.getBlockID(), blockInfo.getBlockID());
     assertEquals(stream.getLength(), blockInfo.getLength());

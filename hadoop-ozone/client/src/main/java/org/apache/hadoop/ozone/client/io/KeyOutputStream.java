@@ -54,6 +54,7 @@ import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.io.retry.RetryPolicy;
 import org.apache.hadoop.io_.retry.RetryPolicies;
 import org.apache.hadoop.ozone.OzoneManagerVersion;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartCommitUploadPartInfo;
@@ -696,6 +697,7 @@ public class KeyOutputStream extends OutputStream
     private StreamBufferArgs streamBufferArgs;
     private Supplier<ExecutorService> executorServiceSupplier;
     private OzoneManagerVersion ozoneManagerVersion;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
 
     public String getMultipartUploadID() {
       return multipartUploadID;
@@ -816,6 +818,15 @@ public class KeyOutputStream extends OutputStream
 
     public OzoneManagerVersion getOmVersion() {
       return ozoneManagerVersion;
+    }
+
+    public CompressionCodec getCompressionCodec() {
+      return compressionCodec;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
+      return this;
     }
 
     public KeyOutputStream build() {

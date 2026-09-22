@@ -62,6 +62,7 @@ import static org.apache.hadoop.ozone.container.checksum.DNContainerOperationCli
 import static org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion.DEFAULT_LAYOUT;
 import static org.apache.hadoop.ozone.container.common.impl.ContainerLayoutVersion.FILE_PER_BLOCK;
 import static org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils.getBlockMapKey;
+import static org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout.nextSegmentOffset;
 import static org.apache.ratis.util.Preconditions.assertSame;
 import static org.apache.ratis.util.Preconditions.assertTrue;
 
@@ -164,6 +165,7 @@ import org.apache.hadoop.ozone.container.common.volume.VolumeChoosingPolicyFacto
 import org.apache.hadoop.ozone.container.common.volume.VolumeSet;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.BlockUtils;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.ChunkUtils;
+import org.apache.hadoop.ozone.container.keyvalue.helpers.CompressedChunkLayout;
 import org.apache.hadoop.ozone.container.keyvalue.helpers.KeyValueContainerUtil;
 import org.apache.hadoop.ozone.container.keyvalue.impl.BlockManagerImpl;
 import org.apache.hadoop.ozone.container.keyvalue.impl.ChunkManagerFactory;
@@ -677,6 +679,7 @@ public class KeyValueHandler extends Handler {
       ContainerProtos.BlockData data = request.getPutBlock().getBlockData();
       BlockData blockData = BlockData.getFromProtoBuf(data);
       Objects.requireNonNull(blockData, "blockData == null");
+      validateCompressedBlockRequest(blockData);
 
       boolean endOfBlock = false;
       if (!request.getPutBlock().hasEof() || request.getPutBlock().getEof()) {
@@ -1078,6 +1081,52 @@ public class KeyValueHandler extends Handler {
     }
   }
 
+  private void validateCompressedBlockRequest(BlockData blockData)
+      throws StorageContainerException {
+    if (!blockData.isCompressionEnabled()) {
+      return;
+    }
+    if (!VersionedDatanodeFeatures.isFinalized(
+        HDDSLayoutFeature.COMPRESSED_CHUNKS)) {
+      throw new StorageContainerException(
+          "Compressed blocks are not supported before COMPRESSED_CHUNKS "
+              + "layout feature is finalized.",
+          UNSUPPORTED_REQUEST);
+    }
+    if (blockData.getMetadata().containsKey(INCREMENTAL_CHUNK_LIST)) {
+      throw new StorageContainerException(
+          "Incremental chunk list is not supported with compression.",
+          UNSUPPORTED_REQUEST);
+    }
+  }
+
+  private void validateCompressedChunkRequest(ChunkInfo chunkInfo,
+      BlockData blockData) throws StorageContainerException {
+    final boolean compressedChunk = chunkInfo.hasLogicalLen();
+    final boolean compressedBlock =
+        blockData != null && blockData.isCompressionEnabled();
+    if (!compressedChunk && !compressedBlock) {
+      return;
+    }
+    if (!VersionedDatanodeFeatures.isFinalized(
+        HDDSLayoutFeature.COMPRESSED_CHUNKS)) {
+      throw new StorageContainerException(
+          "Compressed chunks are not supported before COMPRESSED_CHUNKS "
+              + "layout feature is finalized.",
+          UNSUPPORTED_REQUEST);
+    }
+    if (compressedBlock && !compressedChunk) {
+      throw new StorageContainerException(
+          "Compressed block requires logicalLen on chunk metadata.",
+          INVALID_ARGUMENT);
+    }
+    if (compressedChunk && chunkInfo.getLogicalLen() <= 0) {
+      throw new StorageContainerException(
+          "logicalLen must be positive for compressed chunks.",
+          INVALID_ARGUMENT);
+    }
+  }
+
   /**
    * Handle Write Chunk operation. Calls ChunkManager to process the request.
    */
@@ -1110,6 +1159,7 @@ public class KeyValueHandler extends Handler {
       }
       final boolean isWrite = dispatcherContext.getStage().isWrite();
       if (isWrite) {
+        validateCompressedChunkRequest(chunkInfo, null);
         data =
             ChunkBuffer.wrap(writeChunk.getData().asReadOnlyByteBufferList());
         // TODO: Can improve checksum validation here. Make this one-shot after protocol change.
@@ -1124,6 +1174,8 @@ public class KeyValueHandler extends Handler {
         metrics.incContainerOpsMetrics(Type.PutBlock);
         BlockData blockData = BlockData.getFromProtoBuf(
             writeChunk.getBlock().getBlockData());
+        validateCompressedBlockRequest(blockData);
+        validateCompressedChunkRequest(chunkInfo, blockData);
         // optimization for hsync when WriteChunk is in commit phase:
         //
         // block metadata is piggybacked in the same message.
@@ -1257,10 +1309,12 @@ public class KeyValueHandler extends Handler {
       BlockData blockData = BlockData.getFromProtoBuf(
           putSmallFileReq.getBlock().getBlockData());
       Objects.requireNonNull(blockData, "blockData == null");
+      validateCompressedBlockRequest(blockData);
 
       ContainerProtos.ChunkInfo chunkInfoProto = putSmallFileReq.getChunkInfo();
       ChunkInfo chunkInfo = ChunkInfo.getFromProtoBuf(chunkInfoProto);
       Objects.requireNonNull(chunkInfo, "chunkInfo == null");
+      validateCompressedChunkRequest(chunkInfo, blockData);
 
       ChunkBuffer data = ChunkBuffer.wrap(
           putSmallFileReq.getData().asReadOnlyByteBufferList());
@@ -1974,13 +2028,19 @@ public class KeyValueHandler extends Handler {
         .build();
     // Under construction is set here, during BlockInputStream#initialize() it is used to update the block length.
     blkInfo.setUnderConstruction(true);
-    try (BlockInputStream blockInputStream = blockInputStreamFactory.createBlockInputStream(
+    OzoneClientConfig readConfig = createReconcileReadConfig();
+    try (BlockInputStream blockInputStream = (BlockInputStream) blockInputStreamFactory.create(
+        RatisReplicationConfig.getInstance(HddsProtos.ReplicationFactor.ONE),
         blkInfo, pipeline, blockToken, dnClient.getXceiverClientManager(),
-        null, conf.getObject(OzoneClientConfig.class))) {
+        null, readConfig,
+        org.apache.hadoop.ozone.compression.CompressionCodec.NONE)) {
       // Initialize the BlockInputStream. Gets the blockData from the peer, sets the block length and
       // initializes ChunkInputStream for each chunk.
       blockInputStream.initialize();
       ContainerProtos.BlockData peerBlockData = blockInputStream.getStreamBlockData();
+      if (peerBlockData.hasCompressionCodec()) {
+        localBlockData.setCompressionCodec(peerBlockData.getCompressionCodec());
+      }
       long maxBcsId = Math.max(localBcsid, peerBlockData.getBlockID().getBlockCommitSequenceId());
 
       for (ContainerProtos.ChunkMerkleTree chunkMerkleTree : peerChunkList) {
@@ -2000,8 +2060,12 @@ public class KeyValueHandler extends Handler {
           continue;
         }
         try {
-          // Seek to the offset of the chunk. Seek updates the chunkIndex in the BlockInputStream.
-          blockInputStream.seek(chunkOffset);
+          // Seek to the logical offset of the chunk. Chunk merkle-tree offsets
+          // are physical segment positions, but BlockInputStream uses logical
+          // positions when chunks carry logicalLen.
+          long logicalChunkOffset = toLogicalBlockPosition(
+              blockInputStream.getChunkStreams(), chunkOffset);
+          blockInputStream.seek(logicalChunkOffset);
           ChunkInputStream currentChunkStream = blockInputStream.getChunkStreams().get(
               blockInputStream.getChunkIndex());
           ContainerProtos.ChunkInfo chunkInfoProto = currentChunkStream.getChunkInfo();
@@ -2143,6 +2207,18 @@ public class KeyValueHandler extends Handler {
     blockManager.updateContainerBcsId(container, maxAdoptedBcsId);
   }
 
+  private OzoneClientConfig createReconcileReadConfig() {
+    OzoneClientConfig reconcileReadConfig = conf.getObject(OzoneClientConfig.class);
+    // Reconciliation copies on-disk chunk bytes from the peer. Checksum verification
+    // on the read path expands compressed chunks to their logical length, which does
+    // not match the compressed payload size stored on the datanode.
+    OzoneClientConfig readConfig = new OzoneClientConfig();
+    readConfig.setChecksumVerify(false);
+    readConfig.setMaxReadRetryCount(reconcileReadConfig.getMaxReadRetryCount());
+    readConfig.setReadRetryInterval(reconcileReadConfig.getReadRetryInterval());
+    return readConfig;
+  }
+
   private void verifyChunksLength(ContainerProtos.ChunkInfo peerChunkInfo, ContainerProtos.ChunkInfo localChunkInfo)
       throws StorageContainerException {
     if (localChunkInfo == null || peerChunkInfo == null) {
@@ -2196,15 +2272,34 @@ public class KeyValueHandler extends Handler {
           "offset {} is not present locally.", localID, containerID, 0, chunkOffset);
       return false;
     } else {
-      long prevOffset = prevEntry.getKey();
-      long prevLength = prevEntry.getValue().getLen();
-      if (prevOffset + prevLength != chunkOffset) {
+      ContainerProtos.ChunkInfo prevChunk = prevEntry.getValue();
+      long expectedNextOffset = nextSegmentOffset(prevChunk.getOffset(),
+          prevChunk.getLen(),
+          prevChunk.hasLogicalLen() ? prevChunk.getLogicalLen() : 0);
+      if (expectedNextOffset != chunkOffset) {
         LOG.warn("Exiting reconciliation for block {} in container {} at length {}. The previous chunk required for " +
-            "offset {} is not present locally.", localID, containerID, prevOffset + prevLength, chunkOffset);
+            "offset {} is not present locally.", localID, containerID, expectedNextOffset, chunkOffset);
         return false;
       }
       return true;
     }
+  }
+
+  private static long toLogicalBlockPosition(
+      List<ChunkInputStream> chunkStreams, long segmentOffset)
+      throws IOException {
+    int size = chunkStreams.size();
+    long[] segmentOffsets = new long[size];
+    long[] compressedLens = new long[size];
+    long[] logicalLens = new long[size];
+    for (int i = 0; i < size; i++) {
+      ContainerProtos.ChunkInfo chunk = chunkStreams.get(i).getChunkInfo();
+      segmentOffsets[i] = chunk.getOffset();
+      compressedLens[i] = chunk.getLen();
+      logicalLens[i] = chunk.hasLogicalLen() ? chunk.getLogicalLen() : 0;
+    }
+    return CompressedChunkLayout.toLogicalBlockPosition(segmentOffset,
+        segmentOffsets, compressedLens, logicalLens);
   }
 
   /**

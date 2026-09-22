@@ -41,6 +41,7 @@ import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.OzoneConfigUtil;
 import org.apache.hadoop.ozone.om.OzoneManager;
@@ -307,7 +308,8 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
         List<OmKeyLocationInfo> partLocationInfos = new ArrayList<>();
         long dataSize = getMultipartDataSize(requestedVolume, requestedBucket,
                 keyName, ozoneKey, partKeyInfoMap, partsListSize,
-                partLocationInfos, partsList, ozoneManager);
+                partLocationInfos, partsList, ozoneManager,
+                multipartKeyInfo.getCompressionCodec());
 
         // All parts have same replication information. Here getting from last
         // part.
@@ -518,7 +520,8 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
               Collections.singletonList(keyLocationInfoGroup))
           .addMetadata(OzoneConsts.ETAG,
               multipartUploadedKeyHash(partKeyInfoMap))
-          .setOwnerName(keyArgs.getOwnerName());
+          .setOwnerName(keyArgs.getOwnerName())
+          .setCompressionCodec(dbOpenKeyInfo.getCompressionCodec());
     } else {
       OmKeyInfo dbOpenKeyInfo = getOmKeyInfoFromOpenKeyTable(multipartOpenKey,
           keyName, omMetadataManager);
@@ -539,6 +542,7 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
       omKeyInfo.setModificationTime(keyArgs.getModificationTime());
       omKeyInfo.setDataSize(dataSize);
       omKeyInfo.setReplicationConfig(dbOpenKeyInfo.getReplicationConfig());
+      omKeyInfo.setCompressionCodec(dbOpenKeyInfo.getCompressionCodec());
       final String multipartHash = multipartUploadedKeyHash(partKeyInfoMap);
       builder = omKeyInfo.toBuilder();
       if (dbOpenKeyInfo.getMetadata() != null) {
@@ -653,9 +657,10 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
   private long getMultipartDataSize(String requestedVolume,
       String requestedBucket, String keyName, String ozoneKey,
       OmMultipartKeyInfo.PartKeyInfoMap partKeyInfoMap,
-      int partsListSize, List<OmKeyLocationInfo> partLocationInfos,
+      int partsListSize,       List<OmKeyLocationInfo> partLocationInfos,
       List<OzoneManagerProtocolProtos.Part> partsList,
-      OzoneManager ozoneManager) throws OMException {
+      OzoneManager ozoneManager,
+      CompressionCodec uploadCodec) throws OMException {
     long dataSize = 0;
     int currentPartCount = 0;
     boolean eTagBasedValidationAvailable = partsList.stream().allMatch(OzoneManagerProtocolProtos.Part::hasETag);
@@ -675,7 +680,9 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
             OMException.ResultCodes.INVALID_PART);
       }
 
-      final OmKeyInfo currentPartKeyInfo = OmKeyInfo.getFromProtobuf(partKeyInfo.getPartKeyInfo());
+      final OmKeyInfo currentPartKeyInfo = OmKeyInfo.getFromProtobuf(
+          partKeyInfo.getPartKeyInfo());
+      validatePartCompressionCodec(uploadCodec, currentPartKeyInfo);
 
       // Except for last part all parts should have minimum size.
       if (currentPartCount != partsListSize) {
@@ -705,6 +712,15 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
       dataSize += currentPartKeyInfo.getDataSize();
     }
     return dataSize;
+  }
+
+  private static void validatePartCompressionCodec(CompressionCodec uploadCodec,
+      OmKeyInfo partKeyInfo) throws OMException {
+    if (uploadCodec != partKeyInfo.getCompressionCodec()) {
+      throw new OMException("Multipart part compression codec does not match "
+          + "the upload codec",
+          OMException.ResultCodes.INVALID_PART);
+    }
   }
 
   private static String failureMessage(String volume, String bucket,

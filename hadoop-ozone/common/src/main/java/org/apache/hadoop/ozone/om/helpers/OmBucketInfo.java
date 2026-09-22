@@ -33,6 +33,7 @@ import org.apache.hadoop.hdds.utils.db.Proto2Codec;
 import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.audit.Auditable;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BucketInfo;
 import org.apache.hadoop.ozone.protocolPB.OMPBHelper;
 
@@ -85,6 +86,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    * Optional default replication for bucket.
    */
   private final DefaultReplicationConfig defaultReplicationConfig;
+  private final CompressionCodec compressionCodec;
 
   private final String sourceVolume;
 
@@ -135,6 +137,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     this.owner = b.owner;
     this.defaultReplicationConfig = b.defaultReplicationConfig;
     this.tags = b.tags.build();
+    this.compressionCodec = b.compressionCodec;
   }
 
   public static Codec<OmBucketInfo> getCodec() {
@@ -222,6 +225,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
    */
   public DefaultReplicationConfig getDefaultReplicationConfig() {
     return defaultReplicationConfig;
+  }
+
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
   }
 
   public String getSourceVolume() {
@@ -393,7 +400,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         .setBucketLayout(bucketLayout)
         .setOwner(owner)
         .setDefaultReplicationConfig(defaultReplicationConfig)
-        .setTags(tags);
+        .setTags(tags)
+        .setCompressionCodec(compressionCodec);
   }
 
   /**
@@ -418,6 +426,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         .setBucketLayout(source.getBucketLayout())
         .setDefaultReplicationConfig(source.getDefaultReplicationConfig())
         .setTags(source.getTags())
+        .setCompressionCodec(source.getCompressionCodec())
         .addAllMetadata(source.getMetadata())
         .build();
   }
@@ -444,6 +453,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     private String owner;
     private DefaultReplicationConfig defaultReplicationConfig;
     private final MapBuilder<String, String> tags;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
     private long snapshotUsedBytes;
     private long snapshotUsedNamespace;
 
@@ -456,6 +466,7 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       super(obj);
       acls = AclListBuilder.of(obj.acls);
       tags = MapBuilder.of(obj.tags);
+      compressionCodec = obj.compressionCodec;
     }
 
     public Builder setVolumeName(String volume) {
@@ -601,6 +612,11 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       return this;
     }
 
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
+      return this;
+    }
+
     @Override
     protected void validate() {
       super.validate();
@@ -647,6 +663,9 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
     }
     if (defaultReplicationConfig != null) {
       bib.setDefaultReplicationConfig(defaultReplicationConfig.toProto());
+    }
+    if (compressionCodec != null && compressionCodec.isEnabled()) {
+      bib.setCompressionCodec(compressionCodec.toOmProto());
     }
     if (sourceVolume != null) {
       bib.setSourceVolume(sourceVolume);
@@ -703,6 +722,10 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
       obib.setDefaultReplicationConfig(
           DefaultReplicationConfig.fromProto(
               bucketInfo.getDefaultReplicationConfig()));
+    }
+    if (bucketInfo.hasCompressionCodec()) {
+      obib.setCompressionCodec(
+          CompressionCodec.fromOmProto(bucketInfo.getCompressionCodec()));
     }
     if (bucketInfo.hasObjectID()) {
       obib.setObjectID(bucketInfo.getObjectID());
@@ -802,7 +825,8 @@ public final class OmBucketInfo extends WithObjectID implements Auditable, CopyO
         Objects.equals(bekInfo, that.bekInfo) &&
         Objects.equals(owner, that.owner) &&
         Objects.equals(defaultReplicationConfig, that.defaultReplicationConfig) &&
-        Objects.equals(tags, that.tags);
+        Objects.equals(tags, that.tags) &&
+        Objects.equals(compressionCodec, that.compressionCodec);
   }
 
   @Override

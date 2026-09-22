@@ -33,6 +33,7 @@ import org.apache.hadoop.hdds.utils.db.CopyObject;
 import org.apache.hadoop.hdds.utils.db.DelegatedCodec;
 import org.apache.hadoop.hdds.utils.db.Proto2Codec;
 import org.apache.hadoop.ozone.OzoneAcl;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.MultipartKeyInfo;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.PartKeyInfo;
 
@@ -64,6 +65,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
   private final ImmutableList<OzoneAcl> acls;
   private final long creationTime;
   private final ReplicationConfig replicationConfig;
+  private final CompressionCodec compressionCodec;
   private PartKeyInfoMap partKeyInfoMap;
 
   /**
@@ -191,6 +193,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     this.acls = b.acls.build();
     this.creationTime = b.creationTime;
     this.replicationConfig = b.replicationConfig;
+    this.compressionCodec = b.compressionCodec;
     this.partKeyInfoMap = new PartKeyInfoMap(b.partKeyInfoList);
     this.parentID = b.parentID;
     this.schemaVersion = b.schemaVersion;
@@ -207,6 +210,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     this.acls = b.acls;
     this.creationTime = b.creationTime;
     this.replicationConfig = b.replicationConfig;
+    this.compressionCodec = b.compressionCodec;
     // PartKeyInfoMap is an immutable data structure. Whenever a PartKeyInfo
     // is added, it returns a new shallow copy of the PartKeyInfoMap Object
     // so here we can directly pass in partKeyInfoMap
@@ -283,6 +287,10 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     return new Builder(this);
   }
 
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
+  }
+
   /**
    * Builder of OmMultipartKeyInfo.
    */
@@ -295,6 +303,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     private long creationTime;
     private ReplicationConfig replicationConfig;
     private final AclListBuilder acls;
+    private CompressionCodec compressionCodec = CompressionCodec.NONE;
     private final TreeMap<Integer, PartKeyInfo> partKeyInfoList;
     private long parentID;
     private int schemaVersion;
@@ -324,6 +333,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
 
       this.parentID = multipartKeyInfo.parentID;
       this.schemaVersion = multipartKeyInfo.schemaVersion;
+      this.compressionCodec = multipartKeyInfo.compressionCodec;
     }
 
     public Builder setUploadID(String uploadId) {
@@ -358,6 +368,11 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
 
     public Builder setReplicationConfig(ReplicationConfig replConfig) {
       this.replicationConfig = replConfig;
+      return this;
+    }
+
+    public Builder setCompressionCodec(CompressionCodec codec) {
+      this.compressionCodec = codec != null ? codec : CompressionCodec.NONE;
       return this;
     }
 
@@ -440,7 +455,7 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
         multipartKeyInfo.getEcReplicationConfig()
     );
 
-    return new Builder()
+    Builder builder = new Builder()
         .setUploadID(multipartKeyInfo.getUploadID())
         .setVolumeName(multipartKeyInfo.hasVolumeName() ?
             multipartKeyInfo.getVolumeName() : null)
@@ -458,6 +473,11 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
         .setUpdateID(multipartKeyInfo.getUpdateID())
         .setParentID(multipartKeyInfo.getParentID())
         .setSchemaVersion(validateAndConvertSchemaVersion(multipartKeyInfo.getSchemaVersion()));
+    if (multipartKeyInfo.hasCompressionCodec()) {
+      builder.setCompressionCodec(
+          CompressionCodec.fromOmProto(multipartKeyInfo.getCompressionCodec()));
+    }
+    return builder;
   }
 
   /**
@@ -512,6 +532,9 @@ public final class OmMultipartKeyInfo extends WithObjectID implements CopyObject
     builder.addAllAcls(OzoneAclUtil.toProtobuf(acls));
     if (schemaVersion == LEGACY_SCHEMA_VERSION) {
       builder.addAllPartKeyInfoList(partKeyInfoMap);
+    }
+    if (compressionCodec != null && compressionCodec.isEnabled()) {
+      builder.setCompressionCodec(compressionCodec.toOmProto());
     }
     return builder.build();
   }

@@ -39,6 +39,7 @@ import org.apache.hadoop.hdds.scm.storage.StreamBlockInputStream;
 import org.apache.hadoop.hdds.security.token.OzoneBlockTokenIdentifier;
 import org.apache.hadoop.io.ByteBufferPool;
 import org.apache.hadoop.io.ElasticByteBufferPool;
+import org.apache.hadoop.ozone.compression.CompressionCodec;
 import org.apache.hadoop.security.token.Token;
 
 /**
@@ -84,18 +85,19 @@ public class BlockInputStreamFactoryImpl implements BlockInputStreamFactory {
       Token<OzoneBlockTokenIdentifier> token,
       XceiverClientFactory xceiverFactory,
       Function<BlockID, BlockLocationInfo> refreshFunction,
-      OzoneClientConfig config) throws IOException {
+      OzoneClientConfig config,
+      CompressionCodec compressionCodec) throws IOException {
     if (repConfig.getReplicationType().equals(HddsProtos.ReplicationType.EC)) {
       return new ECBlockInputStreamProxy((ECReplicationConfig)repConfig,
           blockInfo, xceiverFactory, refreshFunction,
-          ecBlockStreamFactory, config);
+          ecBlockStreamFactory, config, compressionCodec);
     } else if (config.isStreamReadBlock() && allDataNodesSupportStreamBlock(pipeline)) {
       return new StreamBlockInputStream(blockInfo.getBlockID(), blockInfo.getLength(), pipeline, token, xceiverFactory,
           refreshFunction, config);
     } else {
       return new BlockInputStream(blockInfo,
           pipeline, token, xceiverFactory, refreshFunction,
-          config);
+          config, compressionCodec);
     }
   }
 
