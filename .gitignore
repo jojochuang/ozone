@@ -42,3 +42,8 @@ dev-support/ci/bats-support
 
 .mvn/.gradle-enterprise/
 .mvn/.develocity/
+
+bazel-*
+MODULE.bazel.lock
+
+tools/bazel/__pycache__/
