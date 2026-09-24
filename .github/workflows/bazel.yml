@@ -41,13 +41,15 @@ jobs:
           persist-credentials: false
       - name: Install Bazelisk
         run: |
-          curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
-          chmod +x /usr/local/bin/bazel
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
       - name: Bazel verify (tests + default graph)
         run: ./tools/bazel/verify_build.sh
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bazel-testlogs
           path: bazel-testlogs/**
