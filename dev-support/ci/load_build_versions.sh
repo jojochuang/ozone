@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -12,19 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-name: build-branch
-on:
-  pull_request:
-    types: [opened, ready_for_review, synchronize]
-  push:
-concurrency:
-  group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ozone', github.sha, github.ref_name) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'apache/ozone' }}
-permissions:
-  contents: read
-jobs:
-  CI:
-    if: github.event_name == 'pull_request'
-      || (github.repository == 'apache/ozone' && !startsWith(github.ref_name, 'dependabot'))
-      || (github.repository != 'apache/ozone' && github.ref_name != 'master')
-    uses: ./.github/workflows/ci-bazel.yml
+
+BUILD_VERSIONS_FILE="${BUILD_VERSIONS_FILE:-dev-support/build-versions.properties}"
+
+function load_build_version() {
+  local key="$1"
+  grep -E "^${key}=" "${BUILD_VERSIONS_FILE}" | cut -d= -f2-
+}

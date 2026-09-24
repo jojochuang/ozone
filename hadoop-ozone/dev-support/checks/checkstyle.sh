@@ -23,24 +23,50 @@ BASE_DIR="$(pwd -P)"
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/checkstyle"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/summary.txt"
+OUTPUT_XML="${REPORT_DIR}/checkstyle-errors.xml"
 
-MAVEN_OPTIONS='-B -fae -DskipDocs -DskipRecon -Dcheckstyle.failOnViolation=false --no-transfer-progress'
+declare -i rc=0
 
-declare -i rc
-mvn ${MAVEN_OPTIONS} checkstyle:check > "${REPORT_DIR}/output.log"
-rc=$?
-if [[ ${rc} -ne 0 ]]; then
-  mvn ${MAVEN_OPTIONS} clean test-compile checkstyle:check > output.log
+if [[ -f pom.xml ]]; then
+  MAVEN_OPTIONS='-B -fae -DskipDocs -DskipRecon -Dcheckstyle.failOnViolation=false --no-transfer-progress'
+  mvn ${MAVEN_OPTIONS} checkstyle:check > "${REPORT_DIR}/output.log"
   rc=$?
-  mkdir -p "$REPORT_DIR" # removed by mvn clean
-  mv output.log "${REPORT_DIR}"/
+  if [[ ${rc} -ne 0 ]]; then
+    mvn ${MAVEN_OPTIONS} clean test-compile checkstyle:check > output.log
+    rc=$?
+    mkdir -p "$REPORT_DIR"
+    mv output.log "${REPORT_DIR}"/
+  fi
+else
+  # shellcheck source=dev-support/ci/load_build_versions.sh
+  source dev-support/ci/load_build_versions.sh
+  CS_VERSION="$(load_build_version checkstyle.version)"
+  TOOL_DIR="${REPORT_DIR}/tools"
+  mkdir -p "${TOOL_DIR}"
+  CS_JAR="${TOOL_DIR}/checkstyle-${CS_VERSION}-all.jar"
+  if [[ ! -f "${CS_JAR}" ]]; then
+    curl -fsSL -L -o "${CS_JAR}" \
+      "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CS_VERSION}/checkstyle-${CS_VERSION}-all.jar"
+  fi
+  mapfile -d '' JAVA_FILES < <(find hadoop-hdds hadoop-ozone tools/bazel -name '*.java' -print0)
+  if [[ ${#JAVA_FILES[@]} -eq 0 ]]; then
+    echo "No Java sources found" > "${REPORT_DIR}/output.log"
+    rc=1
+  else
+    set +e
+    java -jar "${CS_JAR}" \
+      -c "hadoop-hdds/dev-support/checkstyle/checkstyle.xml" \
+      -f xml -o "${OUTPUT_XML}" \
+      "${JAVA_FILES[@]}" > "${REPORT_DIR}/output.log" 2>&1
+    rc=$?
+    set -e
+  fi
 fi
 
 cat "${REPORT_DIR}/output.log"
 
-#Print out the exact violations with parsing XML results with sed
-find "." -name checkstyle-errors.xml -print0 \
-  | xargs -0 sed '$!N; /<file.*\n<\/file/d;P;D' \
+find "${REPORT_DIR}" -name checkstyle-errors.xml -print0 2>/dev/null \
+  | xargs -0 sed '$!N; /<file.*\n<\/file/d;P;D' 2>/dev/null \
   | sed \
       -e '/<?xml.*>/d' \
       -e '/<checkstyle.*/d' \
@@ -53,8 +79,7 @@ find "." -name checkstyle-errors.xml -print0 \
       -e "s/&gt;/>/g" \
   | tee "$REPORT_FILE"
 
-## generate counter
-grep -c ':' "$REPORT_FILE" > "$REPORT_DIR/failures"
+grep -c ':' "$REPORT_FILE" > "$REPORT_DIR/failures" 2>/dev/null || echo 0 > "$REPORT_DIR/failures"
 
 ERROR_PATTERN="\[ERROR\]"
 source "${DIR}/_post_process.sh"

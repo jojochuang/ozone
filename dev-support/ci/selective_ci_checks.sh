@@ -167,7 +167,10 @@ SOURCES_TRIGGERING_TESTS=(
     "^dev-support"
     "^hadoop-hdds"
     "^hadoop-ozone"
-    "^pom.xml"
+    "^MODULE.bazel"
+    "^\\.bazelrc"
+    "BUILD\\.bazel"
+    "^tools/bazel"
 )
 readonly SOURCES_TRIGGERING_TESTS
 

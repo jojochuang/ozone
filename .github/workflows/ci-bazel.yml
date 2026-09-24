@@ -12,23 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-name: bazel-spike
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - 'MODULE.bazel'
-      - '.bazelrc'
-      - 'tools/bazel/**'
+name: ci-bazel
 
-permissions: {}
+on:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  bazel-spike:
-    runs-on: ubuntu-latest
+  bazel-verify:
+    name: bazel verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install Python deps for Bazel generators
@@ -47,3 +45,41 @@ jobs:
         with:
           name: bazel-testlogs
           path: bazel-testlogs/**
+
+  basic:
+    name: basic (${{ matrix.check }})
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - author
+          - bats
+          - bazel
+          - rat
+          - checkstyle
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: ${{ matrix.check != 'bats' && 1 || 0 }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        if: matrix.check == 'checkstyle' || matrix.check == 'rat'
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Python deps
+        if: matrix.check == 'bazel'
+        run: pip install defusedxml
+      - name: Install Bazelisk
+        if: matrix.check == 'bazel'
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Run check
+        run: hadoop-ozone/dev-support/checks/${{ matrix.check }}.sh
