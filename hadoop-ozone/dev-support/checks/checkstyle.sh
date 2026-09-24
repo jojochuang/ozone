@@ -61,8 +61,13 @@ else
       -f xml -o "${OUTPUT_XML}" \
       "${CS_DIRS[@]}" \
       > "${REPORT_DIR}/output.log" 2>&1
-    rc=$?
+    cs_rc=$?
     set -e
+    if [[ ${cs_rc} -ne 0 ]] && [[ ! -s "${OUTPUT_XML}" ]]; then
+      echo "[ERROR] Checkstyle failed before producing ${OUTPUT_XML} (exit ${cs_rc})" \
+        >> "${REPORT_DIR}/output.log"
+      rc=1
+    fi
   fi
 fi
 
@@ -83,6 +88,15 @@ find "${REPORT_DIR}" -name checkstyle-errors.xml -print0 2>/dev/null \
   | tee "$REPORT_FILE"
 
 grep -c ':' "$REPORT_FILE" > "$REPORT_DIR/failures" 2>/dev/null || echo 0 > "$REPORT_DIR/failures"
+
+if [[ ! -f pom.xml ]]; then
+  if [[ -s "$REPORT_FILE" ]]; then
+    echo "Checkstyle ends with $(grep -c ':' "$REPORT_FILE") errors."
+    rc=1
+  elif [[ ${rc} -eq 0 ]]; then
+    echo "Checkstyle ends with 0 errors."
+  fi
+fi
 
 ERROR_PATTERN="\[ERROR\]"
 source "${DIR}/_post_process.sh"

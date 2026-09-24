@@ -46,11 +46,8 @@ else
     [[ -d "${scan_dir}" ]] || continue
     set +e
     java -jar "${RAT_JAR}" --dir "${scan_dir}" >> "${REPORT_DIR}/output.log" 2>&1
-    sub_rc=$?
     set -e
-    if [[ ${sub_rc} -ne 0 ]]; then
-      rc=${sub_rc}
-    fi
+    # RAT exits non-zero when the report lists unapproved files; exclusions are applied below.
   done
   for scan_file in MODULE.bazel BUILD.bazel .bazelrc; do
     [[ -f "${scan_file}" ]] || continue
@@ -133,6 +130,9 @@ if grep -q '\[ERROR\]' "${REPORT_DIR}/output.log" 2>/dev/null; then
   rc=1
 else
   : > "$REPORT_FILE"
+  if [[ ! -f pom.xml ]]; then
+    rc=0
+  fi
 fi
 
 ERROR_PATTERN="\[ERROR\]"

@@ -34,7 +34,8 @@ if [[ ! -s "${REPORT_FILE}" ]]; then
   # check if there are errors in the log
   if [[ -n "${ERROR_PATTERN:-}" ]]; then
     if [[ -e "${REPORT_DIR}/output.log" ]]; then
-      grep -m25 "${ERROR_PATTERN}" "${REPORT_DIR}/output.log" > "${REPORT_FILE}"
+      # grep returns 1 when no matches; CI invokes checks with bash -e.
+      grep -m25 "${ERROR_PATTERN}" "${REPORT_DIR}/output.log" > "${REPORT_FILE}" || true
     else
       echo "Unknown failure, output.log missing" > "${REPORT_FILE}"
     fi
