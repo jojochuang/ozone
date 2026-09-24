@@ -121,7 +121,12 @@ PY
   fi
 fi
 
-grep -r --include=rat.txt "!????" $dirs 2>/dev/null | tee "$REPORT_FILE" || true
+if grep -q '\[ERROR\]' "${REPORT_DIR}/output.log" 2>/dev/null; then
+  grep '\[ERROR\]' "${REPORT_DIR}/output.log" | head -30 | tee "$REPORT_FILE"
+  rc=1
+else
+  : > "$REPORT_FILE"
+fi
 
 ERROR_PATTERN="\[ERROR\]"
 source "${DIR}/_post_process.sh"
