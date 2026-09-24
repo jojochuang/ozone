@@ -90,13 +90,22 @@ for line in log.splitlines():
             unapproved.append(m.group(1).lstrip("./"))
 
 def excluded(path: str) -> bool:
+    import fnmatch
+
     norm = path.replace("\\", "/").lstrip("./")
-    p = PurePath(norm)
+    candidates = {norm, "./" + norm}
+    if "/" in norm:
+        candidates.add(norm.split("/", 1)[1])
     for pat in patterns:
-        if p.match(pat) or p.match(f"**/{pat}"):
-            return True
-        if norm.endswith(pat.lstrip("*")) and pat.startswith("*"):
-            return True
+        for c in candidates:
+            if fnmatch.fnmatch(c, pat) or fnmatch.fnmatch(c, pat.lstrip("/")):
+                return True
+            if "**" in pat:
+                rx = "^" + fnmatch.translate(pat).replace(r"\*\*", ".*") + "$"
+                import re
+
+                if re.match(rx, c):
+                    return True
     if "/target/" in norm or norm.startswith("bazel-"):
         return True
     return False

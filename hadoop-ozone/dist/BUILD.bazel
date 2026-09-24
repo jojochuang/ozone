@@ -15,14 +15,36 @@
 
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
+package(default_visibility = ["//visibility:public"])
+
+# Core service jars for compose/acceptance (expand as more modules leave manual).
+_OZONE_LIB_TARGETS = [
+    "//hadoop-hdds/common:hdds-common",
+    "//hadoop-hdds/config:hdds-config",
+    "//hadoop-hdds/server-scm:hdds-server-scm",
+    "//hadoop-ozone/common:ozone-common",
+    "//hadoop-ozone/ozone-manager:ozone-manager",
+    "//hadoop-ozone/s3gateway:ozone-s3gateway",
+    "//hadoop-ozone/csi:ozone-csi",
+]
+
+[
+    pkg_tar(
+        name = "ozone-lib-%s" % t.split(":")[-1].replace("_", "-"),
+        srcs = [t],
+        package_dir = "ozone/lib",
+    )
+    for t in _OZONE_LIB_TARGETS
+]
+
 pkg_tar(
     name = "ozone-dist",
     srcs = glob([
         "src/main/**",
         "src/main/compose/**",
     ], allow_empty = True),
+    deps = [":ozone-lib-%s" % t.split(":")[-1].replace("_", "-") for t in _OZONE_LIB_TARGETS],
     extension = "tar.gz",
     package_dir = "ozone",
     tags = ["manual"],
-    visibility = ["//visibility:public"],
 )

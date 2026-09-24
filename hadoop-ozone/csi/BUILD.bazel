@@ -12,19 +12,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:java_proto.bzl", "ozone_java_grpc_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
+ozone_java_grpc_proto_library(
+    name = "ozone-csi-proto",
+    protos = ["src/main/proto/csi.proto"],
+)
+
 java_library(
     name = "ozone-csi",
-    tags = ["manual"],
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
     deps = [
+        ":ozone-csi-proto",
         "//hadoop-hdds/cli-common:hdds-cli-common",
         "//hadoop-hdds/common:hdds-common",
         "//hadoop-hdds/config:hdds-config",
@@ -48,4 +52,3 @@ java_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
-

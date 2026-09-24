@@ -17,6 +17,15 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
+# Fetch google/protobuf/*.proto includes bundled with protoc releases (Maven protoc exe has no includes).
+_PROTOC_WELL_KNOWN_INCLUDES = """
+PROTOC_ZIP_DIR=$$(mktemp -d)
+curl -fsSL -o "$$PROTOC_ZIP_DIR/protoc.zip" \\
+  "https://github.com/protocolbuffers/protobuf/releases/download/v25.9/protoc-25.9-linux-x86_64.zip"
+unzip -q "$$PROTOC_ZIP_DIR/protoc.zip" "include/*" -d "$$PROTOC_ZIP_DIR"
+add_inc "$$PROTOC_ZIP_DIR/include"
+"""
+
 def ozone_java_proto_library(name, protos, import_proto_deps = [], deps = [], visibility = None):
     """Run protoc and compile generated Java (matches ozone protobuf-maven-plugin version).
 
@@ -45,12 +54,14 @@ for f in {import_locations} {proto_locations}; do
   [ -n "$$f" ] || continue
   add_inc "$$(dirname "$$f")"
 done
+{protoc_includes}
 $(location //tools/bazel:protoc) $$I_ARGS --java_out=$$OUT_DIR {proto_locations}
 jar cf $(location {out}) -C $$OUT_DIR .
 """.format(
             import_locations = import_locations,
             proto_locations = proto_locations,
             out = out,
+            protoc_includes = _PROTOC_WELL_KNOWN_INCLUDES,
         ),
     )
     java_library(
@@ -87,6 +98,7 @@ for f in {import_locations} {proto_locations}; do
   [ -n "$$f" ] || continue
   add_inc "$$(dirname "$$f")"
 done
+{protoc_includes}
 $(location //tools/bazel:protoc) \\
   $$I_ARGS \\
   --java_out=$$OUT_DIR \\
@@ -98,6 +110,7 @@ jar cf $(location {out}) -C $$OUT_DIR .
             import_locations = import_locations,
             proto_locations = proto_locations,
             out = out,
+            protoc_includes = _PROTOC_WELL_KNOWN_INCLUDES,
         ),
     )
     java_library(
