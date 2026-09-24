@@ -27,7 +27,12 @@ THREAT_MODEL.md
 MODULE.bazel.lock
 .bazelversion
 .bazelignore
+.gitignore
+bazel-bin/**
+bazel-out/**
+bazel-testlogs/**
 bazel-workspace/**
+target/**
 tools/bazel/README.md
 tools/bazel/MIGRATION_STATUS.md
 

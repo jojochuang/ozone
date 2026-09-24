@@ -3,12 +3,13 @@
 | Phase | Status |
 | ----- | ------ |
 | OEP draft | [bazel-build-migration.md](../../hadoop-hdds/docs/content/design/bazel-build-migration.md) |
-| Maven `maven_install` BOM | `MODULE.bazel` (regenerate via `tools/bazel/generate_module_bazel.py`) |
+| Maven `maven_install` BOM | `MODULE.bazel` + `tools/bazel/maven_artifacts.bzl` |
 | HDDS spike targets | `//hadoop-hdds/annotations`, `//hadoop-hdds/config`, `//hadoop-hdds/interface-client` |
-| Full module graph | `BUILD.bazel` per module (`tools/bazel/generate_build_files.py`) |
+| Full module graph | `BUILD.bazel` per module (hand-maintained + generated) |
 | OM / AspectJ | `//hadoop-ozone/ozone-manager:ozone-manager` compiles without ajc weaving |
 | Dist / release | `//hadoop-ozone/dist:ozone-dist` (layout stub) |
-| CI | `.github/workflows/bazel.yml`, `hadoop-ozone/dev-support/checks/bazel.sh` |
+| CI | `.github/workflows/ci-bazel.yml` (Bazel verify + basic checks) |
+| Maven build files | **Removed** (`pom.xml` tree, `.mvn/`, `maven-settings.xml`) |
 
 ## Green commands (local)
 
@@ -20,18 +21,8 @@ bazel build //hadoop-ozone/ozone-manager:ozone-manager
 
 Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, CSI protos, Iceberg Java 11, etc.) are excluded from the default graph but can be built explicitly.
 
-## Maven file inventory (dual-build)
+## Regenerating BUILD / Maven coords
 
-Removed as unused for Bazel: `MAVEN_BUILD.md`, `tools/bazel/maven_publish.sh`.
+Without `pom.xml`, edit `BUILD.bazel` and `maven_artifacts.bzl` directly. Optional sync from upstream Apache Ozone `pom.xml` on a branch: run `tools/bazel/generate_*.py` after temporarily restoring the root POM (not committed).
 
-Still present (required until [OEP phase 3](../../hadoop-hdds/docs/content/design/bazel-build-migration.md)):
-
-| Kind | Count | Role |
-| ---- | ----- | ---- |
-| `pom.xml` (root + modules) | 59 | Maven CI, release, and `tools/bazel/generate_*.py` BOM/module sync |
-| `dev-support/ci/maven-settings.xml` | 1 | Maven CI settings |
-| `.mvn/*` | 2 | Develocity Maven extension config |
-| `tools/bazel/maven_*.bzl` / generators | — | Bazel external deps (not Apache Maven build files) |
-
-Do **not** delete module `pom.xml` until Maven workflows are replaced and one Bazel-built RC is voted on the ASF list.
-Regenerating BUILD files must not overwrite hand-maintained targets listed in `SKIP_REGENERATE` inside `generate_build_files.py` (CSI, Recon, mini-cluster, etc.).
+Versions for license/check tooling: `dev-support/build-versions.properties`.

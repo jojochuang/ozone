@@ -57,6 +57,11 @@
 
     <module name="SuppressWarningsFilter"/>
 
+    <module name="SuppressionFilter">
+        <property name="file" value="hadoop-hdds/dev-support/checkstyle/suppressions.xml"/>
+        <property name="optional" value="false"/>
+    </module>
+
     <!-- Checks that a package.html file exists for each package.     -->
     <!-- See http://checkstyle.sf.net/config_javadoc.html#PackageHtml -->
     <module name="JavadocPackage"/>

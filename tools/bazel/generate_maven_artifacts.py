@@ -105,6 +105,13 @@ def collect_artifacts() -> set[str]:
 
 
 def main() -> int:
+    if not POM.is_file():
+        print(
+            "No root pom.xml; maven_artifacts.bzl is the source of truth for external deps.",
+            file=sys.stderr,
+        )
+        return 0
+
     deps = collect_artifacts()
     lines = [
         "# Licensed to the Apache Software Foundation (ASF) under one or more",
