@@ -31,6 +31,21 @@ java_library(
     visibility = ["//visibility:public"],
 )
 
+java_library(
+    name = "hdds-config-tests",
+    testonly = True,
+    srcs = glob(["src/test/java/**/*.java"]),
+    plugins = [":config_file_generator"],
+    deps = [
+        ":hdds-config",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 java_test(
     name = "TestConfigurationReflectionUtil",
     srcs = [

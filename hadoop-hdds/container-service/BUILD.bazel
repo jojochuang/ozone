@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,69 @@ java_library(
     name = "hdds-container-service",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-hdds/interface-server:hdds-interface-server",
+        "//hadoop-hdds/managed-rocksdb:hdds-managed-rocksdb",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:commons_io_commons_io",
+        "@maven//:info_picocli_picocli",
+        "@maven//:io_netty_netty_buffer",
+        "@maven//:io_netty_netty_codec",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_netty_netty_transport",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:org_apache_commons_commons_collections4",
+        "@maven//:org_apache_commons_commons_compress",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_commons_commons_text",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_ratis_ratis_client",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_grpc",
+        "@maven//:org_apache_ratis_ratis_netty",
+        "@maven//:org_apache_ratis_ratis_proto",
+        "@maven//:org_apache_ratis_ratis_server",
+        "@maven//:org_apache_ratis_ratis_server_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_rocksdb_rocksdbjni",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_yaml_snakeyaml",
+    ],
 )
 
 java_library(
     name = "hdds-container-service-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":hdds-container-service"],
+    deps = [
+        ":hdds-container-service",
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/config:hdds-config-tests",
+        "//hadoop-hdds/framework:hdds-server-framework-tests",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

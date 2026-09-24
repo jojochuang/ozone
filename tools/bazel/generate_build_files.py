@@ -13,17 +13,38 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Emit stub BUILD.bazel files for Maven modules (OZONE_BAZEL_GENERATED)."""
+"""Emit BUILD.bazel files for Maven modules with dependency mapping."""
 
 from __future__ import annotations
 
-import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from pom_to_bazel import dep_to_label, pom_dependencies, scan_modules
+
 ROOT = Path(__file__).resolve().parents[2]
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
+
+SKIP_REGENERATE = {
+    ROOT / "hadoop-hdds/annotations",
+    ROOT / "hadoop-hdds/config",
+    ROOT / "hadoop-hdds/interface-client",
+    ROOT / "hadoop-hdds/interface-admin",
+    ROOT / "hadoop-hdds/interface-server",
+    ROOT / "hadoop-ozone/interface-client",
+    ROOT / "hadoop-ozone/interface-storage",
+    ROOT / "hadoop-ozone/ozone-manager",  # hand-wired deps
+    ROOT / "hadoop-ozone/dist",
+    ROOT / "hadoop-ozone/recon-codegen",
+    ROOT / "hadoop-ozone/ozonefs-shaded",
+    ROOT / "hadoop-ozone/mini-cluster",  # Maven puts test-jars on compile classpath
+    ROOT / "hadoop-ozone/multitenancy-ranger",  # provided-scope OM/HDDS deps
+    ROOT / "hadoop-hdds/framework",  # JAX-RS 2.x classpath (see BUILD.bazel)
+    ROOT / "hadoop-ozone/iceberg",  # Java 11 + Iceberg coords (manual)
+    ROOT / "hadoop-ozone/recon",  # requires recon-codegen jOOQ outputs (manual)
+}
+
 HEADER = """# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -40,17 +61,25 @@ HEADER = """# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
 """
 
+STANDARD_TEST_MAVEN = [
+    "@maven//:org_assertj_assertj_core",
+    "@maven//:org_junit_jupiter_junit_jupiter_api",
+    "@maven//:org_junit_jupiter_junit_jupiter_params",
+    "@maven//:org_mockito_mockito_core",
+    "@maven//:org_mockito_mockito_junit_jupiter",
+]
 
-def artifact_id(pom: Path) -> str:
-    root = ET.parse(pom).getroot()
+
+def artifact_id(pom_dir: Path) -> str:
+    root = ET.parse(pom_dir / "pom.xml").getroot()
     el = root.find("m:artifactId", NS)
-    return (el.text or pom.parent.name).strip()
+    return (el.text or pom_dir.name).strip()
 
 
 def has_java(pom_dir: Path) -> bool:
@@ -61,45 +90,73 @@ def has_tests(pom_dir: Path) -> bool:
     return (pom_dir / "src/test/java").is_dir()
 
 
-def write_build(pom: Path) -> bool:
-    module_dir = pom.parent
-    build = module_dir / "BUILD.bazel"
-    if build.exists() and "OZONE_BAZEL_GENERATED" not in build.read_text(encoding="utf-8"):
+def write_build(pom_dir: Path, modules: dict) -> bool:
+    if pom_dir in SKIP_REGENERATE:
         return False
-    aid = artifact_id(pom)
-    target = aid.replace("_", "-")
+    build = pom_dir / "BUILD.bazel"
+    aid = artifact_id(pom_dir)
+    if not has_java(pom_dir):
+        return False
+    deps = pom_dependencies(pom_dir, {})
+    compile_deps: list[str] = []
+    test_deps: list[str] = []
+    main_testonly = False
+    for group, artifact, scope, dtype in deps:
+        label = dep_to_label(group, artifact, scope, dtype, modules)
+        if label is None:
+            continue
+        if dtype == "test-jar":
+            if scope in ("test",):
+                test_deps.append(label)
+            else:
+                # Maven test-jar on compile classpath (e.g. mini-cluster) uses test classes in main code.
+                compile_deps.append(label)
+                if label.endswith("-tests"):
+                    main_testonly = True
+        elif scope in ("test",):
+            test_deps.append(label)
+        else:
+            compile_deps.append(label)
+    compile_deps = sorted(set(compile_deps))
+    test_deps = sorted(set(test_deps))
     lines = [HEADER]
-    if has_java(module_dir):
+    testonly_attr = "    testonly = True,\n" if main_testonly else ""
+    lines.append(
+        f'java_library(\n    name = "{aid}",\n'
+        f"{testonly_attr}"
+        f'    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),\n'
+        f'    resources = glob(["src/main/resources/**"], allow_empty = True),\n'
+        f"    deps = [\n"
+    )
+    for d in compile_deps:
+        lines.append(f'        "{d}",\n')
+    lines.append("    ],\n)\n\n")
+    if has_tests(pom_dir):
+        merged_test_deps = sorted(set(test_deps + STANDARD_TEST_MAVEN))
         lines.append(
-            f'java_library(\n    name = "{target}",\n'
-            f'    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),\n'
-            f'    resources = glob(["src/main/resources/**"], allow_empty = True),\n'
-            f'    tags = ["ozone-maven-stub", "manual"],\n'
-            f'    deps = [],  # TODO: map deps from {pom.name}\n)\n\n'
-        )
-    if has_tests(module_dir):
-        lines.append(
-            f'java_library(\n    name = "{target}-tests",\n'
-            f'    testonly = True,\n'
+            f'java_library(\n    name = "{aid}-tests",\n'
+            f"    testonly = True,\n"
+            f'    tags = ["manual"],\n'
             f'    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),\n'
             f'    resources = glob(["src/test/resources/**"], allow_empty = True),\n'
-            f'    tags = ["ozone-maven-stub", "manual"],\n'
-            f'    deps = [":{target}"],\n)\n'
+            f'    deps = [\n        ":{aid}",\n'
         )
-    if not has_java(module_dir) and not has_tests(module_dir):
-        lines.append('filegroup(\n    name = "{target}",\n    srcs = glob(["**/*"], allow_empty = True),\n)\n'.format(target=target))
+        for d in merged_test_deps:
+            lines.append(f'        "{d}",\n')
+        lines.append("    ],\n)\n")
     build.write_text("".join(lines), encoding="utf-8")
     return True
 
 
 def main() -> int:
+    modules = scan_modules()
     count = 0
     for pom in sorted(ROOT.glob("**/pom.xml")):
         if "target" in pom.parts:
             continue
-        if write_build(pom):
+        if write_build(pom.parent, modules):
             count += 1
-    print(f"Wrote/updated {count} BUILD.bazel stubs", file=sys.stderr)
+    print(f"Wrote/updated {count} BUILD.bazel files", file=sys.stderr)
     return 0
 
 

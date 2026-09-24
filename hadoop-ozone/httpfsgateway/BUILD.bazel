@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,35 @@ java_library(
     name = "ozone-httpfsgateway",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-ozone/common:ozone-common",
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:jakarta_ws_rs_jakarta_ws_rs_api",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "ozone-httpfsgateway-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-httpfsgateway"],
+    deps = [
+        ":ozone-httpfsgateway",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

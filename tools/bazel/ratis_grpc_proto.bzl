@@ -13,61 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generate Java protobuf sources with protoc 3.25.x (Maven-aligned, Java 8 compatible)."""
+"""Generate Java + gRPC with Ratis third-party protobuf/grpc package rewrites."""
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-def ozone_java_proto_library(name, protos, import_proto_deps = [], deps = [], visibility = None):
-    """Run protoc and compile generated Java (matches ozone protobuf-maven-plugin version).
-
-    Args:
-        import_proto_deps: filegroup (or file) labels whose directories are passed to protoc -I.
-    """
-    gen_name = name + "_proto_gen"
+def _ratis_grpc_gen(name, protos, import_proto_deps, out):
     proto_locations = " ".join(["$(location %s)" % p for p in protos])
     import_locations = " ".join(["$(locations %s)" % p for p in import_proto_deps]) if import_proto_deps else ""
-    out = name + "_generated.srcjar"
     native.genrule(
-        name = gen_name,
-        srcs = protos + import_proto_deps,
-        outs = [out],
-        tools = ["//tools/bazel:protoc"],
-        cmd = """
-set -euo pipefail
-OUT_DIR=$$(mktemp -d)
-export OZONE_PROTOC_CACHE=$$(mktemp -d)
-I_ARGS=""
-add_inc() {{
-  local d="$$1"
-  case " $$I_ARGS " in *" -I$$d "*) ;; *) I_ARGS="$$I_ARGS -I$$d";; esac
-}}
-for f in {import_locations} {proto_locations}; do
-  [ -n "$$f" ] || continue
-  add_inc "$$(dirname "$$f")"
-done
-$(location //tools/bazel:protoc) $$I_ARGS --java_out=$$OUT_DIR {proto_locations}
-jar cf $(location {out}) -C $$OUT_DIR .
-""".format(
-            import_locations = import_locations,
-            proto_locations = proto_locations,
-            out = out,
-        ),
-    )
-    java_library(
         name = name,
-        srcs = [out],
-        deps = deps + ["@maven//:com_google_protobuf_protobuf_java"],
-        visibility = visibility,
-    )
-
-def ozone_java_grpc_proto_library(name, protos, import_proto_deps = [], deps = [], visibility = None):
-    """Protoc Java + standard gRPC stubs (Ozone Manager client protocol)."""
-    gen_name = name + "_proto_gen"
-    proto_locations = " ".join(["$(location %s)" % p for p in protos])
-    import_locations = " ".join(["$(locations %s)" % p for p in import_proto_deps]) if import_proto_deps else ""
-    out = name + "_generated.srcjar"
-    native.genrule(
-        name = gen_name,
         srcs = protos + import_proto_deps,
         outs = [out],
         tools = [
@@ -93,6 +47,10 @@ $(location //tools/bazel:protoc) \\
   --grpc-java_out=$$OUT_DIR \\
   --plugin=protoc-gen-grpc-java=$(location //tools/bazel:protoc_gen_grpc_java) \\
   {proto_locations}
+find $$OUT_DIR -name '*.java' -print0 | xargs -0 sed -i \\
+  -e 's/com.google.common/org.apache.ratis.thirdparty.com.google.common/g' \\
+  -e 's/com.google.protobuf/org.apache.ratis.thirdparty.com.google.protobuf/g' \\
+  -e 's/io.grpc/org.apache.ratis.thirdparty.io.grpc/g'
 jar cf $(location {out}) -C $$OUT_DIR .
 """.format(
             import_locations = import_locations,
@@ -100,14 +58,30 @@ jar cf $(location {out}) -C $$OUT_DIR .
             out = out,
         ),
     )
+
+def ozone_ratis_datanode_proto(name, proto, import_proto_deps = [], visibility = None):
+    """Single-proto Ratis gRPC (DatanodeClientProtocol)."""
+    out = name + "_generated.srcjar"
+    _ratis_grpc_gen(name + "_ratis_gen", [proto], import_proto_deps, out)
     java_library(
         name = name,
         srcs = [out],
-        deps = deps + [
-            "@maven//:com_google_protobuf_protobuf_java",
-            "@maven//:io_grpc_grpc_api",
-            "@maven//:io_grpc_grpc_protobuf",
-            "@maven//:io_grpc_grpc_stub",
+        deps = [
+            "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+            "@maven//:javax_annotation_javax_annotation_api",
+        ],
+        visibility = visibility,
+    )
+
+def ozone_ratis_grpc_proto(name, protos, import_proto_deps = [], visibility = None):
+    """One or more protos compiled with Ratis third-party rewrites + gRPC stubs."""
+    out = name + "_generated.srcjar"
+    _ratis_grpc_gen(name + "_ratis_gen", protos, import_proto_deps, out)
+    java_library(
+        name = name,
+        srcs = [out],
+        deps = [
+            "@maven//:org_apache_ratis_ratis_thirdparty_misc",
             "@maven//:javax_annotation_javax_annotation_api",
         ],
         visibility = visibility,

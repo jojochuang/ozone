@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,58 @@ java_library(
     name = "ozone-s3gateway",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-ozone/client:ozone-client",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_dataformat_jackson_dataformat_xml",
+        "@maven//:com_fasterxml_jackson_module_jackson_module_jaxb_annotations",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:commons_io_commons_io",
+        "@maven//:info_picocli_picocli",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:jakarta_ws_rs_jakarta_ws_rs_api",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:javax_enterprise_cdi_api",
+        "@maven//:javax_inject_javax_inject",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_httpcomponents_httpclient",
+        "@maven//:org_apache_httpcomponents_httpcore",
+        "@maven//:org_apache_kerby_kerby_util",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_eclipse_jetty_jetty_servlet",
+        "@maven//:org_eclipse_jetty_jetty_webapp",
+        "@maven//:org_glassfish_jersey_core_jersey_common",
+        "@maven//:org_glassfish_jersey_core_jersey_server",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "ozone-s3gateway-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-s3gateway"],
+    deps = [
+        ":ozone-s3gateway",
+        "//hadoop-ozone/client:ozone-client-tests",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

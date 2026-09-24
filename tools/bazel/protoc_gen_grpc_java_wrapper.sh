@@ -1,4 +1,4 @@
-# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,21 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library")
-
-package(default_visibility = ["//visibility:public"])
-
-java_library(
-    name = "ozone-cli-interactive",
-    tags = ["manual"],
-    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
-    resources = glob(["src/main/resources/**"], allow_empty = True),
-    deps = [
-        "//hadoop-ozone/cli-admin:ozone-cli-admin",
-        "//hadoop-ozone/cli-debug:ozone-cli-debug",
-        "//hadoop-ozone/cli-shell:ozone-cli-shell",
-        "@maven//:info_picocli_picocli",
-        "@maven//:info_picocli_picocli_shell_jline3",
-    ],
-)
-
+set -eo pipefail
+HOME="${HOME:-/tmp}"
+VERSION="1.77.1"
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
+case "${ARCH}" in
+  x86_64) ARCH="x86_64" ;;
+  aarch64|arm64) ARCH="aarch_64" ;;
+  *) echo "unsupported arch ${ARCH}" >&2; exit 1 ;;
+esac
+CACHE="${OZONE_PROTOC_CACHE:-${HOME}/.cache/ozone-bazel-grpc}/${VERSION}"
+BIN="${CACHE}/bin/protoc-gen-grpc-java"
+if [[ ! -x "${BIN}" ]]; then
+  mkdir -p "$(dirname "${BIN}")"
+  URL="https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/${VERSION}/protoc-gen-grpc-java-${VERSION}-${OS}-${ARCH}.exe"
+  curl -fsSL "${URL}" -o "${BIN}"
+  chmod +x "${BIN}"
+fi
+exec "${BIN}" "$@"

@@ -14,15 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "ozone-csi",
+    tags = ["manual"],
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-ozone/client:ozone-client",
+        "//hadoop-ozone/common:ozone-common",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_google_protobuf_protobuf_java_util",
+        "@maven//:commons_io_commons_io",
+        "@maven//:info_picocli_picocli",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_transport",
+        "@maven//:io_netty_netty_transport_classes_epoll",
+        "@maven//:io_netty_netty_transport_native_unix_common",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 

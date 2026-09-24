@@ -14,23 +14,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "ozone-iceberg",
+    tags = ["manual"],
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/common:hdds-common",
+        "@maven//:info_picocli_picocli",
+        "@maven//:org_apache_avro_avro",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_iceberg_iceberg_api",
+        "@maven//:org_apache_iceberg_iceberg_core",
+        "@maven//:org_apache_iceberg_iceberg_orc",
+        "@maven//:org_apache_iceberg_iceberg_parquet",
+        "@maven//:org_apache_orc_orc_core",
+        "@maven//:org_apache_parquet_parquet_column",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "ozone-iceberg-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-iceberg"],
+    deps = [
+        ":ozone-iceberg",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

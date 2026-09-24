@@ -13,14 +13,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//tools/bazel:defs.bzl", "ozone_java_facade")
 load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
+load("//tools/bazel:ratis_grpc_proto.bzl", "ozone_ratis_datanode_proto")
+
+filegroup(
+    name = "hdds_proto_files",
+    srcs = glob(["src/main/proto/*.proto"]),
+    visibility = ["//visibility:public"],
+)
+
+_STANDARD_PROTOS = [
+    "src/main/proto/DiskBalancerProtocol.proto",
+    "src/main/proto/ProtobufRpcEngine.proto",
+    "src/main/proto/RpcHeader.proto",
+    "src/main/proto/hdds.proto",
+    "src/main/proto/ReconfigureProtocol.proto",
+    "src/main/proto/IpcConnectionContext.proto",
+]
 
 ozone_java_proto_library(
+    name = "hdds-interface-client-standard",
+    protos = _STANDARD_PROTOS,
+    deps = ["@maven//:javax_annotation_javax_annotation_api"],
+    visibility = ["//visibility:public"],
+)
+
+ozone_ratis_datanode_proto(
+    name = "hdds-interface-client-ratis",
+    proto = "src/main/proto/DatanodeClientProtocol.proto",
+    visibility = ["//visibility:public"],
+)
+
+ozone_java_facade(
     name = "hdds-interface-client",
-    protos = glob(["src/main/proto/*.proto"]),
     deps = [
-        "@maven//:javax_annotation_javax_annotation_api",
-        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        ":hdds-interface-client-ratis",
+        ":hdds-interface-client-standard",
     ],
     visibility = ["//visibility:public"],
 )

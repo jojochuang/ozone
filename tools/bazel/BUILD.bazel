@@ -29,3 +29,17 @@ sh_binary(
     srcs = ["protoc_wrapper.sh"],
     visibility = ["//visibility:public"],
 )
+
+exports_files(["facade/package-info.java"])
+
+filegroup(
+    name = "facade_src",
+    srcs = ["facade/package-info.java"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "protoc_gen_grpc_java",
+    srcs = ["protoc_gen_grpc_java_wrapper.sh"],
+    visibility = ["//visibility:public"],
+)
