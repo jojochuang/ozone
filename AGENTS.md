@@ -18,12 +18,15 @@
 
 ## Repository Snapshot
 
-Apache Ozone is a multi-module Maven project. The root coordinates and version live in [`pom.xml`](./pom.xml).
+Apache Ozone is a multi-module Maven project migrating to Bazel (see
+[`tools/bazel/MIGRATION_STATUS.md`](./tools/bazel/MIGRATION_STATUS.md) and the
+[Bazel OEP](./hadoop-hdds/docs/content/design/bazel-build-migration.md)).
+The root coordinates and version live in [`pom.xml`](./pom.xml).
 
 Tech stack:
 
 - Java 8 bytecode with JDK 21 runtime compatibility (see the `[21,]` profile in `pom.xml`)
-- Maven build
+- Maven build (release and full CI); Bazel for incremental module builds (in progress)
 - Hadoop RPC and gRPC over Protobuf
 - RocksDB for persistent metadata
 - Apache Ratis for replicated state
@@ -67,6 +70,9 @@ Default local build flags:
 
 Primary commands:
 
+- Bazel spike (migrated HDDS modules): `./hadoop-ozone/dev-support/checks/bazel.sh`
+- Regenerate Maven lockfile for Bazel: `python3 tools/bazel/generate_module_bazel.py`
+- Regenerate module `BUILD.bazel` stubs: `python3 tools/bazel/generate_build_files.py`
 - Iterative full build: `mvn clean install -DskipTests -DskipShade -DskipRecon -DskipDocs`
 - Full compile/verify smoke check: `mvn clean verify -DskipTests -DskipShade -DskipRecon -DskipDocs`
 - Rebuild one module and its dependencies:
