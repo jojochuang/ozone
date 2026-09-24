@@ -45,10 +45,14 @@ SKIP_REGENERATE = {
     ROOT / "hadoop-hdds/framework",  # JAX-RS 2.x classpath (see BUILD.bazel)
     ROOT / "hadoop-ozone/iceberg",  # Java 11 + Iceberg coords (manual)
     ROOT / "hadoop-ozone/recon",  # requires recon-codegen jOOQ outputs (manual)
+    ROOT / "hadoop-ozone/cli-debug",
+    ROOT / "hadoop-ozone/cli-repair",
+    ROOT / "hadoop-ozone/cli-interactive",
+    ROOT / "hadoop-ozone/csi",
+    ROOT / "hadoop-ozone/mini-cluster",
 }
 
 HEADER = """# Licensed to the Apache Software Foundation (ASF) under one or more
-# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
 # The ASF licenses this file to You under the Apache License, Version 2.0
@@ -62,6 +66,8 @@ HEADER = """# Licensed to the Apache Software Foundation (ASF) under one or more
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
 load("@rules_java//java:defs.bzl", "java_library")
 
