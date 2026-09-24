@@ -48,16 +48,17 @@ else
     curl -fsSL -L -o "${CS_JAR}" \
       "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CS_VERSION}/checkstyle-${CS_VERSION}-all.jar"
   fi
-  mapfile -d '' JAVA_FILES < <(find hadoop-hdds hadoop-ozone tools/bazel -name '*.java' -print0)
-  if [[ ${#JAVA_FILES[@]} -eq 0 ]]; then
+  SOURCE_LIST="${REPORT_DIR}/java-sources.txt"
+  find hadoop-hdds hadoop-ozone tools/bazel -name '*.java' > "${SOURCE_LIST}"
+  if [[ ! -s "${SOURCE_LIST}" ]]; then
     echo "No Java sources found" > "${REPORT_DIR}/output.log"
     rc=1
   else
     set +e
-    java -jar "${CS_JAR}" \
+    xargs -a "${SOURCE_LIST}" -r java -jar "${CS_JAR}" \
       -c "hadoop-hdds/dev-support/checkstyle/checkstyle.xml" \
       -f xml -o "${OUTPUT_XML}" \
-      "${JAVA_FILES[@]}" > "${REPORT_DIR}/output.log" 2>&1
+      > "${REPORT_DIR}/output.log" 2>&1
     rc=$?
     set -e
   fi

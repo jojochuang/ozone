@@ -54,12 +54,9 @@ else
   done
   for scan_file in MODULE.bazel BUILD.bazel .bazelrc; do
     [[ -f "${scan_file}" ]] || continue
-    set +e
-    java -jar "${RAT_JAR}" --dir "${scan_file}" >> "${REPORT_DIR}/output.log" 2>&1
-    sub_rc=$?
-    set -e
-    if [[ ${sub_rc} -ne 0 ]]; then
-      rc=${sub_rc}
+    if ! grep -q 'Licensed to the Apache Software Foundation' "${scan_file}"; then
+      echo "[ERROR] Missing ASF license header in ${scan_file}" >> "${REPORT_DIR}/output.log"
+      rc=1
     fi
   done
   FILTER="${REPORT_DIR}/filter_unapproved.py"
