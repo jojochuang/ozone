@@ -20,11 +20,18 @@ bazel build //hadoop-ozone/ozone-manager:ozone-manager
 
 Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, CSI protos, Iceberg Java 11, etc.) are excluded from the default graph but can be built explicitly.
 
-## Maven removal gate
+## Maven file inventory (dual-build)
 
-Do **not** delete `pom.xml` until:
+Removed as unused for Bazel: `MAVEN_BUILD.md`, `tools/bazel/maven_publish.sh`.
 
-1. `bazel test //...` matches Maven CI scope, and
-2. One RC is voted on the ASF list using Bazel-built artifacts.
+Still present (required until [OEP phase 3](../../hadoop-hdds/docs/content/design/bazel-build-migration.md)):
 
-Maven remains the release path until then.
+| Kind | Count | Role |
+| ---- | ----- | ---- |
+| `pom.xml` (root + modules) | 59 | Maven CI, release, and `tools/bazel/generate_*.py` BOM/module sync |
+| `dev-support/ci/maven-settings.xml` | 1 | Maven CI settings |
+| `.mvn/*` | 2 | Develocity Maven extension config |
+| `tools/bazel/maven_*.bzl` / generators | — | Bazel external deps (not Apache Maven build files) |
+
+Do **not** delete module `pom.xml` until Maven workflows are replaced and one Bazel-built RC is voted on the ASF list.
+Regenerating BUILD files must not overwrite hand-maintained targets listed in `SKIP_REGENERATE` inside `generate_build_files.py` (CSI, Recon, mini-cluster, etc.).
