@@ -18,8 +18,11 @@
 from __future__ import annotations
 
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+
+from pom_xml import parse
 
 ROOT = Path(__file__).resolve().parents[2]
 POM = ROOT / "pom.xml"
@@ -77,7 +80,7 @@ def _coords_from_dep(
 def collect_artifacts() -> set[str]:
     from maven_bom import load_bom
 
-    root_pom = ET.parse(POM).getroot()
+    root_pom = parse(POM).getroot()
     props = _properties(root_pom)
     bom = load_bom()
     deps: set[str] = set()
@@ -92,7 +95,7 @@ def collect_artifacts() -> set[str]:
     for pom_path in ROOT.glob("**/pom.xml"):
         if "target" in pom_path.parts:
             continue
-        pom_root = ET.parse(pom_path).getroot()
+        pom_root = parse(pom_path).getroot()
         local_props = {**props, **_properties(pom_root)}
         for dep in pom_root.findall(".//m:dependencies/m:dependency", NS):
             c = _coords_from_dep(dep, local_props, bom)

@@ -15,8 +15,11 @@
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+
+from pom_xml import parse
 
 ROOT = Path(__file__).resolve().parents[2]
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -24,7 +27,7 @@ NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 def load_bom() -> dict[tuple[str, str], str]:
     """(groupId, artifactId) -> version string."""
-    root = ET.parse(ROOT / "pom.xml").getroot()
+    root = parse(ROOT / "pom.xml").getroot()
     props: dict[str, str] = {}
     block = root.find("m:properties", NS)
     if block is not None:
