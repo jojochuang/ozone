@@ -26,6 +26,8 @@ SECURITY.md
 THREAT_MODEL.md
 MODULE.bazel.lock
 .bazelversion
+.bazelignore
+bazel-workspace/**
 tools/bazel/README.md
 tools/bazel/MIGRATION_STATUS.md
 
