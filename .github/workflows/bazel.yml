@@ -43,11 +43,11 @@ jobs:
         run: |
           curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
           chmod +x /usr/local/bin/bazel
-      - name: Bazel spike tests
-        run: ./hadoop-ozone/dev-support/checks/bazel.sh
+      - name: Bazel verify (tests + default graph)
+        run: ./tools/bazel/verify_build.sh
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.6.0
         with:
           name: bazel-testlogs
           path: bazel-testlogs/**

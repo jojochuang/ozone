@@ -24,6 +24,10 @@ CONTRIBUTING.md
 README.md
 SECURITY.md
 THREAT_MODEL.md
+MODULE.bazel.lock
+.bazelversion
+tools/bazel/README.md
+tools/bazel/MIGRATION_STATUS.md
 
 # hadoop-hdds/interface-client
 src/main/resources/proto.lock
