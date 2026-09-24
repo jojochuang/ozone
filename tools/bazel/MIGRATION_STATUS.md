@@ -7,7 +7,9 @@
 | HDDS spike targets | `//hadoop-hdds/annotations`, `//hadoop-hdds/config`, `//hadoop-hdds/interface-client` |
 | Full module graph | `BUILD.bazel` per module (hand-maintained + generated) |
 | OM / AspectJ | `//hadoop-ozone/ozone-manager:ozone-manager` compiles without ajc weaving |
-| Dist / release | `//hadoop-ozone/dist:ozone-dist` (layout stub) |
+| Dist / release | `//hadoop-ozone/dist:ozone-dist` (core jars + dist tree; build with `--build_tag_filters=`) |
+| CSI gRPC proto | `//hadoop-ozone/csi:ozone-csi` in default graph |
+| Unit tests (Bazel) | JUnit5 package tests via `tools/bazel/junit5.bzl`; `verify_build.sh` runs non-manual `java_test` |
 | CI | `.github/workflows/ci-bazel.yml` (Bazel verify + basic checks) |
 | Maven build files | **Removed** (`pom.xml` tree, `.mvn/`, `maven-settings.xml`) |
 
@@ -19,7 +21,7 @@
 bazel build //hadoop-ozone/ozone-manager:ozone-manager
 ```
 
-Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, CSI protos, Iceberg Java 11, etc.) are excluded from the default graph but can be built explicitly.
+Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, Iceberg Java 11, integration-test modules, etc.) are excluded from the default graph but can be built explicitly.
 
 ## Regenerating BUILD / Maven coords
 

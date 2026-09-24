@@ -36,4 +36,14 @@ TARGETS="$("${BAZEL}" query \
   'kind("java_library", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')"
 "${BAZEL}" build ${TARGETS}
 
+echo "== Unit tests (java_test without manual tag) =="
+TEST_TARGETS="$("${BAZEL}" query \
+  'kind("java_test", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')"
+if [[ -n "${TEST_TARGETS}" ]]; then
+  # shellcheck disable=SC2086
+  "${BAZEL}" test ${TEST_TARGETS} --test_output=errors
+else
+  echo "No non-manual java_test targets found."
+fi
+
 echo "All verification steps completed."
