@@ -61,10 +61,9 @@ else
   done
   FILTER="${REPORT_DIR}/filter_unapproved.py"
   cat > "${FILTER}" << 'PY'
-import fnmatch
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 
 root = Path(".")
 excl_path = root / "dev-support/rat/rat-exclusions.txt"
@@ -73,7 +72,7 @@ for line in excl_path.read_text(encoding="utf-8").splitlines():
     line = line.strip()
     if not line or line.startswith("#"):
         continue
-    patterns.append(line)
+    patterns.append(line.replace("\\", "/"))
 
 log = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
 in_section = False
@@ -91,15 +90,14 @@ for line in log.splitlines():
             unapproved.append(m.group(1).lstrip("./"))
 
 def excluded(path: str) -> bool:
+    norm = path.replace("\\", "/").lstrip("./")
+    p = PurePath(norm)
     for pat in patterns:
-        if fnmatch.fnmatch(path, pat) or fnmatch.fnmatch(path, pat.lstrip("/")):
+        if p.match(pat) or p.match(f"**/{pat}"):
             return True
-        # Maven RAT paths are often repo-relative; also try without leading module prefix.
-        if "/" in path:
-            short = path.split("/", 1)[1] if path.count("/") else path
-            if fnmatch.fnmatch(short, pat) or fnmatch.fnmatch(path, f"**/{pat}"):
-                return True
-    if fnmatch.fnmatch(path, "bazel-*/**") or "/target/" in path:
+        if norm.endswith(pat.lstrip("*")) and pat.startswith("*"):
+            return True
+    if "/target/" in norm or norm.startswith("bazel-"):
         return True
     return False
 

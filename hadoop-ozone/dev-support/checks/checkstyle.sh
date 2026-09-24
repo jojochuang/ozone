@@ -48,16 +48,22 @@ else
     curl -fsSL -L -o "${CS_JAR}" \
       "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CS_VERSION}/checkstyle-${CS_VERSION}-all.jar"
   fi
-  set +e
-  java -jar "${CS_JAR}" \
-    -c "hadoop-hdds/dev-support/checkstyle/checkstyle.xml" \
-    -e '**/__pycache__/**' \
-    -e '**/*.pyc' \
-    -f xml -o "${OUTPUT_XML}" \
-    hadoop-hdds hadoop-ozone tools/bazel \
-    > "${REPORT_DIR}/output.log" 2>&1
-  rc=$?
-  set -e
+  mapfile -t CS_DIRS < <(find hadoop-hdds hadoop-ozone tools/bazel -type d \
+    \( -path '*/src/main/java' -o -path '*/src/test/java' \))
+  if [[ ${#CS_DIRS[@]} -eq 0 ]]; then
+    echo "No Java source roots found" > "${REPORT_DIR}/output.log"
+    rc=1
+  else
+    set +e
+    java -jar "${CS_JAR}" \
+      -c "hadoop-hdds/dev-support/checkstyle/checkstyle.xml" \
+      -e '**/*.md' \
+      -f xml -o "${OUTPUT_XML}" \
+      "${CS_DIRS[@]}" \
+      > "${REPORT_DIR}/output.log" 2>&1
+    rc=$?
+    set -e
+  fi
 fi
 
 cat "${REPORT_DIR}/output.log"
