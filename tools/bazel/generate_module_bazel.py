@@ -37,6 +37,7 @@ def main() -> None:
     arts = sorted(
         set(_load_bzl_list(TOOLS / "maven_artifacts.bzl"))
         | set(_load_bzl_list(TOOLS / "extra_maven_artifacts.bzl"))
+        | set(_load_bzl_list(TOOLS / "bom_imports.bzl"))
     )
     header = """# Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with

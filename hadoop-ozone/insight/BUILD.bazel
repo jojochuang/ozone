@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,37 @@ java_library(
     name = "ozone-insight",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/container-service:hdds-container-service",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-admin:hdds-interface-admin",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-hdds/interface-server:hdds-interface-server",
+        "//hadoop-hdds/server-scm:hdds-server-scm",
+        "//hadoop-ozone/cli-admin:ozone-cli-admin",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "//hadoop-ozone/ozone-manager:ozone-manager",
+        "@maven//:info_picocli_picocli",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+    ],
 )
 
 java_library(
     name = "ozone-insight-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-insight"],
+    deps = [
+        ":ozone-insight",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

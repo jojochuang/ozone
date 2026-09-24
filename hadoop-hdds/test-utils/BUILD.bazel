@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,7 +22,23 @@ java_library(
     name = "hdds-test-utils",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_jacoco_org_jacoco_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_platform_junit_platform_engine",
+        "@maven//:org_junit_platform_junit_platform_launcher",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 

@@ -1,4 +1,4 @@
-# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,21 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library")
+set -euo pipefail
 
-package(default_visibility = ["//visibility:public"])
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${ROOT}"
 
-java_library(
-    name = "ozone-cli-interactive",
-    tags = ["manual"],
-    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
-    resources = glob(["src/main/resources/**"], allow_empty = True),
-    deps = [
-        "//hadoop-ozone/cli-admin:ozone-cli-admin",
-        "//hadoop-ozone/cli-debug:ozone-cli-debug",
-        "//hadoop-ozone/cli-shell:ozone-cli-shell",
-        "@maven//:info_picocli_picocli",
-        "@maven//:info_picocli_picocli_shell_jline3",
-    ],
-)
+if command -v bazel >/dev/null 2>&1; then
+  BAZEL=bazel
+elif [[ -x /tmp/bazelisk ]]; then
+  BAZEL=/tmp/bazelisk
+else
+  echo "bazel not found" >&2
+  exit 1
+fi
 
+echo "== Spike tests =="
+"${ROOT}/hadoop-ozone/dev-support/checks/bazel.sh"
+
+echo "== Build default module graph (excludes manual-tagged targets) =="
+TARGETS="$("${BAZEL}" query \
+  'kind("java_library", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')"
+"${BAZEL}" build ${TARGETS}
+
+echo "All verification steps completed."

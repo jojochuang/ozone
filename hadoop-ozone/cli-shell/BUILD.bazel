@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,43 @@ java_library(
     name = "ozone-cli-shell",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-ozone/client:ozone-client",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:info_picocli_picocli",
+        "@maven//:info_picocli_picocli_shell_jline3",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_apache_httpcomponents_httpclient",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_jline_jline",
+        "@maven//:org_kohsuke_metainf_services_metainf_services",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "ozone-cli-shell-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-cli-shell"],
+    deps = [
+        ":ozone-cli-shell",
+        "//hadoop-hdds/config:hdds-config-tests",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,27 @@ java_library(
     name = "ozone-filesystem-hadoop2",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-ozone/ozonefs-common:ozone-filesystem-common",
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "ozone-filesystem-hadoop2-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-filesystem-hadoop2"],
+    deps = [
+        ":ozone-filesystem-hadoop2",
+        "//hadoop-ozone/common:ozone-common-tests",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
 )

@@ -16,7 +16,7 @@
 load("@rules_java//java:defs.bzl", "java_binary")
 
 java_binary(
-    name = "recon-codegen",
+    name = "ozone-reconcodegen",
     srcs = glob(["src/main/java/**/*.java"]),
     main_class = "org.apache.ozone.recon.codegen.JooqCodeGenerator",
     tags = ["manual"],
@@ -29,6 +29,7 @@ java_binary(
         "@maven//:com_google_inject_guice",
         "@maven//:commons_io_commons_io",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_springframework_spring_tx",
     ],
     visibility = ["//visibility:public"],
 )

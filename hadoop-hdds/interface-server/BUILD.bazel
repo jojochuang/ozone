@@ -1,4 +1,3 @@
-# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,11 +13,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("//tools/bazel:defs.bzl", "ozone_java_facade")
+load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
+load("//tools/bazel:ratis_grpc_proto.bzl", "ozone_ratis_grpc_proto")
 
-package(default_visibility = ["//visibility:public"])
+_HDDS_PROTO_IMPORTS = ["//hadoop-hdds/interface-client:hdds_proto_files"]
 
-filegroup(
+_STANDARD_PROTOS = [
+    "src/main/proto/ScmSecretKeyProtocol.proto",
+    "src/main/proto/ScmServerDatanodeHeartbeatProtocol.proto",
+    "src/main/proto/ScmServerSecurityProtocol.proto",
+    "src/main/proto/ScmServerProtocol.proto",
+]
+
+_RATIS_PROTOS = [
+    "src/main/proto/InterSCMProtocol.proto",
+    "src/main/proto/SCMUpdateProtocol.proto",
+    "src/main/proto/SCMRatisProtocol.proto",
+]
+
+ozone_java_proto_library(
+    name = "hdds-interface-server-standard",
+    import_proto_deps = _HDDS_PROTO_IMPORTS,
+    protos = _STANDARD_PROTOS,
+    deps = [
+        "//hadoop-hdds/interface-client:hdds-interface-client-standard",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+ozone_ratis_grpc_proto(
+    name = "hdds-interface-server-ratis",
+    import_proto_deps = _HDDS_PROTO_IMPORTS,
+    protos = _RATIS_PROTOS,
+    visibility = ["//visibility:public"],
+)
+
+ozone_java_facade(
     name = "hdds-interface-server",
-    srcs = glob(["**/*"], allow_empty = True),
+    deps = [
+        ":hdds-interface-server-ratis",
+        ":hdds-interface-server-standard",
+    ],
+    visibility = ["//visibility:public"],
 )

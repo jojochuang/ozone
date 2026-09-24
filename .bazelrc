@@ -21,6 +21,12 @@ common --tool_java_language_version=21
 
 build --javacopt=--release
 build --javacopt=8
+build --javacopt=-proc:none
+build --javacopt=-Xep:All:OFF
+build --javacopt=-XepDisableAllChecks
+build --java_header_compilation=false
+build --strict_java_deps=off
+build --build_tag_filters=-manual
 build --host_javacopt=--release
 build --host_javacopt=8
 

@@ -49,3 +49,13 @@ def ozone_java_test(name, srcs, deps = [], runtime_deps = [], jvm_flags = [], **
 def maven(label):
     """Shorthand for @maven// coordinates label."""
     return "@maven//:" + label
+
+def ozone_java_facade(name, deps, visibility = None):
+    """Aggregate Java libraries (Bazel requires at least one source file)."""
+    java_library(
+        name = name,
+        srcs = ["//tools/bazel:facade_src"],
+        exports = deps,
+        visibility = visibility,
+        deps = deps,
+    )

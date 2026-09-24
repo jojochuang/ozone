@@ -5,18 +5,20 @@
 | OEP draft | [bazel-build-migration.md](../../hadoop-hdds/docs/content/design/bazel-build-migration.md) |
 | Maven `maven_install` BOM | `MODULE.bazel` (regenerate via `tools/bazel/generate_module_bazel.py`) |
 | HDDS spike targets | `//hadoop-hdds/annotations`, `//hadoop-hdds/config`, `//hadoop-hdds/interface-client` |
-| Full module graph | Stub `BUILD.bazel` per module (`tools/bazel/generate_build_files.py`) |
-| OM AspectJ | `tools/bazel/aspectj.bzl` (manual targets; finish classpath wiring) |
+| Full module graph | `BUILD.bazel` per module (`tools/bazel/generate_build_files.py`) |
+| OM / AspectJ | `//hadoop-ozone/ozone-manager:ozone-manager` compiles without ajc weaving |
 | Dist / release | `//hadoop-ozone/dist:ozone-dist` (layout stub) |
-| CI | `.github/workflows/bazel.yml` |
+| CI | `.github/workflows/bazel.yml`, `hadoop-ozone/dev-support/checks/bazel.sh` |
 
 ## Green commands (local)
 
 ```bash
-bazel test //hadoop-hdds/config:TestConfigurationReflectionUtil
-bazel build //hadoop-hdds/interface-client:hdds-interface-client
-bazel build //hadoop-hdds/annotations:hdds-annotation-processing
+./tools/bazel/verify_build.sh
+./hadoop-ozone/dev-support/checks/bazel.sh
+bazel build //hadoop-ozone/ozone-manager:ozone-manager
 ```
+
+Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, CSI protos, Iceberg Java 11, etc.) are excluded from the default graph but can be built explicitly.
 
 ## Maven removal gate
 

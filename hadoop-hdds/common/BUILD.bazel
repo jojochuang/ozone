@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,15 +22,58 @@ java_library(
     name = "hdds-common",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [],  # TODO: map deps from pom.xml
+    deps = [
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_datatype_jackson_datatype_jsr310",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_google_re2j_re2j",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_otlp",
+        "@maven//:io_opentelemetry_opentelemetry_sdk",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:org_apache_commons_commons_collections4",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_ratis_ratis_client",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_grpc",
+        "@maven//:org_apache_ratis_ratis_netty",
+        "@maven//:org_apache_ratis_ratis_proto",
+        "@maven//:org_apache_ratis_ratis_server_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_bouncycastle_bcpkix_jdk18on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 java_library(
     name = "hdds-common-tests",
     testonly = True,
+    tags = ["manual"],
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["ozone-maven-stub", "manual"],
-    deps = [":hdds-common"],
+    deps = [
+        ":hdds-common",
+        "//hadoop-hdds/config:hdds-config-tests",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:commons_io_commons_io",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_bouncycastle_bcutil_jdk18on",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_junit_platform_junit_platform_launcher",
+    ],
 )
