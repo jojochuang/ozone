@@ -18,8 +18,11 @@
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+
+from pom_xml import parse
 
 ROOT = Path(__file__).resolve().parents[2]
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -53,7 +56,7 @@ def scan_modules() -> dict[tuple[str, str], Path]:
     for pom in ROOT.glob("**/pom.xml"):
         if "target" in pom.parts:
             continue
-        root = ET.parse(pom).getroot()
+        root = parse(pom).getroot()
         g = root.find("m:groupId", NS)
         a = root.find("m:artifactId", NS)
         if g is None or a is None:
@@ -71,7 +74,7 @@ def scan_modules() -> dict[tuple[str, str], Path]:
 
 
 def module_target(pom_dir: Path, modules: dict[tuple[str, str], Path]) -> str:
-    root = ET.parse(pom_dir / "pom.xml").getroot()
+    root = parse(pom_dir / "pom.xml").getroot()
     aid = (root.find("m:artifactId", NS).text or "").strip()
     rel = pom_dir.relative_to(ROOT).as_posix()
     return f"//{rel}:{aid}"
@@ -79,7 +82,7 @@ def module_target(pom_dir: Path, modules: dict[tuple[str, str], Path]) -> str:
 
 def pom_dependencies(pom_dir: Path, props: dict[str, str]) -> list[tuple[str, str, str, str]]:
     """Returns list of (groupId, artifactId, scope, type)."""
-    root = ET.parse(pom_dir / "pom.xml").getroot()
+    root = parse(pom_dir / "pom.xml").getroot()
     if not props:
         props = load_properties(root)
     deps: list[tuple[str, str, str, str]] = []
@@ -128,7 +131,7 @@ def dep_to_label(
         artifact = SHADED_ARTIFACT_ALIASES.get(artifact, artifact)
     if group == "org.apache.ozone" and (group, artifact) in modules:
         pom_dir = modules[(group, artifact)]
-        root = ET.parse(pom_dir / "pom.xml").getroot()
+        root = parse(pom_dir / "pom.xml").getroot()
         aid = (root.find("m:artifactId", NS).text or "").strip()
         rel = pom_dir.relative_to(ROOT).as_posix()
         if dtype == "test-jar" and _module_has_tests(pom_dir):
