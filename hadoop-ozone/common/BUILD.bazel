@@ -46,6 +46,7 @@ java_library(
         "@maven//:org_apache_ratis_ratis_common",
         "@maven//:org_apache_ratis_ratis_proto",
         "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_rocksdb_rocksdbjni",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

@@ -59,6 +59,7 @@ java_library(
         "@maven//:org_eclipse_jetty_jetty_webapp",
         "@maven//:org_glassfish_jersey_core_jersey_common",
         "@maven//:org_glassfish_jersey_core_jersey_server",
+        "@maven//:org_slf4j_jul_to_slf4j",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
