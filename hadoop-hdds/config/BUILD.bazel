@@ -36,6 +36,7 @@ java_library(
     name = "hdds-config-tests",
     testonly = True,
     srcs = glob(["src/test/java/**/*.java"]),
+    javacopts = ["-proc:full"],
     plugins = [":config_file_generator"],
     deps = [
         ":hdds-config",
@@ -73,7 +74,7 @@ ozone_junit5_package(
     name = "hdds-config-tests-pkg-org-apache-hadoop-hdds-conf",
     package = "org.apache.hadoop.hdds.conf",
     size = "large",
-    tags = ["unit", "manual"],
+    tags = ["unit"],
     deps = [":hdds-config-tests"],
 )
 

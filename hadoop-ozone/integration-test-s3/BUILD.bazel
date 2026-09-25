@@ -26,6 +26,7 @@ java_library(
     tags = ["manual"],
     exports = [
         "//hadoop-ozone/integration-test:ozone-integration-test",
+        "//hadoop-ozone/integration-test:ozone-integration-test-tests",
         "//hadoop-ozone/s3gateway:ozone-s3gateway",
     ],
 )
@@ -36,7 +37,25 @@ java_library(
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
     tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-integration-test-s3"],
+    deps = [
+        ":ozone-integration-test-s3",
+        "@maven//:com_amazonaws_aws_java_sdk_core_1_12_788",
+        "@maven//:com_amazonaws_aws_java_sdk_s3_1_12_788",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_eclipse_jetty_jetty_client",
+        "@maven//:org_eclipse_jetty_jetty_proxy",
+        "@maven//:org_eclipse_jetty_jetty_server",
+        "@maven//:org_eclipse_jetty_jetty_servlet",
+        "@maven//:org_eclipse_jetty_jetty_util",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:software_amazon_awssdk_apache_client_2_46_17",
+        "@maven//:software_amazon_awssdk_s3_2_46_17",
+        "@maven//:software_amazon_awssdk_s3_transfer_manager_2_46_17",
+    ],
 )
 
 # OZONE_JUNIT5_WIRED

@@ -22,7 +22,6 @@ java_library(
     name = "ozone-multitenancy-ranger",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
-    tags = ["manual"],
     deps = [
         "//hadoop-hdds/common:hdds-common",
         "//hadoop-hdds/config:hdds-config",
@@ -42,7 +41,6 @@ java_library(
     testonly = True,
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
-    tags = ["manual"],
     deps = [
         ":ozone-multitenancy-ranger",
         "//hadoop-hdds/common:hdds-common-tests",

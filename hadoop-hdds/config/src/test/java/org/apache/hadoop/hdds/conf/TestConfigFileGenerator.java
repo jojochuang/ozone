@@ -19,8 +19,8 @@ package org.apache.hadoop.hdds.conf;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 import org.junit.jupiter.api.Test;
@@ -35,12 +35,13 @@ import org.junit.jupiter.api.Test;
 public class TestConfigFileGenerator {
 
   @Test
-  public void testGeneratedXml() throws FileNotFoundException {
-    String generatedXml =
-        new Scanner(new File("target/test-classes/ozone-default-generated.xml"),
-            StandardCharsets.UTF_8.name())
-            .useDelimiter("//Z")
-            .next();
+  public void testGeneratedXml() throws IOException {
+    InputStream stream = getClass().getClassLoader()
+        .getResourceAsStream("ozone-default-generated.xml");
+    assertThat(stream).as("ConfigFileGenerator output on classpath").isNotNull();
+    String generatedXml = new Scanner(stream, StandardCharsets.UTF_8.name())
+        .useDelimiter("//Z")
+        .next();
 
     assertThat(generatedXml)
         .as("annotation in ConfigurationExample")

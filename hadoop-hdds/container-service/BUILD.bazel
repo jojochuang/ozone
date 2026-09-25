@@ -73,7 +73,11 @@ java_library(
     name = "hdds-container-service-tests",
     testonly = True,
     tags = ["manual"],
-    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    srcs = glob(
+        ["src/test/java/**/*.java"],
+        exclude = ["src/test/java/org/apache/hadoop/ozone/container/ozoneimpl/TestOzoneContainer.java"],
+        allow_empty = True,
+    ),
     resources = glob(["src/test/resources/**"], allow_empty = True),
     deps = [
         ":hdds-container-service",

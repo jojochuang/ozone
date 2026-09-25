@@ -21,7 +21,6 @@ package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "ozone-mini-cluster",
-    tags = ["manual"],
     testonly = True,
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),

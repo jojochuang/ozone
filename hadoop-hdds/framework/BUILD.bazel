@@ -98,6 +98,7 @@ java_library(
         ":hdds-server-framework",
         "//hadoop-hdds/common:hdds-common-tests",
         "//hadoop-hdds/managed-rocksdb:hdds-managed-rocksdb-tests",
+        "//hadoop-hdds/test-utils:hdds-hadoop-test-jars",
         "//hadoop-hdds/test-utils:hdds-test-utils",
         "@maven//:org_apache_hadoop_hadoop_common",
         "@maven//:org_apache_ratis_ratis_server",

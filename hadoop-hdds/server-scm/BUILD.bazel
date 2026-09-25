@@ -14,9 +14,15 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
 load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
+
+ozone_java_proto_library(
+    name = "scm-ratis-test-proto",
+    protos = ["src/test/proto/Proto2SCMRatisProtocolForTesting.proto"],
+)
 
 java_library(
     name = "hdds-server-scm",
@@ -68,9 +74,11 @@ java_library(
     resources = glob(["src/test/resources/**"], allow_empty = True),
     deps = [
         ":hdds-server-scm",
+        ":scm-ratis-test-proto",
         "//hadoop-hdds/common:hdds-common-tests",
         "//hadoop-hdds/container-service:hdds-container-service-tests",
         "//hadoop-hdds/framework:hdds-server-framework-tests",
+        "//hadoop-hdds/test-utils:hdds-hadoop-test-jars",
         "//hadoop-hdds/test-utils:hdds-test-utils",
         "@maven//:org_apache_commons_commons_math3",
         "@maven//:org_apache_hadoop_hadoop_common",

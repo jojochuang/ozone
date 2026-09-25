@@ -32,3 +32,6 @@ def picocli_codegen_plugin(name = "picocli_codegen"):
 def hdds_config_processor():
     """Returns the config file generator plugin target."""
     return "//hadoop-hdds/config:config_file_generator"
+
+# .bazelrc sets -proc:none globally; targets with java_plugin need -proc:full in javacopts.
+OZONE_ANNOTATION_PROCESSING_JAVACOPTS = ["-proc:full"]

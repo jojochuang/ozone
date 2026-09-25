@@ -25,7 +25,13 @@ java_library(
     testonly = True,
     tags = ["manual"],
     exports = [
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/server-scm:hdds-server-scm-tests",
+        "//hadoop-ozone/cli-admin:ozone-cli-admin",
         "//hadoop-ozone/integration-test:ozone-integration-test",
+        "//hadoop-ozone/integration-test:ozone-integration-test-tests",
+        "//hadoop-ozone/mini-cluster:ozone-mini-cluster",
+        "//hadoop-ozone/ozone-manager:ozone-manager-tests",
         "//hadoop-ozone/recon:ozone-recon",
     ],
 )
@@ -36,7 +42,11 @@ java_library(
     srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
     resources = glob(["src/test/resources/**"], allow_empty = True),
     tags = ["ozone-maven-stub", "manual"],
-    deps = [":ozone-integration-test-recon"],
+    deps = [
+        ":ozone-integration-test-recon",
+        # After stub exports so integration-test TestOzoneContainer wins over HDDS homonym.
+        "//hadoop-ozone/integration-test:ozone-integration-test-tests",
+    ],
 )
 
 # OZONE_JUNIT5_WIRED
