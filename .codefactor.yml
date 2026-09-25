@@ -1,5 +1,5 @@
 version: "1"
-exclude_paths:
+exclude: &codefactor_excludes
   - "**/*.bzl"
   - "**/BUILD.bazel"
   - "BUILD.bazel"
@@ -12,3 +12,4 @@ exclude_paths:
   - "**/*.md"
   - "**/pom.xml"
   - "hadoop-hdds/dev-support/**"
+exclude_paths: *codefactor_excludes
