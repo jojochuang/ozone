@@ -1,0 +1,7 @@
+version: 1
+exclude:
+  - "**/*.bzl"
+  - "**/BUILD.bazel"
+  - "BUILD.bazel"
+  - "MODULE.bazel"
+  - "MODULE.bazel.lock"
