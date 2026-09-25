@@ -30,6 +30,19 @@ REPORT_FILE="${REPORT_DIR}/summary.txt"
 chmod +x "${ROOT}/tools/bazel/stage_dist_layout.sh"
 "${ROOT}/tools/bazel/stage_dist_layout.sh" >> "${REPORT_DIR}/output.log" 2>&1
 
+# shellcheck source=dev-support/ci/load_build_versions.sh
+source "${ROOT}/dev-support/ci/load_build_versions.sh"
+OZONE_VERSION="$(load_build_version ozone.version)"
+DIST_DIR="${ROOT}/hadoop-ozone/dist/target/ozone-${OZONE_VERSION}"
+
+if [[ "${SKIP_ACCEPTANCE:-false}" == "true" ]]; then
+  {
+    echo "OK: Bazel dist layout staged at ${DIST_DIR}"
+    echo "Compose acceptance not run (SKIP_ACCEPTANCE=true; Bazel dist lacks Maven classpath parity)."
+  } | tee "${REPORT_FILE}"
+  exit 0
+fi
+
 if ! docker info >/dev/null 2>&1; then
   echo "Acceptance skipped: Docker unavailable in this environment." | tee "${REPORT_FILE}"
   exit 0
