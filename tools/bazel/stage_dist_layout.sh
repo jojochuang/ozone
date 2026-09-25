@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Materialize hadoop-ozone/dist/target/ozone-<version>/ from //hadoop-ozone/dist:ozone-dist
-# so acceptance.sh and compose scripts match the Maven dist layout.
+# Materialize hadoop-ozone/dist/target/ozone-<version>/ for compose/acceptance
+# (Maven dist-layout-stitching parity using Bazel-built jars).
 
 set -euo pipefail
 
@@ -34,58 +34,105 @@ fi
 # shellcheck source=dev-support/ci/load_build_versions.sh
 source dev-support/ci/load_build_versions.sh
 OZONE_VERSION="$(load_build_version ozone.version)"
-
-"${BAZEL}" build //hadoop-ozone/dist:ozone-dist --build_tag_filters=
-
-TAR="${ROOT}/bazel-bin/hadoop-ozone/dist/ozone-dist.tar.gz"
-if [[ ! -f "${TAR}" ]]; then
-  echo "Missing ${TAR}" >&2
-  exit 1
-fi
+HDDS_VERSION="${OZONE_VERSION}"
 
 DIST_ROOT="${ROOT}/hadoop-ozone/dist/target/ozone-${OZONE_VERSION}"
 mkdir -p "${ROOT}/hadoop-ozone/dist/target"
 rm -rf "${DIST_ROOT}"
 mkdir -p "${DIST_ROOT}"
 
-TMP="$(mktemp -d)"
-tar -xzf "${TAR}" -C "${TMP}"
-if [[ -d "${TMP}/ozone" ]]; then
-  cp -a "${TMP}/ozone/." "${DIST_ROOT}/"
-else
-  cp -a "${TMP}/." "${DIST_ROOT}/"
-fi
-rm -rf "${TMP}"
+cp -p "${ROOT}/hadoop-ozone/dist/src/main/license/bin/NOTICE.txt" "${DIST_ROOT}/NOTICE.txt"
+cp -p "${ROOT}/hadoop-ozone/dist/src/main/license/bin/LICENSE.txt" "${DIST_ROOT}/LICENSE.txt"
+cp -pr "${ROOT}/hadoop-ozone/dist/src/main/license/bin/licenses" "${DIST_ROOT}/licenses"
+cp -p "${ROOT}/README.md" "${DIST_ROOT}/"
+cp -p "${ROOT}/HISTORY.md" "${DIST_ROOT}/"
+cp -p "${ROOT}/SECURITY.md" "${DIST_ROOT}/"
+cp -p "${ROOT}/CONTRIBUTING.md" "${DIST_ROOT}/"
 
-mkdir -p "${DIST_ROOT}/lib" "${DIST_ROOT}/compose" "${DIST_ROOT}/smoketest" "${DIST_ROOT}/kubernetes"
-COMPOSE_SRC="${ROOT}/hadoop-ozone/dist/src/main/compose"
-cp -a "${COMPOSE_SRC}/." "${DIST_ROOT}/compose/"
-SMOKETEST_SRC="${ROOT}/hadoop-ozone/dist/src/main/smoketest"
-cp -a "${SMOKETEST_SRC}/." "${DIST_ROOT}/smoketest/"
-K8S_SRC="${ROOT}/hadoop-ozone/dist/src/main/k8s"
-if [[ -d "${K8S_SRC}" ]]; then
-  cp -a "${K8S_SRC}/." "${DIST_ROOT}/kubernetes/"
+mkdir -p "${DIST_ROOT}/share/ozone/classpath" "${DIST_ROOT}/share/ozone/lib" "${DIST_ROOT}/share/ozone/web"
+mkdir -p "${DIST_ROOT}/bin" "${DIST_ROOT}/sbin" "${DIST_ROOT}/etc/hadoop" "${DIST_ROOT}/libexec"
+mkdir -p "${DIST_ROOT}/log" "${DIST_ROOT}/temp" "${DIST_ROOT}/lib"
+mkdir -p "${DIST_ROOT}/compose" "${DIST_ROOT}/smoketest" "${DIST_ROOT}/kubernetes"
+
+cp -r "${ROOT}/hadoop-hdds/common/src/main/conf/." "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/om-audit-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/dn-audit-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/dn-container-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/scm-audit-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/s3g-audit-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/ozone-site.xml" "${DIST_ROOT}/etc/hadoop/"
+cp -f "${ROOT}/hadoop-ozone/dist/src/shell/conf/log4j.properties" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-hdds/framework/src/main/resources/network-topology-default.xml" "${DIST_ROOT}/etc/hadoop/"
+cp "${ROOT}/hadoop-hdds/framework/src/main/resources/network-topology-nodegroup.xml" "${DIST_ROOT}/etc/hadoop/"
+
+cp -r "${ROOT}/hadoop-ozone/dist/src/main/dockerlibexec/." "${DIST_ROOT}/libexec/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/ozone/ozone" "${DIST_ROOT}/bin/"
+chmod 755 "${DIST_ROOT}/bin/ozone"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/ozone/ozone-config.sh" "${DIST_ROOT}/libexec/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/ozone/ozone-functions.sh" "${DIST_ROOT}/libexec/"
+cp -r "${ROOT}/hadoop-ozone/dist/src/shell/shellprofile.d" "${DIST_ROOT}/libexec/"
+cp -r "${ROOT}/hadoop-ozone/dist/src/shell/upgrade" "${DIST_ROOT}/libexec/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/hdds/hadoop-daemons.sh" "${DIST_ROOT}/sbin/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/hdds/workers.sh" "${DIST_ROOT}/sbin/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/ozone/start-ozone.sh" "${DIST_ROOT}/sbin/"
+cp "${ROOT}/hadoop-ozone/dist/src/shell/ozone/stop-ozone.sh" "${DIST_ROOT}/sbin/"
+chmod 755 "${DIST_ROOT}/sbin/"*.sh
+
+cp -r "${ROOT}/dev-support/byteman" "${DIST_ROOT}/share/ozone/"
+
+cp -a "${ROOT}/hadoop-ozone/dist/src/main/compose/." "${DIST_ROOT}/compose/"
+cp -a "${ROOT}/hadoop-ozone/dist/src/main/smoketest/." "${DIST_ROOT}/smoketest/"
+if [[ -d "${ROOT}/hadoop-ozone/dist/src/main/k8s" ]]; then
+  cp -a "${ROOT}/hadoop-ozone/dist/src/main/k8s/." "${DIST_ROOT}/kubernetes/"
 fi
+mkdir -p "${DIST_ROOT}/compose/_keytabs"
 find "${DIST_ROOT}/compose" "${DIST_ROOT}/kubernetes" -name "*.sh" -exec chmod 755 {} \; 2>/dev/null || true
 
-_LIB_TARGETS=(
+_RUNTIME_ROOTS=(
   "//hadoop-hdds/common:hdds-common"
   "//hadoop-hdds/config:hdds-config"
   "//hadoop-hdds/server-scm:hdds-server-scm"
   "//hadoop-hdds/container-service:hdds-container-service"
   "//hadoop-ozone/common:ozone-common"
+  "//hadoop-ozone/client:ozone-client"
   "//hadoop-ozone/ozone-manager:ozone-manager"
+  "//hadoop-ozone/datanode:ozone-datanode"
   "//hadoop-ozone/recon:ozone-recon"
-  "//hadoop-ozone/cli-debug:ozone-cli-debug"
   "//hadoop-ozone/s3gateway:ozone-s3gateway"
+  "//hadoop-ozone/cli-shell:ozone-cli-shell"
+  "//hadoop-ozone/cli-admin:ozone-cli-admin"
+  "//hadoop-ozone/cli-debug:ozone-cli-debug"
+  "//hadoop-ozone/tools:ozone-tools"
   "//hadoop-ozone/csi:ozone-csi"
   "//hadoop-ozone/iceberg:ozone-iceberg"
 )
-for label in "${_LIB_TARGETS[@]}"; do
-  jar="$("${BAZEL}" cquery "${label}" --output=files 2>/dev/null | grep 'lib.*\.jar$' | grep -v ijars | head -1)"
-  if [[ -n "${jar}" && -f "${ROOT}/${jar}" ]]; then
-    cp -f "${ROOT}/${jar}" "${DIST_ROOT}/lib/"
+
+"${BAZEL}" build "${_RUNTIME_ROOTS[@]}" --build_tag_filters=
+
+_deps_query="${_RUNTIME_ROOTS[0]}"
+for ((i = 1; i < ${#_RUNTIME_ROOTS[@]}; i++)); do
+  _deps_query="${_deps_query} + ${_RUNTIME_ROOTS[$i]}"
+done
+
+EXEC_ROOT="$("${BAZEL}" info execution_root)"
+mapfile -t _jar_files < <(
+  "${BAZEL}" cquery "filter('.*\\.jar$', deps(${_deps_query}))" --output=files 2>/dev/null \
+    | sort -u \
+    | grep -E '\.jar$' \
+    | grep -v ijars \
+    | grep -v srcjar \
+    | grep -v '/_javac/' || true
+)
+
+for jar in "${_jar_files[@]}"; do
+  src="${EXEC_ROOT}/${jar}"
+  if [[ -f "${src}" ]]; then
+    cp -f "${src}" "${DIST_ROOT}/share/ozone/lib/"
+    cp -f "${src}" "${DIST_ROOT}/lib/"
   fi
 done
 
-echo "Staged dist at ${DIST_ROOT}"
+# Keep //hadoop-ozone/dist:ozone-dist buildable as a milestone (tar is not the staged layout source).
+"${BAZEL}" build //hadoop-ozone/dist:ozone-dist --build_tag_filters= >/dev/null 2>&1 || true
+
+echo "Staged dist at ${DIST_ROOT} ($(find "${DIST_ROOT}/share/ozone/lib" -name '*.jar' | wc -l) jars)"

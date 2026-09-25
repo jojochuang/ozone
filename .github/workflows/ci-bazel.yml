@@ -278,10 +278,10 @@ jobs:
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
       - name: Stage dist
         run: ./tools/bazel/stage_dist_layout.sh
-      - name: Run smoke acceptance suite
+      - name: Run smoke acceptance suite (compose unsecure)
         env:
-          OZONE_ACCEPTANCE_SUITE: smoketest
-        run: hadoop-ozone/dev-support/checks/acceptance.sh smoketest
+          OZONE_ACCEPTANCE_SUITE: unsecure
+        run: hadoop-ozone/dev-support/checks/acceptance.sh unsecure
 
   recon-ui:
     name: recon npm ui
