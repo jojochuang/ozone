@@ -36,7 +36,7 @@ FULL="${BAZEL_UNIT_FULL:-false}"
 if [[ "${FULL}" == "true" ]]; then
   EXCLUDE='//hadoop-ozone/integration-test/... + //hadoop-ozone/integration-test-recon/... + //hadoop-ozone/integration-test-s3/... + //hadoop-ozone/fault-injection-test/...'
   QUERY="kind(\"java_test\", //hadoop-hdds/... + //hadoop-ozone/...) intersect attr(\"tags\", \"unit\", //hadoop-hdds/... + //hadoop-ozone/...) except attr(\"tags\", \"manual\", //hadoop-hdds/... + //hadoop-ozone/...) except ${EXCLUDE}"
-  TARGETS="$("${BAZEL}" query "${QUERY}" 2>/dev/null || true)"
+  mapfile -t TARGETS < <("${BAZEL}" query "${QUERY}" 2>/dev/null || true)
 else
   mapfile -t TARGETS < "${ALLOWLIST}"
 fi
