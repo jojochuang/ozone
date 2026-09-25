@@ -73,7 +73,7 @@ def scan_modules() -> dict[tuple[str, str], Path]:
     return index
 
 
-def module_target(pom_dir: Path, modules: dict[tuple[str, str], Path]) -> str:
+def module_target(pom_dir: Path, _modules: dict[tuple[str, str], Path]) -> str:
     root = parse(pom_dir / "pom.xml").getroot()
     aid = (root.find("m:artifactId", NS).text or "").strip()
     rel = pom_dir.relative_to(ROOT).as_posix()

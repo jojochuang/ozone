@@ -131,9 +131,12 @@ if grep -q '\[ERROR\]' "${REPORT_DIR}/output.log" 2>/dev/null; then
 else
   : > "$REPORT_FILE"
   if [[ ! -f pom.xml ]]; then
+    # shellcheck disable=SC2034
     rc=0
   fi
 fi
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

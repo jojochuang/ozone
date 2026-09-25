@@ -98,5 +98,7 @@ if [[ ! -f pom.xml ]]; then
   fi
 fi
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

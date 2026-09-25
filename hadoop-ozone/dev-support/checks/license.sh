@@ -72,7 +72,10 @@ grep '(' ${src} \
     || true ) \
   | sort -u \
   | tee "${REPORT_FILE}"
+# shellcheck disable=SC2034
 rc=$?
 
+# shellcheck disable=SC2034
 ERROR_PATTERN=""
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

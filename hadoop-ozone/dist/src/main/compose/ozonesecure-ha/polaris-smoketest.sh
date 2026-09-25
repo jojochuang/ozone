@@ -28,7 +28,8 @@ if [[ -z "${RANGER_VERSION:-}" ]]; then
   # shellcheck source=dev-support/ci/load_build_versions.sh
   source "${_OZONE_REPO}/dev-support/ci/load_build_versions.sh"
   BUILD_VERSIONS_FILE="${_OZONE_REPO}/dev-support/build-versions.properties"
-  export RANGER_VERSION="$(load_build_version ranger.version)"
+  RANGER_VERSION="$(load_build_version ranger.version)"
+  export RANGER_VERSION
 fi
 
 : "${POLARIS_IMAGE:=apache/polaris:1.4.1}"

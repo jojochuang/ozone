@@ -36,10 +36,13 @@ declare -i rc
 
 #shellcheck disable=SC2086
 mvn $MAVEN_OPTIONS test-compile pmd:check "$@" | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 
 grep -o "PMD Failure.*" "${REPORT_DIR}/output.log" > "$REPORT_FILE"
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
 
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

@@ -56,10 +56,13 @@ create_aws_dir
 
 cd "$DIST_DIR/kubernetes/examples" || exit 1
 ./test-all.sh 2>&1 | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 cp -r result/* "$REPORT_DIR/"
 
 grep -A1 FAIL "${REPORT_DIR}/output.log" > "${REPORT_FILE}"
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="FAIL"
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

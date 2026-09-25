@@ -1,5 +1,16 @@
-# HDDS-9714 fork PR: CodeFactor compares against a stale default branch and reports hundreds of
-# pre-existing module issues. CI already runs checkstyle, PMD, SpotBugs, and RAT on Java sources.
 version: 1
 exclude:
-  - "**/*"
+  - "**/pom.xml"
+  - "**/*.bazel"
+  - "MODULE.bazel"
+  - "MODULE.bazel.lock"
+  - "**/maven_artifacts.bzl"
+  - "**/.mvn/**"
+  - "**/maven-settings.xml"
+  - "**/checkstyle.xml"
+rules:
+  duplication:
+    enabled: false
+  python:
+    complexity:
+      enabled: false

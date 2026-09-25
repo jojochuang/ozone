@@ -49,11 +49,14 @@ rm -f "${REPORT_DIR}/output.log"
   fi
 } | xargs -0 -n1 bats --formatter tap \
   | tee -a "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 
 grep '^\(not ok\|#\)' "${REPORT_DIR}/output.log" > "${REPORT_FILE}"
 
 grep -c '^not ok' "${REPORT_FILE}" > "${REPORT_DIR}/failures"
 
+# shellcheck disable=SC2034
 ERROR_PATTERN=""
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

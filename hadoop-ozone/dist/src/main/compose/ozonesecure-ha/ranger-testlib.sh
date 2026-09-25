@@ -47,7 +47,8 @@ setup_ranger_acceptance_env() {
     # shellcheck source=dev-support/ci/load_build_versions.sh
     source "${ozone_repo}/dev-support/ci/load_build_versions.sh"
     BUILD_VERSIONS_FILE="${ozone_repo}/dev-support/build-versions.properties"
-    export RANGER_VERSION="$(load_build_version ranger.version)"
+    RANGER_VERSION="$(load_build_version ranger.version)"
+    export RANGER_VERSION
   fi
 
   : "${DOWNLOAD_DIR:=${TEMP_DIR:-/tmp}}"

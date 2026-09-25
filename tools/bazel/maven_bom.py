@@ -17,8 +17,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from defusedxml import ElementTree as ET
-
 from pom_xml import parse
 
 ROOT = Path(__file__).resolve().parents[2]

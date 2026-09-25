@@ -98,18 +98,21 @@ export OZONE_ACCEPTANCE_SUITE OZONE_ACCEPTANCE_TEST_TYPE
 
 cd "$DIST_DIR/compose" || exit 1
 ./test-all.sh 2>&1 | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 
 if [[ "${OZONE_ACCEPTANCE_TEST_TYPE}" == "maven" ]]; then
-  pushd result
+  pushd result || exit 1
   source "${DIR}/_mvn_unit_report.sh"
   find . -name junit -print0 | xargs -r -0 rm -frv
   cp -rv * "${REPORT_DIR}"/
-  popd
+  popd || exit 1
+  # shellcheck disable=SC2034
   ERROR_PATTERN="\[ERROR\]"
 else
   cp -rv result/* "$REPORT_DIR/"
   grep -A1 FAIL "${REPORT_DIR}/output.log" | grep -v '^Output' > "${REPORT_FILE}"
+  # shellcheck disable=SC2034
   ERROR_PATTERN="FAIL"
 fi
 

@@ -20,8 +20,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from defusedxml import ElementTree as ET
-
 from pom_to_bazel import dep_to_label, pom_dependencies, scan_modules
 from pom_xml import parse
 
