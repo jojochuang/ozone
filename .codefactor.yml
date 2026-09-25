@@ -1,16 +1,5 @@
 version: 1
 exclude:
-  - "**/pom.xml"
-  - "**/*.bazel"
-  - "MODULE.bazel"
+  - "tools/bazel/maven_artifacts.bzl"
+  - "tools/bazel/extra_maven_artifacts.bzl"
   - "MODULE.bazel.lock"
-  - "**/maven_artifacts.bzl"
-  - "**/.mvn/**"
-  - "**/maven-settings.xml"
-  - "**/checkstyle.xml"
-rules:
-  duplication:
-    enabled: false
-  python:
-    complexity:
-      enabled: false
