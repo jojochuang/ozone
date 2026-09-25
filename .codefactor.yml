@@ -1,15 +1,14 @@
-version: 1
-exclude:
+version: "1"
+exclude_paths:
   - "**/*.bzl"
   - "**/BUILD.bazel"
   - "BUILD.bazel"
   - "MODULE.bazel"
   - "MODULE.bazel.lock"
-  - "tools/bazel/maven_artifacts.bzl"
-  - "tools/bazel/extra_maven_artifacts.bzl"
   - "tools/bazel/**"
   - "hadoop-ozone/dev-support/checks/**"
   - "dev-support/**"
   - ".github/**"
   - "**/*.md"
   - "**/pom.xml"
+  - "hadoop-hdds/dev-support/**"

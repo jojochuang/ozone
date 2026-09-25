@@ -59,7 +59,7 @@ mvn clean verify -DskipTests
 
 Apache Ozone is migrating to Bazel alongside Maven. Migrated modules can be built with:
 
-```
+```bash
 ./hadoop-ozone/dev-support/checks/bazel.sh
 ```
 

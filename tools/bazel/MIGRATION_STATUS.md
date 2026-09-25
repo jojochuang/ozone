@@ -20,7 +20,8 @@
 RUN_BAZEL_ALL_UNIT=true ./tools/bazel/verify_extended.sh   # all wired unit packages (long)
 ```
 
-Default builds use `--build_tag_filters=-manual`. Integration modules, mini-cluster, `*-tests` libraries, and wired unit packages remain `manual` until compile/test deps are fixed.
+Default builds use `--build_tag_filters=-manual`. Integration modules, mini-cluster, `*-tests` libraries, and wired unit
+packages remain `manual` until compile/test deps are fixed.
 
 ## Still in progress
 
