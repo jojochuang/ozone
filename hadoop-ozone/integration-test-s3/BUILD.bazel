@@ -64,7 +64,7 @@ ozone_junit5_package(
     name = "ozone-integration-test-s3-tests-pkg-org-apache-hadoop-ozone-s3-awssdk",
     package = "org.apache.hadoop.ozone.s3.awssdk",
     size = "large",
-    tags = ["unit", "manual"],
+    tags = ["integration", "manual"],
     deps = [":ozone-integration-test-s3-tests"],
 )
 

@@ -55,7 +55,7 @@ ozone_junit5_package(
     name = "ozone-integration-test-recon-tests-pkg-org-apache-hadoop-ozone-recon",
     package = "org.apache.hadoop.ozone.recon",
     size = "large",
-    tags = ["unit", "manual"],
+    tags = ["integration", "manual"],
     deps = [":ozone-integration-test-recon-tests"],
 )
 

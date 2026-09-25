@@ -47,6 +47,38 @@ DIST_ROOT="${ROOT}/hadoop-ozone/dist/target/ozone-${OZONE_VERSION}"
 mkdir -p "${ROOT}/hadoop-ozone/dist/target"
 rm -rf "${DIST_ROOT}"
 mkdir -p "${DIST_ROOT}"
-tar -xzf "${TAR}" -C "${DIST_ROOT}" --strip-components=1 2>/dev/null || tar -xzf "${TAR}" -C "${DIST_ROOT}"
+
+TMP="$(mktemp -d)"
+tar -xzf "${TAR}" -C "${TMP}"
+if [[ -d "${TMP}/ozone" ]]; then
+  cp -a "${TMP}/ozone/." "${DIST_ROOT}/"
+else
+  cp -a "${TMP}/." "${DIST_ROOT}/"
+fi
+rm -rf "${TMP}"
+
+mkdir -p "${DIST_ROOT}/lib" "${DIST_ROOT}/compose"
+COMPOSE_SRC="${ROOT}/hadoop-ozone/dist/src/main/compose"
+cp -a "${COMPOSE_SRC}/." "${DIST_ROOT}/compose/"
+
+_LIB_TARGETS=(
+  "//hadoop-hdds/common:hdds-common"
+  "//hadoop-hdds/config:hdds-config"
+  "//hadoop-hdds/server-scm:hdds-server-scm"
+  "//hadoop-hdds/container-service:hdds-container-service"
+  "//hadoop-ozone/common:ozone-common"
+  "//hadoop-ozone/ozone-manager:ozone-manager"
+  "//hadoop-ozone/recon:ozone-recon"
+  "//hadoop-ozone/cli-debug:ozone-cli-debug"
+  "//hadoop-ozone/s3gateway:ozone-s3gateway"
+  "//hadoop-ozone/csi:ozone-csi"
+  "//hadoop-ozone/iceberg:ozone-iceberg"
+)
+for label in "${_LIB_TARGETS[@]}"; do
+  jar="$("${BAZEL}" cquery "${label}" --output=files 2>/dev/null | grep 'lib.*\.jar$' | grep -v ijars | head -1)"
+  if [[ -n "${jar}" && -f "${ROOT}/${jar}" ]]; then
+    cp -f "${ROOT}/${jar}" "${DIST_ROOT}/lib/"
+  fi
+done
 
 echo "Staged dist at ${DIST_ROOT}"

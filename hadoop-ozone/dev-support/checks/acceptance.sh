@@ -19,6 +19,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml && "${OZONE_ACCEPTANCE_SKIP_BAZEL_WRAPPER:-}" != "true" ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/acceptance_bazel.sh" "$@"
+fi
+
 OZONE_ROOT=$(pwd -P)
 
 : ${HADOOP_AWS_DIR:=""}

@@ -18,34 +18,46 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 def aspectj_library(name, srcs, aspects = [], deps = [], resources = [], aop_xml = None, visibility = None):
-    """Compile Java sources with AspectJ ajc using aspectjtools from Maven."""
+    """Compile Java sources with AspectJ ajc when aspects are provided."""
+    if not aspects:
+        java_library(
+            name = name,
+            srcs = srcs,
+            deps = deps,
+            resources = resources + ([aop_xml] if aop_xml else []),
+            visibility = visibility,
+        )
+        return
+
     woven = name + "_aspectj_out"
+    compile_deps = deps + ["@maven//:org_aspectj_aspectjrt"]
     native.genrule(
         name = woven + "_gen",
-        srcs = srcs + aspects + ([aop_xml] if aop_xml else []),
+        srcs = srcs + aspects + compile_deps + ([aop_xml] if aop_xml else []),
         tools = ["@maven//:org_aspectj_aspectjtools"],
         outs = [woven + ".srcjar"],
         cmd = """
 set -euo pipefail
 OUT=$$(mktemp -d)
 ASPECTJ=$$(dirname $$(dirname $(location @maven//:org_aspectj_aspectjtools)))/org_aspectj_aspectjtools.jar
-CP=$$(echo {deps} | tr ' ' ':')
-# Classpath resolution is completed in follow-up manual targets; compile aspects + srcs only here.
-java -jar $$ASPECTJ -source 8 -target 8 -d $$OUT {srcs} {aspects} || true
+CP=$$(echo $(locations {compile_deps}) | tr ' ' ':')
+java -jar $$ASPECTJ -source 8 -target 8 -encoding UTF-8 \\
+  -classpath "$$CP" \\
+  -d $$OUT \\
+  {src_locations} {aspect_locations}
 jar cf $(location {out}) -C $$OUT .
 """.format(
-            deps = " ".join(deps),
-            srcs = " ".join(["$(location %s)" % s for s in srcs]),
-            aspects = " ".join(["$(location %s)" % a for a in aspects]),
+            compile_deps = " ".join(['"%s"' % d for d in compile_deps]),
+            src_locations = " ".join(["$(location %s)" % s for s in srcs]),
+            aspect_locations = " ".join(["$(location %s)" % a for a in aspects]),
             out = woven + ".srcjar",
         ),
-        tags = ["manual"],
     )
     java_library(
         name = name,
         srcs = [woven + ".srcjar"],
-        deps = deps,
-        resources = resources,
+        deps = deps + ["@maven//:org_aspectj_aspectjrt"],
+        resources = resources + ([aop_xml] if aop_xml else []),
         visibility = visibility,
-        tags = ["aspectj", "manual"],
+        tags = ["aspectj"],
     )

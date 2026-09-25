@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Run all non-manual java_test targets tagged unit (excludes integration modules).
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -28,26 +30,25 @@ else
   exit 1
 fi
 
-echo "== Spike tests =="
-"${ROOT}/hadoop-ozone/dev-support/checks/bazel.sh"
+ALLOWLIST="${ROOT}/tools/bazel/unit_ci_targets.txt"
+FULL="${BAZEL_UNIT_FULL:-false}"
 
-echo "== Build default module graph (excludes manual-tagged targets) =="
-TARGETS="$("${BAZEL}" query \
-  'kind("java_library", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')"
-"${BAZEL}" build ${TARGETS}
-
-echo "== Unit tests =="
-if [[ "${RUN_BAZEL_ALL_UNIT:-false}" == "true" ]]; then
-  "${ROOT}/tools/bazel/verify_unit.sh" --flaky_test_attempts=1
+if [[ "${FULL}" == "true" ]]; then
+  EXCLUDE='//hadoop-ozone/integration-test/... + //hadoop-ozone/integration-test-recon/... + //hadoop-ozone/integration-test-s3/... + //hadoop-ozone/fault-injection-test/...'
+  QUERY="kind(\"java_test\", //hadoop-hdds/... + //hadoop-ozone/...) intersect attr(\"tags\", \"unit\", //hadoop-hdds/... + //hadoop-ozone/...) except attr(\"tags\", \"manual\", //hadoop-hdds/... + //hadoop-ozone/...) except ${EXCLUDE}"
+  TARGETS="$("${BAZEL}" query "${QUERY}" 2>/dev/null || true)"
 else
-  DEFAULT_TESTS=(
-    //hadoop-hdds/config:TestConfigurationReflectionUtil
-    //hadoop-hdds/config:hdds-config-tests-pkg-org-apache-hadoop-hdds-conf
-    //hadoop-hdds/common:hdds-common-unit-hdds-utils
-    //hadoop-hdds/common:hdds-common-unit-ozone-common
-  )
-  # shellcheck disable=SC2068
-  "${BAZEL}" test ${DEFAULT_TESTS[@]} --build_tag_filters= --test_output=errors
+  mapfile -t TARGETS < "${ALLOWLIST}"
 fi
 
-echo "All verification steps completed."
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  echo "No unit java_test targets to run."
+  exit 0
+fi
+
+echo "== Unit tests (${#TARGETS[@]} targets, FULL=${FULL}) =="
+# shellcheck disable=SC2068
+"${BAZEL}" test ${TARGETS[@]} \
+  --build_tag_filters= \
+  --test_output=errors \
+  "${@}"

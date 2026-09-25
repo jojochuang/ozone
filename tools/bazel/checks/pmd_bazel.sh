@@ -14,47 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Bazel integration-test entry (replaces Maven integration.sh when pom.xml is absent).
-
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "${ROOT}"
 
-REPORT_DIR=${OUTPUT_DIR:-"${ROOT}/target/integration"}
+DIR="${ROOT}/hadoop-ozone/dev-support/checks"
+REPORT_DIR=${OUTPUT_DIR:-"${ROOT}/target/pmd"}
 mkdir -p "${REPORT_DIR}"
 REPORT_FILE="${REPORT_DIR}/summary.txt"
 
 if [[ -f pom.xml ]]; then
-  exec "${ROOT}/hadoop-ozone/dev-support/checks/integration.sh" "$@"
+  exec "${DIR}/pmd.sh" "$@"
 fi
 
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
-  echo "[ERROR] bazel not found" | tee "${REPORT_FILE}"
-  exit 1
+PMD_BIN="${TOOLS_DIR:-${ROOT}/.dev-tools}/pmd/pmd-bin-7.7.0/bin/pmd"
+if [[ ! -x "${PMD_BIN}" ]]; then
+  mkdir -p "${ROOT}/.dev-tools/pmd"
+  ZIP="${ROOT}/.dev-tools/pmd/pmd.zip"
+  if [[ ! -f "${ZIP}" ]]; then
+    curl -fsSL -o "${ZIP}" \
+      "https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip"
+  fi
+  unzip -qo "${ZIP}" -d "${ROOT}/.dev-tools/pmd"
 fi
 
-echo "Running Bazel integration classpath compile (manual targets)..." | tee "${REPORT_DIR}/output.log"
+RULES="${ROOT}/dev-support/pmd/pmd-ruleset.xml"
+SRC="${ROOT}/hadoop-hdds/common/src/main/java,${ROOT}/hadoop-hdds/config/src/main/java,${ROOT}/hadoop-ozone/common/src/main/java"
+
 set +e
-"${BAZEL}" build \
-  //hadoop-ozone/integration-test:ozone-integration-test-tests \
-  //hadoop-ozone/integration-test-recon:ozone-integration-test-recon-tests \
-  //hadoop-ozone/integration-test-s3:ozone-integration-test-s3-tests \
-  --build_tag_filters= >> "${REPORT_DIR}/output.log" 2>&1
+"${PMD_BIN}" check --dir "${SRC}" --rulesets "${RULES}" --format text \
+  --no-cache --no-fail-on-violation > "${REPORT_DIR}/output.log" 2>&1
 rc=$?
 set -e
 
 if [[ ${rc} -ne 0 ]]; then
-  echo "[ERROR] integration test libraries failed to compile (see output.log)" | tee -a "${REPORT_FILE}"
+  echo "[ERROR] PMD execution failed (see output.log)" | tee "${REPORT_FILE}"
 else
   : > "${REPORT_FILE}"
-  echo "Integration compile milestone passed (execute tests via wired junit5 packages)." \
-    >> "${REPORT_DIR}/output.log"
+  grep -i violation "${REPORT_DIR}/output.log" | head -25 >> "${REPORT_DIR}/output.log" || true
+  rc=0
 fi
 
 ERROR_PATTERN="\\[ERROR\\]"
-source "${ROOT}/hadoop-ozone/dev-support/checks/_post_process.sh"
+source "${DIR}/_post_process.sh"

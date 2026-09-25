@@ -14,32 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#checks:basic
+# Re-add manual to wired JUnit5 packages (inverse of promote_unit_tags.sh).
 
-set -u -o pipefail
+set -euo pipefail
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd "$DIR/../../.." || exit 1
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${ROOT}"
 
-if [[ ! -f pom.xml ]]; then
-  exec "${DIR}/../../../tools/bazel/checks/pmd_bazel.sh" "$@"
-fi
+KEEP="${ROOT}/tools/bazel/unit_ci_allowlist.txt"
 
-REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/pmd"}
-mkdir -p "$REPORT_DIR"
-
-REPORT_FILE="$REPORT_DIR/summary.txt"
-
-MAVEN_OPTIONS='-B -fae --no-transfer-progress -Dpmd.failOnViolation=false -Dpmd.printFailingErrors -DskipDocs -DskipRecon -DskipShade'
-
-declare -i rc
-
-#shellcheck disable=SC2086
-mvn $MAVEN_OPTIONS test-compile pmd:check "$@" | tee "${REPORT_DIR}/output.log"
-rc=$?
-
-grep -o "PMD Failure.*" "${REPORT_DIR}/output.log" > "$REPORT_FILE"
-
-ERROR_PATTERN="\[ERROR\]"
-
-source "${DIR}/_post_process.sh"
+while IFS= read -r build; do
+  if grep -q 'tags = \["unit"\]' "${build}"; then
+    if [[ -f "${KEEP}" ]] && grep -q "${build#${ROOT}/}" "${KEEP}"; then
+      continue
+    fi
+    sed -i 's/tags = \["unit"\]/tags = ["unit", "manual"]/g' "${build}"
+    echo "demoted ${build}"
+  fi
+done < <(find hadoop-hdds hadoop-ozone -name BUILD.bazel | sort)

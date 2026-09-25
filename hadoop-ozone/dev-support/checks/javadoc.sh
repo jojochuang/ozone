@@ -19,6 +19,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/javadoc_bazel.sh" "$@"
+fi
+
 BASE_DIR="$(pwd -P)"
 REPORT_DIR=${OUTPUT_DIR:-"${BASE_DIR}/target/javadoc"}
 REPORT_FILE="$REPORT_DIR/summary.txt"

@@ -15,6 +15,12 @@
 # limitations under the License.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+ROOT="$(cd "${DIR}/../../.." && pwd)"
+
+if [[ ! -f "${ROOT}/pom.xml" ]]; then
+  exec "${ROOT}/tools/bazel/checks/integration_bazel.sh" "$@"
+fi
+
 CHECK=integration
 ERROR_PATTERN="\[ERROR\]"
 

@@ -19,6 +19,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/kubernetes_bazel.sh" "$@"
+fi
+
 OZONE_ROOT=$(pwd -P)
 
 export KUBECONFIG

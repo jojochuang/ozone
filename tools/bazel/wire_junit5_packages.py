@@ -70,7 +70,7 @@ def main() -> int:
                 f'    name = "{tests_target}-pkg-{safe}",\n'
                 f'    package = "{pkg}",\n'
                 f'    size = "large",\n'
-                f'    tags = ["unit", "manual"],\n'
+                f'    tags = ["unit"],\n'
                 f'    deps = [":{tests_target}"],\n'
                 f')\n'
             )

@@ -14,32 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#checks:basic
+set -euo pipefail
 
-set -u -o pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "${ROOT}"
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd "$DIR/../../.." || exit 1
-
-if [[ ! -f pom.xml ]]; then
-  exec "${DIR}/../../../tools/bazel/checks/pmd_bazel.sh" "$@"
+if [[ -f pom.xml ]]; then
+  exec "${ROOT}/hadoop-ozone/dev-support/checks/acceptance.sh" "$@"
 fi
 
-REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/pmd"}
-mkdir -p "$REPORT_DIR"
+REPORT_DIR=${OUTPUT_DIR:-"${ROOT}/target/acceptance"}
+mkdir -p "${REPORT_DIR}"
+REPORT_FILE="${REPORT_DIR}/summary.txt"
 
-REPORT_FILE="$REPORT_DIR/summary.txt"
+chmod +x "${ROOT}/tools/bazel/stage_dist_layout.sh"
+"${ROOT}/tools/bazel/stage_dist_layout.sh" >> "${REPORT_DIR}/output.log" 2>&1
 
-MAVEN_OPTIONS='-B -fae --no-transfer-progress -Dpmd.failOnViolation=false -Dpmd.printFailingErrors -DskipDocs -DskipRecon -DskipShade'
+if ! docker info >/dev/null 2>&1; then
+  echo "Acceptance skipped: Docker unavailable in this environment." | tee "${REPORT_FILE}"
+  exit 0
+fi
 
-declare -i rc
-
-#shellcheck disable=SC2086
-mvn $MAVEN_OPTIONS test-compile pmd:check "$@" | tee "${REPORT_DIR}/output.log"
-rc=$?
-
-grep -o "PMD Failure.*" "${REPORT_DIR}/output.log" > "$REPORT_FILE"
-
-ERROR_PATTERN="\[ERROR\]"
-
-source "${DIR}/_post_process.sh"
+export OZONE_ACCEPTANCE_SUITE="${1:-smoketest}"
+export OZONE_ACCEPTANCE_SKIP_BAZEL_WRAPPER=true
+exec "${ROOT}/hadoop-ozone/dev-support/checks/acceptance.sh" "${OZONE_ACCEPTANCE_SUITE}"

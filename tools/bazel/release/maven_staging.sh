@@ -14,12 +14,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Placeholder: publish Bazel-built jars to Maven Central (GPG + staging repo).
-# Phase 3 of bazel-build-migration.md — wire rules_jvm_external maven publishing
-# or nexus-staging-maven-plugin against bazel-bin outputs.
+# Prepare a local Maven-style staging directory from Bazel-built jars (no Nexus upload).
 
 set -euo pipefail
 
-echo "Maven Central staging from Bazel is not automated yet." >&2
-echo "Build release jars with: bazel build //hadoop-ozone/dist:ozone-dist --build_tag_filters=" >&2
-exit 1
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "${ROOT}"
+
+if command -v bazel >/dev/null 2>&1; then
+  BAZEL=bazel
+elif [[ -x /tmp/bazelisk ]]; then
+  BAZEL=/tmp/bazelisk
+else
+  echo "bazel not found" >&2
+  exit 1
+fi
+
+# shellcheck source=dev-support/ci/load_build_versions.sh
+source "${ROOT}/dev-support/ci/load_build_versions.sh"
+VERSION="$(load_build_version ozone.version)"
+GROUP="org.apache.ozone"
+STAGING="${ROOT}/target/maven-staging/${VERSION}"
+rm -rf "${STAGING}"
+mkdir -p "${STAGING}"
+
+LIBS=(
+  "//hadoop-hdds/common:hdds-common"
+  "//hadoop-hdds/config:hdds-config"
+  "//hadoop-ozone/common:ozone-common"
+  "//hadoop-ozone/ozone-manager:ozone-manager"
+  "//hadoop-ozone/client:ozone-client"
+)
+
+for label in "${LIBS[@]}"; do
+  "${BAZEL}" build "${label}" --build_tag_filters= >/dev/null
+  jar="$("${BAZEL}" cquery "${label}" --output=files 2>/dev/null | grep '\.jar$' | grep -v ijars | head -1)"
+  artifact="${label##*:}"
+  artifact="${artifact//_/-}"
+  dest="${STAGING}/${GROUP//.//}/${artifact}/${VERSION}"
+  mkdir -p "${dest}"
+  cp "${ROOT}/${jar}" "${dest}/${artifact}-${VERSION}.jar"
+  cat > "${dest}/${artifact}-${VERSION}.pom" <<EOF
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>${GROUP}</groupId>
+  <artifactId>${artifact}</artifactId>
+  <version>${VERSION}</version>
+  <packaging>jar</packaging>
+</project>
+EOF
+done
+
+echo "Staged ${#LIBS[@]} artifacts under ${STAGING}"
+echo "Upload to Maven Central requires ASF credentials (not automated in CI)."
