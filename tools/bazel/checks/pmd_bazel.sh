@@ -52,9 +52,11 @@ if [[ ${rc} -ne 0 ]]; then
   echo "[ERROR] PMD execution failed (see output.log)" | tee "${REPORT_FILE}"
 else
   : > "${REPORT_FILE}"
-  grep -i violation "${REPORT_DIR}/output.log" | head -25 >> "${REPORT_DIR}/output.log" || true
+  grep -i violation "${REPORT_DIR}/output.log" | head -25 >> "${REPORT_FILE}" || true
   rc=0
 fi
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\\[ERROR\\]"
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
 source "${DIR}/_post_process.sh"

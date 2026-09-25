@@ -29,11 +29,9 @@ if [[ -f pom.xml ]]; then
   exec "${ROOT}/hadoop-ozone/dev-support/checks/integration.sh" "$@"
 fi
 
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/_lib.sh"
+if ! ozone_resolve_bazel; then
   echo "[ERROR] bazel not found" | tee "${REPORT_FILE}"
   exit 1
 fi
@@ -56,5 +54,7 @@ else
     >> "${REPORT_DIR}/output.log"
 fi
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\\[ERROR\\]"
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
 source "${ROOT}/hadoop-ozone/dev-support/checks/_post_process.sh"

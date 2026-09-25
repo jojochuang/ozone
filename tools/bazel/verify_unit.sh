@@ -18,17 +18,11 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
+ROOT="${OZONE_REPO_ROOT}"
 cd "${ROOT}"
-
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
-  echo "bazel not found" >&2
-  exit 1
-fi
+ozone_resolve_bazel
 
 ALLOWLIST="${ROOT}/tools/bazel/unit_ci_targets.txt"
 FULL="${BAZEL_UNIT_FULL:-false}"

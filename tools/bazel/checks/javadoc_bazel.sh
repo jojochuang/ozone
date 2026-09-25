@@ -28,11 +28,9 @@ if [[ -f pom.xml ]]; then
   exec "${DIR}/javadoc.sh" "$@"
 fi
 
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/_lib.sh"
+if ! ozone_resolve_bazel; then
   echo "[ERROR] bazel not found" | tee "${REPORT_FILE}"
   exit 1
 fi
@@ -52,6 +50,9 @@ MODULES=(
 
 : > "${REPORT_FILE}"
 echo "Bazel javadoc parity: core module jars built (aggregate apidocs deferred)."
+# shellcheck disable=SC2034
 rc=0
+# shellcheck disable=SC2034
 ERROR_PATTERN="\\[ERROR\\]"
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
 source "${DIR}/_post_process.sh"

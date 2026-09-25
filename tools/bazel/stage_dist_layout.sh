@@ -19,20 +19,14 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
+ROOT="${OZONE_REPO_ROOT}"
 cd "${ROOT}"
-
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
-  echo "bazel not found" >&2
-  exit 1
-fi
+ozone_resolve_bazel
 
 # shellcheck source=dev-support/ci/load_build_versions.sh
-source dev-support/ci/load_build_versions.sh
+source "${ROOT}/dev-support/ci/load_build_versions.sh"
 OZONE_VERSION="$(load_build_version ozone.version)"
 HDDS_VERSION="$(load_build_version hdds.version)"
 DOCKER_HADOOP_IMAGE="$(load_build_version docker.hadoop.image)"

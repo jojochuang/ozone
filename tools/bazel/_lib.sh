@@ -14,21 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Re-add manual to wired JUnit5 packages (inverse of promote_unit_tags.sh).
+# Shared helpers for tools/bazel shell entrypoints.
 
-set -euo pipefail
+_OZONE_BAZEL_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export OZONE_REPO_ROOT="$(cd "${_OZONE_BAZEL_LIB_DIR}/../.." && pwd)"
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "${ROOT}"
-
-KEEP="${ROOT}/tools/bazel/unit_ci_allowlist.txt"
-
-while IFS= read -r build; do
-  if grep -q 'tags = \["unit"\]' "${build}"; then
-    if [[ -f "${KEEP}" ]] && grep -q "${build#"${ROOT}/"}" "${KEEP}"; then
-      continue
-    fi
-    sed -i 's/tags = \["unit"\]/tags = ["unit", "manual"]/g' "${build}"
-    echo "demoted ${build}"
+ozone_resolve_bazel() {
+  if command -v bazel >/dev/null 2>&1; then
+    export BAZEL=bazel
+  elif command -v bazelisk >/dev/null 2>&1; then
+    export BAZEL=bazelisk
+  elif [[ -x /tmp/bazelisk ]]; then
+    export BAZEL=/tmp/bazelisk
+  else
+    echo "bazel not found" >&2
+    return 1
   fi
-done < <(find hadoop-hdds hadoop-ozone -name BUILD.bazel | sort)
+}

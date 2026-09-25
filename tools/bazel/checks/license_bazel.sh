@@ -46,7 +46,9 @@ if [[ ! -e "${SRC}" ]]; then
       >> "${REPORT_DIR}/output.log"
     rc=0
   fi
+  # shellcheck disable=SC2034
   ERROR_PATTERN="\\[ERROR\\]"
+  # shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
   source "${DIR}/_post_process.sh"
   exit "${rc}"
 fi

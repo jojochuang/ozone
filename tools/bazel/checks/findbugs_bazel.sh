@@ -33,11 +33,9 @@ fi
 source "${DIR}/_lib.sh"
 source "${DIR}/install/spotbugs.sh"
 
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/_lib.sh"
+if ! ozone_resolve_bazel; then
   echo "[ERROR] bazel not found" | tee "${REPORT_FILE}"
   exit 1
 fi
@@ -54,7 +52,6 @@ MODULES=(
 : > "${REPORT_DIR}/output.log"
 touch "${REPORT_FILE}"
 for label in "${MODULES[@]}"; do
-  path="$("${BAZEL}" cquery "${label}" --output=starlark 2>/dev/null | head -1 || true)"
   jar="${ROOT}/bazel-bin/$(echo "${label#//}" | tr ':' '/')/lib$(echo "${label##*:}" | tr '-' '_').jar"
   if [[ ! -f "${jar}" ]]; then
     jar="$(find "${ROOT}/bazel-bin" -name "lib${label##*:}.jar" 2>/dev/null | head -1)"
@@ -65,10 +62,14 @@ done
 
 grep -E '^[A-Z]' "${REPORT_DIR}/output.log" | head -50 | tee -a "${REPORT_FILE}" || true
 if [[ -s "${REPORT_FILE}" ]]; then
+  # shellcheck disable=SC2034
   rc=1
 else
+  # shellcheck disable=SC2034
   rc=0
 fi
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\\[ERROR\\]"
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
 source "${DIR}/_post_process.sh"

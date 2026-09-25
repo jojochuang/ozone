@@ -18,7 +18,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin", "java_test")
 
 def ozone_java_library(name, srcs, deps = [], plugins = [], resources = [], **kwargs):
-    """Ozone java_library with Java 8 release and standard tags."""
+    """Ozone java_library wrapper with standard tags."""
     java_library(
         name = name,
         srcs = srcs,

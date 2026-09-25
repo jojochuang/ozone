@@ -48,6 +48,7 @@ trap 'rm -f "$OUTPUT_LOG"' EXIT
 
 #shellcheck disable=SC2086
 mvn $MAVEN_OPTIONS clean package "$@" 2>&1 | tee "$OUTPUT_LOG"
+# shellcheck disable=SC2034
 rc=$?
 
 mkdir -p "$REPORT_DIR"
@@ -59,4 +60,5 @@ grep -E "${MAVEN_DIAGNOSTIC_PATTERN}|${JAVAC_DIAGNOSTIC_PATTERN}" "${REPORT_DIR}
 
 grep -E "$ERROR_DIAGNOSTIC_PATTERN" "$DIAGNOSTIC_FILE" > "$REPORT_FILE" || true
 
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

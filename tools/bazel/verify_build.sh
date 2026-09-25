@@ -16,25 +16,19 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=tools/bazel/_lib.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
+ROOT="${OZONE_REPO_ROOT}"
 cd "${ROOT}"
-
-if command -v bazel >/dev/null 2>&1; then
-  BAZEL=bazel
-elif [[ -x /tmp/bazelisk ]]; then
-  BAZEL=/tmp/bazelisk
-else
-  echo "bazel not found" >&2
-  exit 1
-fi
+ozone_resolve_bazel
 
 echo "== Spike tests =="
 "${ROOT}/hadoop-ozone/dev-support/checks/bazel.sh"
 
 echo "== Build default module graph (excludes manual-tagged targets) =="
-TARGETS="$("${BAZEL}" query \
-  'kind("java_library", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')"
-"${BAZEL}" build ${TARGETS}
+mapfile -t TARGETS < <("${BAZEL}" query \
+  'kind("java_library", //hadoop-hdds/... + //hadoop-ozone/...) except attr("tags", "manual", //hadoop-hdds/... + //hadoop-ozone/...)')
+"${BAZEL}" build "${TARGETS[@]}"
 
 echo "== Unit tests =="
 if [[ "${RUN_BAZEL_ALL_UNIT:-false}" == "true" ]]; then

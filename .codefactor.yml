@@ -1,0 +1,9 @@
+# CodeFactor settings for Apache Ozone (see https://docs.codefactor.io/configuration-file/)
+version: 1
+exclude:
+  - "**/MODULE.bazel.lock"
+  - "**/maven_artifacts.bzl"
+  - "**/BUILD.bazel"
+rules:
+  duplication:
+    enabled: false
