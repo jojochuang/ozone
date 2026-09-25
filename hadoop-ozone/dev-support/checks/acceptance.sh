@@ -32,7 +32,13 @@ source "${DIR}/_lib.sh"
 REPORT_DIR=${OUTPUT_DIR:-"${OZONE_ROOT}/target/acceptance"}
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout -Dscan=false)
+if [[ -f pom.xml ]]; then
+  OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout -Dscan=false)
+else
+  # shellcheck source=dev-support/ci/load_build_versions.sh
+  source "${OZONE_ROOT}/dev-support/ci/load_build_versions.sh"
+  OZONE_VERSION="$(load_build_version ozone.version)"
+fi
 DIST_DIR="${OZONE_ROOT}/hadoop-ozone/dist/target/ozone-$OZONE_VERSION"
 
 # workaround attempt for https://github.com/docker/compose/issues/12747

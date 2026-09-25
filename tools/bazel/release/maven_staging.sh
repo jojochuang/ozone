@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,20 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library")
+# Placeholder: publish Bazel-built jars to Maven Central (GPG + staging repo).
+# Phase 3 of bazel-build-migration.md — wire rules_jvm_external maven publishing
+# or nexus-staging-maven-plugin against bazel-bin outputs.
 
-package(default_visibility = ["//visibility:public"])
+set -euo pipefail
 
-java_library(
-    name = "ozone-cli-interactive",
-    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
-    resources = glob(["src/main/resources/**"], allow_empty = True),
-    deps = [
-        "//hadoop-ozone/cli-admin:ozone-cli-admin",
-        "//hadoop-ozone/cli-debug:ozone-cli-debug",
-        "//hadoop-ozone/cli-shell:ozone-cli-shell",
-        "@maven//:info_picocli_picocli",
-        "@maven//:info_picocli_picocli_shell_jline3",
-    ],
-)
-
+echo "Maven Central staging from Bazel is not automated yet." >&2
+echo "Build release jars with: bazel build //hadoop-ozone/dist:ozone-dist --build_tag_filters=" >&2
+exit 1

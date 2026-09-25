@@ -56,11 +56,11 @@ def main() -> int:
         if not pkgs:
             continue
         if 'load("//tools/bazel:junit5.bzl"' not in text:
-            text = text.replace(
-                'load("@rules_java//java:defs.bzl", "java_library")',
-                'load("@rules_java//java:defs.bzl", "java_library")\n'
-                'load("//tools/bazel:junit5.bzl", "ozone_junit5_package")',
-                1,
+            text = re.sub(
+                r"(load\([^\n]+\n)",
+                r'\1load("//tools/bazel:junit5.bzl", "ozone_junit5_package")\n',
+                text,
+                count=1,
             )
         block = [MARKER, ""]
         for pkg in pkgs:

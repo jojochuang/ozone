@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin", "java_test")
 
 java_plugin(
@@ -65,3 +66,14 @@ java_test(
         "@maven//:org_junit_platform_junit_platform_launcher",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-config-tests-pkg-org-apache-hadoop-hdds-conf",
+    package = "org.apache.hadoop.hdds.conf",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-config-tests"],
+)
+

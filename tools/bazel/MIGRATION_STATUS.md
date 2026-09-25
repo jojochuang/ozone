@@ -4,27 +4,29 @@
 | ----- | ------ |
 | OEP draft | [bazel-build-migration.md](../../hadoop-hdds/docs/content/design/bazel-build-migration.md) |
 | Maven `maven_install` BOM | `MODULE.bazel` + `tools/bazel/maven_artifacts.bzl` |
-| HDDS spike targets | `//hadoop-hdds/annotations`, `//hadoop-hdds/config`, `//hadoop-hdds/interface-client` |
-| Full module graph | `BUILD.bazel` per module (hand-maintained + generated) |
-| OM / AspectJ | `//hadoop-ozone/ozone-manager:ozone-manager` compiles without ajc weaving |
-| Dist / release | `//hadoop-ozone/dist:ozone-dist` (core jars + dist tree; build with `--build_tag_filters=`) |
-| CSI gRPC proto | `//hadoop-ozone/csi:ozone-csi` in default graph |
-| Unit tests (Bazel) | JUnit5 package tests via `tools/bazel/junit5.bzl`; `verify_build.sh` runs non-manual `java_test` |
-| CI | `.github/workflows/ci-bazel.yml` (Bazel verify + basic checks) |
-| Maven build files | **Removed** (`pom.xml` tree, `.mvn/`, `maven-settings.xml`) |
+| Default compile graph | ~50 `java_library` targets (Recon, CLIs, Iceberg Java 11, …) |
+| Recon jOOQ | `//hadoop-ozone/recon-codegen:recon-jooq-generated` (genrule + `recon-codegen-lib`) |
+| Unit tests (wired) | `wire_junit5_packages.py` → `tags = ["unit", "manual"]`; promote per module |
+| Dist / acceptance | `stage_dist_layout.sh` + `//hadoop-ozone/dist:ozone-dist` |
+| CI | `ci-bazel.yml`: verify, basic checks, milestones, dist, parity jobs (`continue-on-error`) |
+| Maven build files | **Removed** |
 
 ## Green commands (local)
 
 ```bash
 ./tools/bazel/verify_build.sh
-./hadoop-ozone/dev-support/checks/bazel.sh
-bazel build //hadoop-ozone/ozone-manager:ozone-manager
+./tools/bazel/verify_extended.sh
+./tools/bazel/stage_dist_layout.sh
+RUN_BAZEL_ALL_UNIT=true ./tools/bazel/verify_extended.sh   # all wired unit packages (long)
 ```
 
-Default builds use `--build_tag_filters=-manual` (see `.bazelrc`). Targets tagged `manual` pending codegen (Recon jOOQ, Iceberg Java 11, integration-test modules, etc.) are excluded from the default graph but can be built explicitly.
+Default builds use `--build_tag_filters=-manual`. Integration modules, mini-cluster, `*-tests` libraries, and wired unit packages remain `manual` until compile/test deps are fixed.
 
-## Regenerating BUILD / Maven coords
+## Still in progress
 
-Without `pom.xml`, edit `BUILD.bazel` and `maven_artifacts.bzl` directly. Optional sync from upstream Apache Ozone `pom.xml` on a branch: run `tools/bazel/generate_*.py` after temporarily restoring the root POM (not committed).
-
-Versions for license/check tooling: `dev-support/build-versions.properties`.
+- **mini-cluster** / **multitenancy-ranger**: blocked on `*-tests` compile chains (e.g. HDDS framework tests).
+- **Full unit parity**: drop `manual` from passing `ozone_junit5_package` rules module-by-module.
+- **AspectJ OM**: `tools/bazel/aspectj.bzl` (ajc classpath); OM tests still `manual`.
+- **Acceptance / integration execute**: classpath stubs exist; cluster test execution needs mini-cluster + dist parity.
+- **Maven CI parity**: `findbugs_bazel.sh`; pmd/license/javadoc still Maven-oriented (`parity-static` job).
+- **Release**: `tools/bazel/release/maven_staging.sh` placeholder; Recon UI via `recon_npm_build.sh`.

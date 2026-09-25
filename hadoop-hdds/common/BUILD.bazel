@@ -97,3 +97,182 @@ ozone_junit5_package(
     exclude_packages = ["org.apache.hadoop.hdds.utils.io"],
     deps = [":hdds-common-tests"],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds",
+    package = "org.apache.hadoop.hdds",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-client",
+    package = "org.apache.hadoop.hdds.client",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-conf",
+    package = "org.apache.hadoop.hdds.conf",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-protocol",
+    package = "org.apache.hadoop.hdds.protocol",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-ratis",
+    package = "org.apache.hadoop.hdds.ratis",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-ratis-conf",
+    package = "org.apache.hadoop.hdds.ratis.conf",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-resource",
+    package = "org.apache.hadoop.hdds.resource",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-scm-container",
+    package = "org.apache.hadoop.hdds.scm.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-scm-container-common-helpers",
+    package = "org.apache.hadoop.hdds.scm.container.common.helpers",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-scm-ha",
+    package = "org.apache.hadoop.hdds.scm.ha",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-scm-net",
+    package = "org.apache.hadoop.hdds.scm.net",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-scm-pipeline",
+    package = "org.apache.hadoop.hdds.scm.pipeline",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-security",
+    package = "org.apache.hadoop.hdds.security",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-security-x509-keys",
+    package = "org.apache.hadoop.hdds.security.x509.keys",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-tracing",
+    package = "org.apache.hadoop.hdds.tracing",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-utils",
+    package = "org.apache.hadoop.hdds.utils",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-utils-db",
+    package = "org.apache.hadoop.hdds.utils.db",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-hdds-utils-io",
+    package = "org.apache.hadoop.hdds.utils.io",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-io_-retry",
+    package = "org.apache.hadoop.io_.retry",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-ozone",
+    package = "org.apache.hadoop.ozone",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-ozone-common",
+    package = "org.apache.hadoop.ozone.common",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-common-tests-pkg-org-apache-hadoop-ozone-ha",
+    package = "org.apache.hadoop.ozone.ha",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-common-tests"],
+)
+

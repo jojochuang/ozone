@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -56,3 +57,38 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm",
+    package = "org.apache.hadoop.hdds.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm-client",
+    package = "org.apache.hadoop.hdds.scm.client",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm-storage",
+    package = "org.apache.hadoop.hdds.scm.storage",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-ozone-client-io",
+    package = "org.apache.hadoop.ozone.client.io",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+

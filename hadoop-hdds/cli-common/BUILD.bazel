@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -46,3 +47,14 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-cli-common-tests-pkg-org-apache-hadoop-hdds-cli",
+    package = "org.apache.hadoop.hdds.cli",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-cli-common-tests"],
+)
+

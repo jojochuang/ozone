@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -57,3 +58,30 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "rocksdb-checkpoint-differ-tests-pkg-org-apache-hadoop-hdds-utils-db",
+    package = "org.apache.hadoop.hdds.utils.db",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":rocksdb-checkpoint-differ-tests"],
+)
+
+ozone_junit5_package(
+    name = "rocksdb-checkpoint-differ-tests-pkg-org-apache-ozone-compaction-log",
+    package = "org.apache.ozone.compaction.log",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":rocksdb-checkpoint-differ-tests"],
+)
+
+ozone_junit5_package(
+    name = "rocksdb-checkpoint-differ-tests-pkg-org-apache-ozone-rocksdiff",
+    package = "org.apache.ozone.rocksdiff",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":rocksdb-checkpoint-differ-tests"],
+)
+

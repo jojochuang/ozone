@@ -15,9 +15,20 @@
 
 # OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "ozone-integration-test-s3",
+    testonly = True,
+    tags = ["manual"],
+    exports = [
+        "//hadoop-ozone/integration-test:ozone-integration-test",
+        "//hadoop-ozone/s3gateway:ozone-s3gateway",
+    ],
+)
 
 java_library(
     name = "ozone-integration-test-s3-tests",
@@ -27,3 +38,14 @@ java_library(
     tags = ["ozone-maven-stub", "manual"],
     deps = [":ozone-integration-test-s3"],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-integration-test-s3-tests-pkg-org-apache-hadoop-ozone-s3-awssdk",
+    package = "org.apache.hadoop.ozone.s3.awssdk",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-s3-tests"],
+)
+
