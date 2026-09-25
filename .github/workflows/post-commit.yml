@@ -27,4 +27,4 @@ jobs:
     if: github.event_name == 'pull_request'
       || (github.repository == 'apache/ozone' && !startsWith(github.ref_name, 'dependabot'))
       || (github.repository != 'apache/ozone' && github.ref_name != 'master')
-    uses: ./.github/workflows/ci-bazel.yml
+    uses: $/.github/workflows/ci-bazel.yml

@@ -48,7 +48,6 @@ SKIP_REGENERATE = {
     ROOT / "hadoop-ozone/cli-debug",
     ROOT / "hadoop-ozone/cli-repair",
     ROOT / "hadoop-ozone/cli-interactive",
-    ROOT / "hadoop-ozone/csi",
     ROOT / "hadoop-ozone/mini-cluster",
 }
 

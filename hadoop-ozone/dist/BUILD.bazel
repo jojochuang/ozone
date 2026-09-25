@@ -28,7 +28,6 @@ _OZONE_LIB_TARGETS = [
     "//hadoop-ozone/recon:ozone-recon",
     "//hadoop-ozone/cli-debug:ozone-cli-debug",
     "//hadoop-ozone/s3gateway:ozone-s3gateway",
-    "//hadoop-ozone/csi:ozone-csi",
     "//hadoop-ozone/iceberg:ozone-iceberg",
 ]
 

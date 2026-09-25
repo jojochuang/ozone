@@ -52,7 +52,6 @@ java_library(
         "//hadoop-ozone/client:ozone-client",
         "//hadoop-ozone/client:ozone-client-tests",
         "//hadoop-ozone/common:ozone-common",
-        "//hadoop-ozone/csi:ozone-csi",
         "//hadoop-ozone/freon:ozone-freon",
         "//hadoop-ozone/interface-client:ozone-interface-client",
         "//hadoop-ozone/interface-storage:ozone-interface-storage",

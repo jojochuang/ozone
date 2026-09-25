@@ -129,7 +129,6 @@ _RUNTIME_ROOTS=(
   "//hadoop-ozone/cli-admin:ozone-cli-admin"
   "//hadoop-ozone/cli-debug:ozone-cli-debug"
   "//hadoop-ozone/tools:ozone-tools"
-  "//hadoop-ozone/csi:ozone-csi"
   "//hadoop-ozone/iceberg:ozone-iceberg"
 )
 
