@@ -103,28 +103,130 @@ _apply_dist_property_filters() {
       -e "s#\${docker.ozone.image.flavor}#${DOCKER_OZONE_IMAGE_FLAVOR}#g" \
       -e "s#@project.version@#${OZONE_VERSION}#g" \
       "${f}"
-  done < <(find "${tree}" -type f \( -name '.env' -o -name '*.yaml' -o -name '*.yml' -o -name '*.conf' -o -name 'docker-config' \) -print0)
+  done < <(find "${tree}" -type f \( -name '.env' -o -name '*.yaml' -o -name '*.yml' -o -name '*.conf' \
+    -o -name 'docker-config' -o -name '*.sh' \) -print0)
 }
 _apply_dist_property_filters "${DIST_ROOT}/compose"
 _apply_dist_property_filters "${DIST_ROOT}/kubernetes"
+_apply_dist_property_filters "${DIST_ROOT}/smoketest"
+
+# Bazel target|classpath artifact id (Maven build-classpath + dist-layout-stitching parity).
+_CLASSPATH_SPECS=(
+  "//hadoop-hdds/server-scm:hdds-server-scm|hdds-server-scm"
+  "//hadoop-hdds/framework:hdds-server-framework|hdds-server-framework"
+  "//hadoop-hdds/container-service:hdds-container-service|ozone-datanode"
+  "//hadoop-ozone/ozone-manager:ozone-manager|ozone-manager"
+  "//hadoop-ozone/s3gateway:ozone-s3gateway|ozone-s3gateway"
+  "//hadoop-ozone/recon:ozone-recon|ozone-recon"
+  "//hadoop-ozone/httpfsgateway:ozone-httpfsgateway|ozone-httpfsgateway"
+  "//hadoop-ozone/cli-shell:ozone-cli-shell|ozone-cli-shell"
+  "//hadoop-ozone/cli-admin:ozone-cli-admin|ozone-cli-admin"
+  "//hadoop-ozone/cli-debug:ozone-cli-debug|ozone-cli-debug"
+  "//hadoop-ozone/tools:ozone-tools|ozone-tools"
+  "//hadoop-ozone/iceberg:ozone-iceberg|ozone-iceberg"
+)
 
 _RUNTIME_ROOTS=(
   "//hadoop-hdds/common:hdds-common"
   "//hadoop-hdds/config:hdds-config"
+  "//hadoop-hdds/client:hdds-client"
   "//hadoop-hdds/server-scm:hdds-server-scm"
+  "//hadoop-hdds/framework:hdds-server-framework"
   "//hadoop-hdds/container-service:hdds-container-service"
   "//hadoop-ozone/common:ozone-common"
   "//hadoop-ozone/client:ozone-client"
   "//hadoop-ozone/ozone-manager:ozone-manager"
-  "//hadoop-ozone/datanode:ozone-datanode"
   "//hadoop-ozone/recon:ozone-recon"
   "//hadoop-ozone/s3gateway:ozone-s3gateway"
+  "//hadoop-ozone/httpfsgateway:ozone-httpfsgateway"
   "//hadoop-ozone/cli-shell:ozone-cli-shell"
   "//hadoop-ozone/cli-admin:ozone-cli-admin"
   "//hadoop-ozone/cli-debug:ozone-cli-debug"
   "//hadoop-ozone/tools:ozone-tools"
   "//hadoop-ozone/iceberg:ozone-iceberg"
 )
+
+_ozone_module_jar_for_label() {
+  local label="$1"
+  "${BAZEL}" cquery "${label}" --output=files 2>/dev/null \
+    | grep -E '\.jar$' \
+    | grep -v srcjar \
+    | grep -v ijars \
+    | head -1
+}
+
+_ozone_collect_internal_module_labels() {
+  local target="$1"
+  "${BAZEL}" query "kind('java_library', deps(${target}))" --output=label 2>/dev/null \
+    | grep -E '^//hadoop-(hdds|ozone)/' || true
+}
+
+_ozone_stage_module_jar() {
+  local label="$1"
+  local artifact_id="$2"
+  local rel jar src dest
+  jar="$(_ozone_module_jar_for_label "${label}")"
+  if [[ -z "${jar}" ]]; then
+    echo "WARNING: no jar output for ${label} (artifact ${artifact_id})" >&2
+    return 0
+  fi
+  src="${EXEC_ROOT}/${jar}"
+  dest="${artifact_id}-${HDDS_VERSION}.jar"
+  if [[ -f "${src}" ]]; then
+    cp -f "${src}" "${DIST_ROOT}/share/ozone/lib/${dest}"
+    cp -f "${src}" "${DIST_ROOT}/lib/${dest}"
+    _STAGED_MODULE_JARS["${label}"]="${dest}"
+  fi
+}
+
+_ozone_write_classpath_descriptor() {
+  local target="$1"
+  local artifact_id="$2"
+  local -a entries=()
+  local label rel base art jar_name
+
+  while IFS= read -r rel; do
+    [[ -n "${rel}" ]] || continue
+    base="$(basename "${rel}")"
+    entries+=("${base}")
+  done < <("${BAZEL}" cquery "filter('.*\\.jar$', deps(${target}))" --output=files 2>/dev/null \
+    | grep -v srcjar | grep -v ijars || true)
+
+  while IFS= read -r label; do
+    [[ -n "${label}" ]] || continue
+    if [[ -n "${_STAGED_MODULE_JARS[${label}]+x}" ]]; then
+      entries+=("${_STAGED_MODULE_JARS[${label}]}")
+    else
+      art="${label##*:}"
+      jar_name="${art}-${HDDS_VERSION}.jar"
+      if [[ -f "${DIST_ROOT}/share/ozone/lib/${jar_name}" ]]; then
+        entries+=("${jar_name}")
+      fi
+    fi
+  done < <(_ozone_collect_internal_module_labels "${target}")
+
+  jar_name="${artifact_id}-${HDDS_VERSION}.jar"
+  if [[ -f "${DIST_ROOT}/share/ozone/lib/${jar_name}" ]]; then
+    entries+=("${jar_name}")
+  fi
+
+  mapfile -t entries < <(printf '%s\n' "${entries[@]}" | awk 'NF && !seen[$0]++' | sort)
+  {
+    printf 'classpath='
+    local first=true e
+    for e in "${entries[@]}"; do
+      if [[ "${first}" == true ]]; then
+        first=false
+      else
+        printf ':'
+      fi
+      printf '$HDDS_LIB_JARS_DIR/%s' "${e}"
+    done
+    printf '\n'
+  } > "${DIST_ROOT}/share/ozone/classpath/${artifact_id}.classpath"
+}
+
+declare -A _STAGED_MODULE_JARS=()
 
 "${BAZEL}" build "${_RUNTIME_ROOTS[@]}" --build_tag_filters=
 
@@ -151,7 +253,44 @@ for jar in "${_jar_files[@]}"; do
   fi
 done
 
+declare -A _module_labels=()
+for spec in "${_CLASSPATH_SPECS[@]}"; do
+  target="${spec%%|*}"
+  while IFS= read -r label; do
+    [[ -n "${label}" ]] || continue
+    _module_labels["${label}"]=1
+  done < <(_ozone_collect_internal_module_labels "${target}")
+  _module_labels["${target}"]=1
+done
+
+mapfile -t _module_label_list < <(printf '%s\n' "${!_module_labels[@]}" | sort -u)
+if ((${#_module_label_list[@]} > 0)); then
+  "${BAZEL}" build "${_module_label_list[@]}" --build_tag_filters= >/dev/null
+fi
+
+for spec in "${_CLASSPATH_SPECS[@]}"; do
+  target="${spec%%|*}"
+  artifact_id="${spec##*|}"
+  _ozone_stage_module_jar "${target}" "${artifact_id}"
+done
+
+for label in "${_module_label_list[@]}"; do
+  art="${label##*:}"
+  if [[ -z "${_STAGED_MODULE_JARS[${label}]+x}" ]]; then
+    _ozone_stage_module_jar "${label}" "${art}"
+  fi
+done
+
+for spec in "${_CLASSPATH_SPECS[@]}"; do
+  _ozone_write_classpath_descriptor "${spec%%|*}" "${spec##*|}"
+done
+
 # Keep //hadoop-ozone/dist:ozone-dist buildable as a milestone (tar is not the staged layout source).
 "${BAZEL}" build //hadoop-ozone/dist:ozone-dist --build_tag_filters= >/dev/null 2>&1 || true
 
-echo "Staged dist at ${DIST_ROOT} ($(find "${DIST_ROOT}/share/ozone/lib" -name '*.jar' | wc -l) jars)"
+_classpath_count="$(find "${DIST_ROOT}/share/ozone/classpath" -name '*.classpath' | wc -l)"
+echo "Staged dist at ${DIST_ROOT} ($(find "${DIST_ROOT}/share/ozone/lib" -name '*.jar' | wc -l) jars, ${_classpath_count} classpath descriptors)"
+if (("${_classpath_count}" < 1)); then
+  echo "ERROR: no classpath descriptors were generated" >&2
+  exit 1
+fi
