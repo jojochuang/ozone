@@ -58,6 +58,7 @@ java_library(
         "@maven//:org_apache_hadoop_hadoop_auth",
         "@maven//:org_apache_hadoop_hadoop_common",
         "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
         "@maven//:org_apache_logging_log4j_log4j_api",
         "@maven//:org_apache_ratis_ratis_client",
         "@maven//:org_apache_ratis_ratis_common",
