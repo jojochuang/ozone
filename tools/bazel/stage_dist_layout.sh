@@ -34,7 +34,13 @@ fi
 # shellcheck source=dev-support/ci/load_build_versions.sh
 source dev-support/ci/load_build_versions.sh
 OZONE_VERSION="$(load_build_version ozone.version)"
-HDDS_VERSION="${OZONE_VERSION}"
+HDDS_VERSION="$(load_build_version hdds.version)"
+DOCKER_HADOOP_IMAGE="$(load_build_version docker.hadoop.image)"
+DOCKER_HADOOP_IMAGE_FLAVOR="$(load_build_version docker.hadoop.image.flavor)"
+DOCKER_OZONE_RUNNER_VERSION="$(load_build_version docker.ozone-runner.version)"
+DOCKER_OZONE_RUNNER_CLIENT_VERSION="$(load_build_version docker.ozone-runner.client.version)"
+DOCKER_OZONE_IMAGE="$(load_build_version docker.ozone.image)"
+DOCKER_OZONE_IMAGE_FLAVOR="$(load_build_version docker.ozone.image.flavor)"
 
 DIST_ROOT="${ROOT}/hadoop-ozone/dist/target/ozone-${OZONE_VERSION}"
 mkdir -p "${ROOT}/hadoop-ozone/dist/target"
@@ -87,6 +93,26 @@ if [[ -d "${ROOT}/hadoop-ozone/dist/src/main/k8s" ]]; then
 fi
 mkdir -p "${DIST_ROOT}/compose/_keytabs"
 find "${DIST_ROOT}/compose" "${DIST_ROOT}/kubernetes" -name "*.sh" -exec chmod 755 {} \; 2>/dev/null || true
+
+_apply_dist_property_filters() {
+  local tree="$1"
+  while IFS= read -r -d '' f; do
+    sed -i \
+      -e "s#\${hdds.version}#${HDDS_VERSION}#g" \
+      -e "s#\${ozone.version}#${OZONE_VERSION}#g" \
+      -e "s#\${project.version}#${OZONE_VERSION}#g" \
+      -e "s#\${docker.hadoop.image}#${DOCKER_HADOOP_IMAGE}#g" \
+      -e "s#\${docker.hadoop.image.flavor}#${DOCKER_HADOOP_IMAGE_FLAVOR}#g" \
+      -e "s#\${docker.ozone-runner.version}#${DOCKER_OZONE_RUNNER_VERSION}#g" \
+      -e "s#\${docker.ozone-runner.client.version}#${DOCKER_OZONE_RUNNER_CLIENT_VERSION}#g" \
+      -e "s#\${docker.ozone.image}#${DOCKER_OZONE_IMAGE}#g" \
+      -e "s#\${docker.ozone.image.flavor}#${DOCKER_OZONE_IMAGE_FLAVOR}#g" \
+      -e "s#@project.version@#${OZONE_VERSION}#g" \
+      "${f}"
+  done < <(find "${tree}" -type f \( -name '.env' -o -name '*.yaml' -o -name '*.yml' -o -name '*.conf' -o -name 'docker-config' \) -print0)
+}
+_apply_dist_property_filters "${DIST_ROOT}/compose"
+_apply_dist_property_filters "${DIST_ROOT}/kubernetes"
 
 _RUNTIME_ROOTS=(
   "//hadoop-hdds/common:hdds-common"
