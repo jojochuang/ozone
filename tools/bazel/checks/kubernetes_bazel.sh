@@ -40,9 +40,43 @@ if [[ ! -d "${DIST_DIR}" ]]; then
   exit 1
 fi
 
-if [[ "${SKIP_K8S:-false}" == "true" || -z "${KUBECONFIG:-}" ]]; then
-  echo "Kubernetes check skipped (no cluster): dist staged at ${DIST_DIR}" | tee "${REPORT_FILE}"
+if [[ "${SKIP_K8S:-false}" == "true" ]]; then
+  {
+    echo "OK: Bazel dist layout staged at ${DIST_DIR}"
+    echo "Kubernetes example tests not run (SKIP_K8S=true; expected on GitHub Actions)."
+  } | tee "${REPORT_FILE}"
   exit 0
 fi
 
-exec "${ROOT}/hadoop-ozone/dev-support/checks/kubernetes.sh" "$@"
+if [[ -z "${KUBECONFIG:-}" ]]; then
+  echo "[ERROR] KUBECONFIG is unset; export KUBECONFIG or set SKIP_K8S=true" | tee "${REPORT_FILE}"
+  exit 1
+fi
+
+CHECKS_DIR="${ROOT}/hadoop-ozone/dev-support/checks"
+# shellcheck source=hadoop-ozone/dev-support/checks/_lib.sh
+source "${CHECKS_DIR}/_lib.sh"
+# shellcheck source=hadoop-ozone/dev-support/checks/install/flekszible.sh
+source "${CHECKS_DIR}/install/flekszible.sh"
+
+if [[ "$(uname -s)" = "Darwin" ]]; then
+  echo "Skip installing k3s, not supported on Mac. Make sure a working Kubernetes cluster is available." >&2
+else
+  # shellcheck source=hadoop-ozone/dev-support/checks/install/k3s.sh
+  source "${CHECKS_DIR}/install/k3s.sh"
+fi
+
+create_aws_dir
+
+cd "${DIST_DIR}/kubernetes/examples" || exit 1
+./test-all.sh 2>&1 | tee -a "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
+rc=$?
+cp -r result/* "${REPORT_DIR}/"
+
+grep -A1 FAIL "${REPORT_DIR}/output.log" > "${REPORT_FILE}" || true
+
+# shellcheck disable=SC2034
+ERROR_PATTERN="FAIL"
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
+source "${CHECKS_DIR}/_post_process.sh"

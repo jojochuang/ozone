@@ -240,6 +240,8 @@ jobs:
         run: chmod +x tools/bazel/release/maven_staging.sh && ./tools/bazel/release/maven_staging.sh
 
   kubernetes-smoke:
+    # Until Bazel-staged dist matches Maven tarball layout, only verify dist staging here.
+    # Full kubernetes/examples tests run when SKIP_K8S is unset and KUBECONFIG points at a cluster.
     name: kubernetes dist smoke
     needs: bazel-dist
     runs-on: ubuntu-24.04
@@ -257,7 +259,7 @@ jobs:
           curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
           chmod +x "${HOME}/bin/bazel"
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
-      - name: Kubernetes check (dist staging)
+      - name: Bazel dist layout (Kubernetes examples deferred)
         run: chmod +x tools/bazel/checks/kubernetes_bazel.sh && ./tools/bazel/checks/kubernetes_bazel.sh
 
   acceptance-smoke:
