@@ -47,3 +47,4 @@ bazel-*
 !MODULE.bazel.lock
 
 tools/bazel/__pycache__/
+actionlint
