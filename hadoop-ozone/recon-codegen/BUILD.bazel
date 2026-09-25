@@ -59,6 +59,7 @@ java_library(
     name = "recon-jooq-generated",
     srcs = [":recon_jooq_codegen"],
     deps = [
+        "@maven//:javax_annotation_javax_annotation_api",
         "@maven//:org_jooq_jooq",
         "@maven//:org_apache_hadoop_hadoop_common",
     ],

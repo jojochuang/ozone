@@ -14,13 +14,13 @@
 # limitations under the License.
 
 common --enable_bzlmod
-common --java_language_version=8
+common --java_language_version=17
 common --java_runtime_version=remotejdk_21
 common --tool_java_runtime_version=remotejdk_21
 common --tool_java_language_version=21
 
 build --javacopt=--release
-build --javacopt=8
+build --javacopt=17
 # Disable classpath annotation processors by default; java_library targets with
 # plugins must pass javacopts = ["-proc:full"] (see tools/bazel/codegen.bzl).
 build --javacopt=-proc:none
@@ -30,7 +30,7 @@ build --java_header_compilation=false
 build --strict_java_deps=off
 build --build_tag_filters=-manual
 build --host_javacopt=--release
-build --host_javacopt=8
+build --host_javacopt=17
 
 test --test_output=errors
 test --flaky_test_attempts=1
