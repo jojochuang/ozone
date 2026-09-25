@@ -5,3 +5,5 @@ exclude:
   - "BUILD.bazel"
   - "MODULE.bazel"
   - "MODULE.bazel.lock"
+  - "tools/bazel/maven_artifacts.bzl"
+  - "tools/bazel/extra_maven_artifacts.bzl"
