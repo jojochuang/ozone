@@ -12,4 +12,5 @@ exclude: &codefactor_excludes
   - "**/*.md"
   - "**/pom.xml"
   - "hadoop-hdds/dev-support/**"
+  - "hadoop-hdds/client/src/main/java/org/apache/hadoop/hdds/scm/README.gRPC.md"
 exclude_paths: *codefactor_excludes
