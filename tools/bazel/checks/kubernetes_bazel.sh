@@ -48,23 +48,29 @@ if [[ "${SKIP_K8S:-false}" == "true" ]]; then
   exit 0
 fi
 
-if [[ -z "${KUBECONFIG:-}" ]]; then
-  echo "[ERROR] KUBECONFIG is unset; export KUBECONFIG or set SKIP_K8S=true" | tee "${REPORT_FILE}"
-  exit 1
-fi
-
 CHECKS_DIR="${ROOT}/hadoop-ozone/dev-support/checks"
 # shellcheck source=hadoop-ozone/dev-support/checks/_lib.sh
 source "${CHECKS_DIR}/_lib.sh"
 # shellcheck source=hadoop-ozone/dev-support/checks/install/flekszible.sh
 source "${CHECKS_DIR}/install/flekszible.sh"
 
+export KUBECONFIG
 if [[ "$(uname -s)" = "Darwin" ]]; then
   echo "Skip installing k3s, not supported on Mac. Make sure a working Kubernetes cluster is available." >&2
+  if [[ -z "${KUBECONFIG:-}" ]]; then
+    echo "[ERROR] KUBECONFIG is unset; export KUBECONFIG or set SKIP_K8S=true" | tee "${REPORT_FILE}"
+    exit 1
+  fi
 else
   # shellcheck source=hadoop-ozone/dev-support/checks/install/k3s.sh
   source "${CHECKS_DIR}/install/k3s.sh"
+  : "${KUBECONFIG:=/etc/rancher/k3s/k3s.yaml}"
+  if [[ ! -r "${KUBECONFIG}" ]]; then
+    echo "[ERROR] KUBECONFIG is not readable: ${KUBECONFIG}" | tee "${REPORT_FILE}"
+    exit 1
+  fi
 fi
+export KUBECONFIG
 
 create_aws_dir
 
