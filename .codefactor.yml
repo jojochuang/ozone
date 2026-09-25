@@ -1,5 +1,5 @@
 version: "1"
-exclude: &codefactor_excludes
+exclude_paths:
   - "**/*.bzl"
   - "**/BUILD.bazel"
   - "BUILD.bazel"
@@ -13,4 +13,3 @@ exclude: &codefactor_excludes
   - "**/pom.xml"
   - "hadoop-hdds/dev-support/**"
   - "hadoop-hdds/client/src/main/java/org/apache/hadoop/hdds/scm/README.gRPC.md"
-exclude_paths: *codefactor_excludes
