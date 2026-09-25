@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,20 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_library")
+# Build Recon UI (npm) for inclusion in dist — Maven profile skipRecon equivalent.
 
-package(default_visibility = ["//visibility:public"])
+set -euo pipefail
 
-java_library(
-    name = "ozone-cli-interactive",
-    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
-    resources = glob(["src/main/resources/**"], allow_empty = True),
-    deps = [
-        "//hadoop-ozone/cli-admin:ozone-cli-admin",
-        "//hadoop-ozone/cli-debug:ozone-cli-debug",
-        "//hadoop-ozone/cli-shell:ozone-cli-shell",
-        "@maven//:info_picocli_picocli",
-        "@maven//:info_picocli_picocli_shell_jline3",
-    ],
-)
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+UI="${ROOT}/hadoop-ozone/recon/src/main/resources/webapps/recon/ozone-recon-web"
+if [[ ! -f "${UI}/package.json" ]]; then
+  echo "Recon UI package.json not found at ${UI}" >&2
+  exit 1
+fi
 
+cd "${UI}"
+if [[ -f package-lock.json ]]; then
+  npm ci
+else
+  npm install
+fi
+npm run build

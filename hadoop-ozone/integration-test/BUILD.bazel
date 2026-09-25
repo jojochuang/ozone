@@ -15,9 +15,24 @@
 
 # OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(default_visibility = ["//visibility:public"])
+
+# Maven test-jar compile classpath (no main sources in this module).
+java_library(
+    name = "ozone-integration-test",
+    testonly = True,
+    tags = ["manual"],
+    exports = [
+        "//hadoop-ozone/mini-cluster:ozone-mini-cluster",
+        "//hadoop-ozone/client:ozone-client",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/ozone-manager:ozone-manager",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+    ],
+)
 
 java_library(
     name = "ozone-integration-test-tests",
@@ -27,3 +42,358 @@ java_library(
     tags = ["ozone-maven-stub", "manual"],
     deps = [":ozone-integration-test"],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-conf",
+    package = "org.apache.hadoop.conf",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-fs-ozone",
+    package = "org.apache.hadoop.fs.ozone",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-fs-ozone-contract",
+    package = "org.apache.hadoop.fs.ozone.contract",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds",
+    package = "org.apache.hadoop.hdds",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm",
+    package = "org.apache.hadoop.hdds.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-container",
+    package = "org.apache.hadoop.hdds.scm.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-container-metrics",
+    package = "org.apache.hadoop.hdds.scm.container.metrics",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-container-replication",
+    package = "org.apache.hadoop.hdds.scm.container.replication",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-node",
+    package = "org.apache.hadoop.hdds.scm.node",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-pipeline",
+    package = "org.apache.hadoop.hdds.scm.pipeline",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-safemode",
+    package = "org.apache.hadoop.hdds.scm.safemode",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-scm-storage",
+    package = "org.apache.hadoop.hdds.scm.storage",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-upgrade",
+    package = "org.apache.hadoop.hdds.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-hdds-utils-db-managed",
+    package = "org.apache.hadoop.hdds.utils.db.managed",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone",
+    package = "org.apache.hadoop.ozone",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-admin-om-lease",
+    package = "org.apache.hadoop.ozone.admin.om.lease",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-client-rpc",
+    package = "org.apache.hadoop.ozone.client.rpc",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-client-rpc-read",
+    package = "org.apache.hadoop.ozone.client.rpc.read",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container",
+    package = "org.apache.hadoop.ozone.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-common-statemachine-commandhandler",
+    package = "org.apache.hadoop.ozone.container.common.statemachine.commandhandler",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-common-transport-server-ratis",
+    package = "org.apache.hadoop.ozone.container.common.transport.server.ratis",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-metrics",
+    package = "org.apache.hadoop.ozone.container.metrics",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-ozoneimpl",
+    package = "org.apache.hadoop.ozone.container.ozoneimpl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-replication",
+    package = "org.apache.hadoop.ozone.container.replication",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-container-server",
+    package = "org.apache.hadoop.ozone.container.server",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-debug",
+    package = "org.apache.hadoop.ozone.debug",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn",
+    package = "org.apache.hadoop.ozone.dn",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn-checksum",
+    package = "org.apache.hadoop.ozone.dn.checksum",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn-container",
+    package = "org.apache.hadoop.ozone.dn.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn-ratis",
+    package = "org.apache.hadoop.ozone.dn.ratis",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn-scanner",
+    package = "org.apache.hadoop.ozone.dn.scanner",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-dn-volume",
+    package = "org.apache.hadoop.ozone.dn.volume",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-freon",
+    package = "org.apache.hadoop.ozone.freon",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-fsck",
+    package = "org.apache.hadoop.ozone.fsck",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-om",
+    package = "org.apache.hadoop.ozone.om",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-om-multitenant",
+    package = "org.apache.hadoop.ozone.om.multitenant",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-om-service",
+    package = "org.apache.hadoop.ozone.om.service",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-om-snapshot",
+    package = "org.apache.hadoop.ozone.om.snapshot",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-parser",
+    package = "org.apache.hadoop.ozone.parser",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-reconfig",
+    package = "org.apache.hadoop.ozone.reconfig",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-repair-om",
+    package = "org.apache.hadoop.ozone.repair.om",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-scm-node",
+    package = "org.apache.hadoop.ozone.scm.node",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-hadoop-ozone-shell",
+    package = "org.apache.hadoop.ozone.shell",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-integration-test-tests-pkg-org-apache-ozone-test",
+    package = "org.apache.ozone.test",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-integration-test-tests"],
+)
+

@@ -16,13 +16,17 @@
 # OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "ozone-recon",
-    tags = ["manual"],
-    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    srcs = glob(
+        ["src/main/java/**/*.java"],
+        exclude = ["src/main/java/org/apache/ozone/recon/schema/generated/**"],
+        allow_empty = True,
+    ),
     resources = glob(["src/main/resources/**"], allow_empty = True),
     deps = [
         "//hadoop-hdds/cli-common:hdds-cli-common",
@@ -39,7 +43,8 @@ java_library(
         "//hadoop-ozone/interface-client:ozone-interface-client",
         "//hadoop-ozone/interface-storage:ozone-interface-storage",
         "//hadoop-ozone/ozone-manager:ozone-manager",
-        "//hadoop-ozone/recon-codegen:ozone-reconcodegen",
+        "//hadoop-ozone/recon-codegen:recon-jooq-generated",
+        "//hadoop-ozone/recon-codegen:recon-codegen-lib",
         "@maven//:aopalliance_aopalliance",
         "@maven//:com_fasterxml_jackson_core_jackson_annotations",
         "@maven//:com_fasterxml_jackson_core_jackson_databind",
@@ -101,3 +106,150 @@ java_library(
         "@maven//:org_junit_jupiter_junit_jupiter_params",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon",
+    package = "org.apache.hadoop.ozone.recon",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-api",
+    package = "org.apache.hadoop.ozone.recon.api",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-api-filters",
+    package = "org.apache.hadoop.ozone.recon.api.filters",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-api-types",
+    package = "org.apache.hadoop.ozone.recon.api.types",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-chatbot-agent",
+    package = "org.apache.hadoop.ozone.recon.chatbot.agent",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-chatbot-api",
+    package = "org.apache.hadoop.ozone.recon.chatbot.api",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-chatbot-llm",
+    package = "org.apache.hadoop.ozone.recon.chatbot.llm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-chatbot-recon",
+    package = "org.apache.hadoop.ozone.recon.chatbot.recon",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-chatbot-security",
+    package = "org.apache.hadoop.ozone.recon.chatbot.security",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-fsck",
+    package = "org.apache.hadoop.ozone.recon.fsck",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-heatmap",
+    package = "org.apache.hadoop.ozone.recon.heatmap",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-metrics",
+    package = "org.apache.hadoop.ozone.recon.metrics",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-persistence",
+    package = "org.apache.hadoop.ozone.recon.persistence",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-recovery",
+    package = "org.apache.hadoop.ozone.recon.recovery",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-scm",
+    package = "org.apache.hadoop.ozone.recon.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-spi-impl",
+    package = "org.apache.hadoop.ozone.recon.spi.impl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-tasks",
+    package = "org.apache.hadoop.ozone.recon.tasks",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-recon-tests-pkg-org-apache-hadoop-ozone-recon-upgrade",
+    package = "org.apache.hadoop.ozone.recon.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-recon-tests"],
+)
+

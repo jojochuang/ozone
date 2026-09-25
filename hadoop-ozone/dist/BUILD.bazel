@@ -22,10 +22,14 @@ _OZONE_LIB_TARGETS = [
     "//hadoop-hdds/common:hdds-common",
     "//hadoop-hdds/config:hdds-config",
     "//hadoop-hdds/server-scm:hdds-server-scm",
+    "//hadoop-hdds/container-service:hdds-container-service",
     "//hadoop-ozone/common:ozone-common",
     "//hadoop-ozone/ozone-manager:ozone-manager",
+    "//hadoop-ozone/recon:ozone-recon",
+    "//hadoop-ozone/cli-debug:ozone-cli-debug",
     "//hadoop-ozone/s3gateway:ozone-s3gateway",
     "//hadoop-ozone/csi:ozone-csi",
+    "//hadoop-ozone/iceberg:ozone-iceberg",
 ]
 
 [

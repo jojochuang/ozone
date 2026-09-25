@@ -14,12 +14,12 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
 java_library(
     name = "ozone-cli-debug",
-    tags = ["manual"],
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
     deps = [
@@ -88,3 +88,54 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-hadoop-ozone-debug",
+    package = "org.apache.hadoop.ozone.debug",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-hadoop-ozone-debug-audit-parser",
+    package = "org.apache.hadoop.ozone.debug.audit.parser",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-hadoop-ozone-debug-datanode-container-analyze",
+    package = "org.apache.hadoop.ozone.debug.datanode.container.analyze",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-hadoop-ozone-debug-kerberos",
+    package = "org.apache.hadoop.ozone.debug.kerberos",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-hadoop-ozone-debug-om",
+    package = "org.apache.hadoop.ozone.debug.om",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-debug-tests-pkg-org-apache-ozone-graph",
+    package = "org.apache.ozone.graph",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-debug-tests"],
+)
+

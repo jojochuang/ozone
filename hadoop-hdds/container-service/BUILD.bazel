@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -89,3 +90,190 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone",
+    package = "org.apache.hadoop.ozone",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-checksum",
+    package = "org.apache.hadoop.ozone.container.checksum",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common",
+    package = "org.apache.hadoop.ozone.container.common",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-helpers",
+    package = "org.apache.hadoop.ozone.container.common.helpers",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-impl",
+    package = "org.apache.hadoop.ozone.container.common.impl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-interfaces",
+    package = "org.apache.hadoop.ozone.container.common.interfaces",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-report",
+    package = "org.apache.hadoop.ozone.container.common.report",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-statemachine",
+    package = "org.apache.hadoop.ozone.container.common.statemachine",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-statemachine-commandhandler",
+    package = "org.apache.hadoop.ozone.container.common.statemachine.commandhandler",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-states-datanode",
+    package = "org.apache.hadoop.ozone.container.common.states.datanode",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-states-endpoint",
+    package = "org.apache.hadoop.ozone.container.common.states.endpoint",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-transport-server-ratis",
+    package = "org.apache.hadoop.ozone.container.common.transport.server.ratis",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-utils",
+    package = "org.apache.hadoop.ozone.container.common.utils",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-common-volume",
+    package = "org.apache.hadoop.ozone.container.common.volume",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-diskbalancer",
+    package = "org.apache.hadoop.ozone.container.diskbalancer",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-keyvalue",
+    package = "org.apache.hadoop.ozone.container.keyvalue",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-keyvalue-helpers",
+    package = "org.apache.hadoop.ozone.container.keyvalue.helpers",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-keyvalue-impl",
+    package = "org.apache.hadoop.ozone.container.keyvalue.impl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-ozoneimpl",
+    package = "org.apache.hadoop.ozone.container.ozoneimpl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-replication",
+    package = "org.apache.hadoop.ozone.container.replication",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-stream",
+    package = "org.apache.hadoop.ozone.container.stream",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-container-upgrade",
+    package = "org.apache.hadoop.ozone.container.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-container-service-tests-pkg-org-apache-hadoop-ozone-protocol-commands",
+    package = "org.apache.hadoop.ozone.protocol.commands",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-container-service-tests"],
+)
+

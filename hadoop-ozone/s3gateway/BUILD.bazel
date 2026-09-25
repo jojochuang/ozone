@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -78,3 +79,78 @@ java_library(
         "@maven//:org_mockito_mockito_junit_jupiter",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-protocolPB",
+    package = "org.apache.hadoop.ozone.protocolPB",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3",
+    package = "org.apache.hadoop.ozone.s3",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-commontypes",
+    package = "org.apache.hadoop.ozone.s3.commontypes",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-endpoint",
+    package = "org.apache.hadoop.ozone.s3.endpoint",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-exception",
+    package = "org.apache.hadoop.ozone.s3.exception",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-metrics",
+    package = "org.apache.hadoop.ozone.s3.metrics",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-signature",
+    package = "org.apache.hadoop.ozone.s3.signature",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3-util",
+    package = "org.apache.hadoop.ozone.s3.util",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-s3gateway-tests-pkg-org-apache-hadoop-ozone-s3secret",
+    package = "org.apache.hadoop.ozone.s3secret",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-s3gateway-tests"],
+)
+

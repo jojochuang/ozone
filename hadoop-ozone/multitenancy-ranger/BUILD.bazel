@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -55,3 +56,14 @@ java_library(
         "@maven//:org_junit_jupiter_junit_jupiter_params",
     ],
 )
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-multitenancy-ranger-tests-pkg-org-apache-hadoop-ozone-om-multitenant",
+    package = "org.apache.hadoop.ozone.om.multitenant",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-multitenancy-ranger-tests"],
+)
+
