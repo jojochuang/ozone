@@ -1,5 +1,0 @@
-version: 1
-exclude:
-  - "tools/bazel/maven_artifacts.bzl"
-  - "tools/bazel/extra_maven_artifacts.bzl"
-  - "MODULE.bazel.lock"
