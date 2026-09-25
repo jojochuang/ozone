@@ -8,7 +8,7 @@
 | Recon jOOQ | `//hadoop-ozone/recon-codegen:recon-jooq-generated` (genrule + `recon-codegen-lib`) |
 | Unit tests (wired) | `wire_junit5_packages.py` → `tags = ["unit", "manual"]`; promote per module |
 | Dist / acceptance | `stage_dist_layout.sh` + `//hadoop-ozone/dist:ozone-dist` |
-| CI | `ci-bazel.yml`: verify, basic checks, milestones, dist, parity jobs (`continue-on-error`) |
+| CI | Gating: verify, basic, unit allowlist, milestones, dist, parity static/integration compile, recon UI. Informational (`continue-on-error`): full unit matrix, acceptance, kubernetes. |
 | Maven build files | **Removed** |
 
 ## Green commands (local)

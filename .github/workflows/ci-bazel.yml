@@ -14,6 +14,11 @@
 # limitations under the License.
 name: ci-bazel
 
+# Gating jobs: bazel-verify, basic, bazel-unit (allowlist), bazel-milestones, bazel-dist,
+# parity-static, parity-integration (compile), recon-ui, bazel-release-staging.
+# Informational (continue-on-error): bazel-unit-full, acceptance, kubernetes — run real
+# tests; expected to fail until dist/classpath and unit parity land (see MIGRATION_STATUS.md).
+
 on:
   workflow_call:
 
@@ -104,18 +109,30 @@ jobs:
         run: ./tools/bazel/verify_unit.sh --flaky_test_attempts=1
 
   bazel-unit-full:
-    # Informational until all unit packages compile under Bazel (see tools/bazel/unit_ci_targets.txt).
-    name: bazel unit (full matrix)
+    name: bazel unit (full matrix, informational)
     needs: bazel-verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 360
+    continue-on-error: true
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Full unit matrix deferred
+      - run: pip install defusedxml
+      - name: Install Bazelisk
         run: |
-          echo "OK: full Bazel unit matrix deferred (run locally: BAZEL_UNIT_FULL=true ./tools/bazel/verify_unit.sh --keep_going)."
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Promote wired unit packages
+        run: chmod +x tools/bazel/promote_unit_tags.sh && ./tools/bazel/promote_unit_tags.sh
+      - name: Run all unit-tagged tests
+        env:
+          BAZEL_UNIT_FULL: "true"
+        run: |
+          chmod +x tools/bazel/ci_retry.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/verify_unit.sh --flaky_test_attempts=1 --keep_going
 
   bazel-milestones:
     name: bazel milestones
@@ -231,36 +248,12 @@ jobs:
       - name: Stage Maven-style artifacts
         run: chmod +x tools/bazel/release/maven_staging.sh && ./tools/bazel/release/maven_staging.sh
 
-  kubernetes-smoke:
-    # Until Bazel-staged dist matches Maven tarball layout, only verify dist staging here.
-    # Full kubernetes/examples tests run when SKIP_K8S is unset and KUBECONFIG points at a cluster.
-    name: kubernetes dist smoke
-    needs: bazel-dist
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      SKIP_K8S: "true"
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - run: pip install defusedxml
-      - name: Install Bazelisk
-        run: |
-          mkdir -p "${HOME}/bin"
-          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
-          chmod +x "${HOME}/bin/bazel"
-          echo "${HOME}/bin" >> "${GITHUB_PATH}"
-      - name: Bazel dist layout (Kubernetes examples deferred)
-        run: chmod +x tools/bazel/checks/kubernetes_bazel.sh && ./tools/bazel/checks/kubernetes_bazel.sh
-
-  acceptance-smoke:
-    name: acceptance smoke
+  kubernetes-execute:
+    name: kubernetes (informational)
     needs: bazel-dist
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      SKIP_ACCEPTANCE: "true"
+    continue-on-error: true
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -272,10 +265,34 @@ jobs:
           curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
           chmod +x "${HOME}/bin/bazel"
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
-      - name: Bazel dist layout (acceptance deferred)
+      - name: Stage dist and run kubernetes/examples
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/checks/kubernetes_bazel.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/checks/kubernetes_bazel.sh
+
+  acceptance-execute:
+    name: acceptance (informational)
+    needs: bazel-dist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Stage dist and run compose acceptance (unsecure)
         env:
           OZONE_ACCEPTANCE_SUITE: unsecure
-        run: chmod +x tools/bazel/checks/acceptance_bazel.sh && ./tools/bazel/checks/acceptance_bazel.sh unsecure
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/checks/acceptance_bazel.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/checks/acceptance_bazel.sh unsecure
 
   recon-ui:
     name: recon npm ui
