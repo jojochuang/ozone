@@ -1,3 +1,0 @@
-[MAIN]
-# Starlark BUILD/bzl files are not Python; keep CodeFactor/pylint from parsing them.
-ignore-paths=BUILD\.bazel,.*BUILD\.bazel,.*\.bzl
