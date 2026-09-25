@@ -25,8 +25,9 @@ source "${COMPOSE_DIR}/../testlib.sh"
 
 if [[ -z "${RANGER_VERSION:-}" ]]; then
   _OZONE_REPO="$(cd "${COMPOSE_DIR}/../../../../../.." && pwd)"
-  # shellcheck source=dev-support/ci/load_build_versions.sh
+  # shellcheck source=../../../../../dev-support/ci/load_build_versions.sh
   source "${_OZONE_REPO}/dev-support/ci/load_build_versions.sh"
+  # shellcheck disable=SC2034
   BUILD_VERSIONS_FILE="${_OZONE_REPO}/dev-support/build-versions.properties"
   RANGER_VERSION="$(load_build_version ranger.version)"
   export RANGER_VERSION

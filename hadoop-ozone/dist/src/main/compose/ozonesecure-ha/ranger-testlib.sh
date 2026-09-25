@@ -44,8 +44,9 @@ setup_ranger_acceptance_env() {
   if [[ -z "${RANGER_VERSION:-}" ]]; then
     local ozone_repo
     ozone_repo="$(cd "${COMPOSE_DIR}/../../../../../.." && pwd)"
-    # shellcheck source=dev-support/ci/load_build_versions.sh
+    # shellcheck source=../../../../../dev-support/ci/load_build_versions.sh
     source "${ozone_repo}/dev-support/ci/load_build_versions.sh"
+    # shellcheck disable=SC2034
     BUILD_VERSIONS_FILE="${ozone_repo}/dev-support/build-versions.properties"
     RANGER_VERSION="$(load_build_version ranger.version)"
     export RANGER_VERSION
