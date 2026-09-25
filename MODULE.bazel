@@ -248,4 +248,16 @@ maven.artifact(
     version = "3.4.3",
 )
 
+# Zookeeper pulls logback by default; Ozone uses reload4j (log4j 1.x). A second SLF4J
+# binding sends DEBUG noise to stdout and breaks acceptance checks for "Failed".
+maven.artifact(
+    artifact = "zookeeper",
+    exclusions = [
+        "ch.qos.logback:logback-classic",
+        "ch.qos.logback:logback-core",
+    ],
+    group = "org.apache.zookeeper",
+    version = "3.8.6",
+)
+
 use_repo(maven, "maven")

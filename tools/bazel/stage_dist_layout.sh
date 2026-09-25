@@ -62,6 +62,7 @@ cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/scm-audit-log4j2.properties" "${DIS
 cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/s3g-audit-log4j2.properties" "${DIST_ROOT}/etc/hadoop/"
 cp "${ROOT}/hadoop-ozone/dist/src/shell/conf/ozone-site.xml" "${DIST_ROOT}/etc/hadoop/"
 cp -f "${ROOT}/hadoop-ozone/dist/src/shell/conf/log4j.properties" "${DIST_ROOT}/etc/hadoop/"
+cp -f "${ROOT}/hadoop-ozone/dist/src/shell/conf/shell-logging.properties" "${DIST_ROOT}/etc/hadoop/"
 cp "${ROOT}/hadoop-hdds/framework/src/main/resources/network-topology-default.xml" "${DIST_ROOT}/etc/hadoop/"
 cp "${ROOT}/hadoop-hdds/framework/src/main/resources/network-topology-nodegroup.xml" "${DIST_ROOT}/etc/hadoop/"
 
