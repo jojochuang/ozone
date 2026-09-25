@@ -57,9 +57,16 @@ else
 fi
 rm -rf "${TMP}"
 
-mkdir -p "${DIST_ROOT}/lib" "${DIST_ROOT}/compose"
+mkdir -p "${DIST_ROOT}/lib" "${DIST_ROOT}/compose" "${DIST_ROOT}/smoketest" "${DIST_ROOT}/kubernetes"
 COMPOSE_SRC="${ROOT}/hadoop-ozone/dist/src/main/compose"
 cp -a "${COMPOSE_SRC}/." "${DIST_ROOT}/compose/"
+SMOKETEST_SRC="${ROOT}/hadoop-ozone/dist/src/main/smoketest"
+cp -a "${SMOKETEST_SRC}/." "${DIST_ROOT}/smoketest/"
+K8S_SRC="${ROOT}/hadoop-ozone/dist/src/main/k8s"
+if [[ -d "${K8S_SRC}" ]]; then
+  cp -a "${K8S_SRC}/." "${DIST_ROOT}/kubernetes/"
+fi
+find "${DIST_ROOT}/compose" "${DIST_ROOT}/kubernetes" -name "*.sh" -exec chmod 755 {} \; 2>/dev/null || true
 
 _LIB_TARGETS=(
   "//hadoop-hdds/common:hdds-common"
