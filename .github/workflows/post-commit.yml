@@ -18,7 +18,7 @@ on:
     types: [opened, ready_for_review, synchronize]
   push:
 concurrency:
-  group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ozone', github.sha, github.ref_name) }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'apache/ozone' }}
 permissions:
   contents: read

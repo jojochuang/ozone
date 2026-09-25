@@ -65,6 +65,7 @@ HEADER = """# Licensed to the Apache Software Foundation (ASF) under one or more
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# pylint: skip-file
 #
 # OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
 
