@@ -1,0 +1,8 @@
+# Fork PRs compare against a stale default branch; exclude service trees already gated by CI checkstyle/PMD.
+version: 1
+exclude:
+  - "hadoop-hdds/**"
+  - "hadoop-ozone/**"
+  - "hadoop-tools/**"
+  - "**/MODULE.bazel.lock"
+  - "**/maven_artifacts.bzl"
