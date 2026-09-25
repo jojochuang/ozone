@@ -149,7 +149,8 @@ function filter_changed_files() {
     match_count=$(echo "${CHANGED_FILES}" | grep -E "${match}" | grep -cEv "${ignore}")
 
     if [[ "${add_to_list}" == "true" ]]; then
-        local additional=$(echo "${CHANGED_FILES}" | grep -E "${match}" | grep -Ev "${ignore}")
+        local additional
+        additional=$(echo "${CHANGED_FILES}" | grep -E "${match}" | grep -Ev "${ignore}")
         matched_files="${matched_files}$(echo -e "\n${additional}")"
     fi
 
@@ -471,6 +472,7 @@ function check_needs_pmd() {
 # (i.e. no compose/integration/kubernetes)
 function get_count_misc_files() {
     start_end::group_start "Count misc. files"
+    # shellcheck disable=SC2034
     local pattern_array=(
         "^dev-support/ci/pr_title_check"
         "^dev-support/ci/find_test_class_project"
@@ -489,6 +491,7 @@ function get_count_misc_files() {
         "/NOTICE$"
         "^hadoop-ozone/dist/src/main/compose/common/grafana/dashboards"
     )
+    # shellcheck disable=SC2034
     local ignore_array=(
         "^.github/workflows/post-commit.yml"
         "^hadoop-ozone/dev-support/checks/_mvn_unit_report.sh"
@@ -511,7 +514,8 @@ function add_basic_check() {
 function calculate_test_types_to_run() {
     start_end::group_start "Count core/other files"
     verbosity::store_exit_on_error_status
-    local matched_files_count=$(echo "${matched_files}" | sort -u | grep -cv "^$")
+    local matched_files_count
+    matched_files_count=$(echo "${matched_files}" | sort -u | grep -cv "^$")
     verbosity::restore_exit_on_error_status
     COUNT_CORE_OTHER_CHANGED_FILES=$((COUNT_ALL_CHANGED_FILES - matched_files_count))
     readonly COUNT_CORE_OTHER_CHANGED_FILES
