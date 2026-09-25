@@ -21,6 +21,7 @@ java_plugin(
     name = "config_file_generator",
     processor_class = "org.apache.hadoop.hdds.conf.ConfigFileGenerator",
     deps = [":hdds-config"],
+    visibility = ["//visibility:public"],
 )
 
 java_library(

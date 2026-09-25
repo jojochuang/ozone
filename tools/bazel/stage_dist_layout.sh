@@ -146,13 +146,32 @@ _RUNTIME_ROOTS=(
   "//hadoop-ozone/iceberg:ozone-iceberg"
 )
 
+_ozone_is_runtime_jar_path() {
+  local rel="$1"
+  [[ "${rel}" =~ \.jar$ ]] || return 1
+  [[ "${rel}" =~ srcjar|ijars|/_javac/ ]] && return 1
+  [[ "${rel}" =~ GenClass_deploy|JavaBuilder_deploy|JacocoCoverage|turbine_direct|jrt-fs\.jar ]] && return 1
+  return 0
+}
+
 _ozone_module_jar_for_label() {
   local label="$1"
-  "${BAZEL}" cquery "${label}" --output=files 2>/dev/null \
-    | grep -E '\.jar$' \
-    | grep -v srcjar \
-    | grep -v ijars \
-    | head -1
+  local rel
+  while IFS= read -r rel; do
+    if _ozone_is_runtime_jar_path "${rel}"; then
+      echo "${rel}"
+      return 0
+    fi
+  done < <("${BAZEL}" cquery "${label}" --output=files 2>/dev/null)
+}
+
+_ozone_filter_runtime_jar_paths() {
+  local rel
+  while IFS= read -r rel; do
+    if _ozone_is_runtime_jar_path "${rel}"; then
+      echo "${rel}"
+    fi
+  done
 }
 
 _ozone_collect_internal_module_labels() {
@@ -176,6 +195,11 @@ _ozone_stage_module_jar() {
     cp -f "${src}" "${DIST_ROOT}/share/ozone/lib/${dest}"
     cp -f "${src}" "${DIST_ROOT}/lib/${dest}"
     _STAGED_MODULE_JARS["${label}"]="${dest}"
+    local canonical="${label##*:}-${HDDS_VERSION}.jar"
+    if [[ "${canonical}" != "${dest}" ]]; then
+      cp -f "${src}" "${DIST_ROOT}/share/ozone/lib/${canonical}"
+      cp -f "${src}" "${DIST_ROOT}/lib/${canonical}"
+    fi
   fi
 }
 
@@ -190,7 +214,7 @@ _ozone_write_classpath_descriptor() {
     base="$(basename "${rel}")"
     entries+=("${base}")
   done < <("${BAZEL}" cquery "filter('.*\\.jar$', deps(${target}))" --output=files 2>/dev/null \
-    | grep -v srcjar | grep -v ijars || true)
+    | _ozone_filter_runtime_jar_paths || true)
 
   while IFS= read -r label; do
     [[ -n "${label}" ]] || continue
@@ -238,11 +262,8 @@ done
 EXEC_ROOT="$("${BAZEL}" info execution_root)"
 mapfile -t _jar_files < <(
   "${BAZEL}" cquery "filter('.*\\.jar$', deps(${_deps_query}))" --output=files 2>/dev/null \
-    | sort -u \
-    | grep -E '\.jar$' \
-    | grep -v ijars \
-    | grep -v srcjar \
-    | grep -v '/_javac/' || true
+    | _ozone_filter_runtime_jar_paths \
+    | sort -u || true
 )
 
 for jar in "${_jar_files[@]}"; do

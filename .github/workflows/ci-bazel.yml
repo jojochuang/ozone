@@ -293,6 +293,12 @@ jobs:
         run: |
           chmod +x tools/bazel/ci_retry.sh tools/bazel/checks/acceptance_bazel.sh
           ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/checks/acceptance_bazel.sh unsecure
+      - name: Upload acceptance logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: acceptance-logs
+          path: target/acceptance/**
 
   recon-ui:
     name: recon npm ui

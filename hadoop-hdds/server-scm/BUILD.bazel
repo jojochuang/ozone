@@ -15,6 +15,7 @@
 # pylint: skip-file
 
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:codegen.bzl", "OZONE_ANNOTATION_PROCESSING_JAVACOPTS", "hdds_config_processor")
 load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
 load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
 
@@ -29,6 +30,8 @@ java_library(
     name = "hdds-server-scm",
     srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
     resources = glob(["src/main/resources/**"], allow_empty = True),
+    javacopts = OZONE_ANNOTATION_PROCESSING_JAVACOPTS,
+    plugins = [hdds_config_processor()],
     deps = [
         "//hadoop-hdds/cli-common:hdds-cli-common",
         "//hadoop-hdds/client:hdds-client",
