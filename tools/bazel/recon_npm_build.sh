@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build Recon UI (npm) for inclusion in dist — Maven profile skipRecon equivalent.
+# Build Recon UI for inclusion in dist — matches Maven/pnpm workflow on apache/master.
 
 set -euo pipefail
 
@@ -26,9 +26,16 @@ if [[ ! -f "${UI}/package.json" ]]; then
 fi
 
 cd "${UI}"
-if [[ -f package-lock.json ]]; then
+if [[ -f pnpm-lock.yaml ]]; then
+  corepack enable
+  PNPM_VERSION="$(node -p "require('./package.json').packageManager?.split('@')[1] || '10.28.2'")"
+  corepack prepare "pnpm@${PNPM_VERSION}" --activate
+  pnpm install --frozen-lockfile
+  pnpm run build
+elif [[ -f package-lock.json ]]; then
   npm ci
+  npm run build
 else
-  npm install
+  npm install --legacy-peer-deps
+  npm run build
 fi
-npm run build
