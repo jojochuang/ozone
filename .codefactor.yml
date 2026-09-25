@@ -7,3 +7,6 @@ exclude:
 rules:
   duplication:
     enabled: false
+  python:
+    complexity:
+      enabled: false

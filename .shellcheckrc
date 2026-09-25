@@ -1,0 +1,2 @@
+# ShellCheck defaults for Apache Ozone (compose/check scripts source other files by path).
+external-sources=true
