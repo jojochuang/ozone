@@ -14,7 +14,15 @@
 # limitations under the License.
 # pylint: skip-file
 
+load("@rules_java//java:defs.bzl", "java_plugin")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+java_plugin(
+    name = "metainf_services",
+    processor_class = "org.kohsuke.metainf_services.AnnotationProcessorImpl",
+    deps = ["@maven//:org_kohsuke_metainf_services_metainf_services"],
+    visibility = ["//visibility:public"],
+)
 
 exports_files([
     "defs.bzl",

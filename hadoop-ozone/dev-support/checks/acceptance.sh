@@ -116,6 +116,6 @@ else
   ERROR_PATTERN="FAIL"
 fi
 
-find "$REPORT_DIR" -type f -empty -not -name summary.txt -print0 | xargs -0 rm -v
+find "$REPORT_DIR" -type f -empty -not -name summary.txt -print0 | xargs -0 -r rm -v
 
 source "${DIR}/_post_process.sh"
