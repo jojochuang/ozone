@@ -15,6 +15,8 @@
 # limitations under the License.
 """Map Maven module coordinates and dependencies to Bazel labels."""
 
+# pylint: disable=missing-function-docstring,line-too-long,duplicate-code
+
 from __future__ import annotations
 
 import re

@@ -13,6 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Regenerate MODULE.bazel maven.install coordinate list from the Maven BOM."""
+
+# pylint: disable=missing-module-docstring,missing-function-docstring,import-outside-toplevel,duplicate-code
 
 from __future__ import annotations
 

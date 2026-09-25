@@ -15,6 +15,8 @@
 # limitations under the License.
 """Append ozone_junit5_package rules for each *-tests library (idempotent marker)."""
 
+# pylint: disable=missing-function-docstring,duplicate-code
+
 from __future__ import annotations
 
 import re

@@ -15,6 +15,8 @@
 # limitations under the License.
 """Emit BUILD.bazel files for Maven modules with dependency mapping."""
 
+# pylint: disable=missing-function-docstring,too-many-locals,too-many-branches,line-too-long,duplicate-code
+
 from __future__ import annotations
 
 import sys
@@ -114,7 +116,8 @@ def write_build(pom_dir: Path, modules: dict) -> bool:
             if scope in ("test",):
                 test_deps.append(label)
             else:
-                # Maven test-jar on compile classpath (e.g. mini-cluster) uses test classes in main code.
+                # Maven test-jar on compile classpath (e.g. mini-cluster) uses test classes
+                # in main code.
                 compile_deps.append(label)
                 if label.endswith("-tests"):
                     main_testonly = True

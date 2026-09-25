@@ -15,6 +15,8 @@
 # limitations under the License.
 """Parse trusted in-repo Maven POM files (defused ElementTree for static analysis)."""
 
+# pylint: disable=missing-function-docstring,duplicate-code
+
 from __future__ import annotations
 
 from pathlib import Path

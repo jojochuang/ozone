@@ -60,5 +60,5 @@ grep -E "${MAVEN_DIAGNOSTIC_PATTERN}|${JAVAC_DIAGNOSTIC_PATTERN}" "${REPORT_DIR}
 
 grep -E "$ERROR_DIAGNOSTIC_PATTERN" "$DIAGNOSTIC_FILE" > "$REPORT_FILE" || true
 
-# shellcheck source=./_post_process.sh
+# shellcheck source=hadoop-ozone/dev-support/checks/_post_process.sh
 source "${DIR}/_post_process.sh"

@@ -15,6 +15,8 @@
 # limitations under the License.
 """Generate maven_artifacts.bzl from pom.xml dependencyManagement and module deps."""
 
+# pylint: disable=missing-function-docstring,import-outside-toplevel,line-too-long,duplicate-code
+
 from __future__ import annotations
 
 import sys
@@ -64,7 +66,8 @@ def _coords_from_dep(
     artifact_id = (artifact.text or "").strip()
     if group_id == "org.apache.ozone" or artifact_id in SKIP_ARTIFACT_IDS:
         return None
-    dep_type = (dep.find("m:type", NS).text or "jar").strip() if dep.find("m:type", NS) is not None else "jar"
+    type_el = dep.find("m:type", NS)
+    dep_type = (type_el.text or "jar").strip() if type_el is not None else "jar"
     if dep_type in ("pom",) or artifact_id.endswith("-bom"):
         return None
     version_el = dep.find("m:version", NS)
