@@ -14,6 +14,8 @@
 # limitations under the License.
 
 common --enable_bzlmod
+# Retry transient GitHub/BCR download failures in CI (e.g. bazel_features release 500).
+common --experimental_repository_downloader_retries=5
 common --java_language_version=17
 common --java_runtime_version=remotejdk_21
 common --tool_java_runtime_version=remotejdk_21

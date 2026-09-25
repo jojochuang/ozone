@@ -38,7 +38,7 @@ jobs:
           chmod +x "${HOME}/bin/bazel"
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
       - name: Bazel verify (tests + default graph)
-        run: ./tools/bazel/verify_build.sh
+        run: chmod +x tools/bazel/ci_retry.sh && ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/verify_build.sh
       - name: Upload test logs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -134,7 +134,7 @@ jobs:
           chmod +x "${HOME}/bin/bazel"
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
       - name: Extended compile milestones
-        run: ./tools/bazel/verify_extended.sh
+        run: chmod +x tools/bazel/ci_retry.sh && ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/verify_extended.sh
 
   bazel-dist:
     name: bazel dist layout
@@ -153,7 +153,9 @@ jobs:
           chmod +x "${HOME}/bin/bazel"
           echo "${HOME}/bin" >> "${GITHUB_PATH}"
       - name: Stage Maven-style dist directory
-        run: chmod +x tools/bazel/stage_dist_layout.sh && ./tools/bazel/stage_dist_layout.sh
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/stage_dist_layout.sh
+          ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/stage_dist_layout.sh
 
   parity-static:
     name: parity static (${{ matrix.check }})
