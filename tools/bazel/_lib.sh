@@ -17,8 +17,7 @@
 # Shared helpers for tools/bazel shell entrypoints.
 
 _OZONE_BAZEL_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export OZONE_REPO_ROOT
-OZONE_REPO_ROOT="$(cd "${_OZONE_BAZEL_LIB_DIR}/../.." && pwd)"
+export OZONE_REPO_ROOT="$(cd "${_OZONE_BAZEL_LIB_DIR}/../.." && pwd)"
 
 ozone_resolve_bazel() {
   if command -v bazel >/dev/null 2>&1; then
