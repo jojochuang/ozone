@@ -17,50 +17,21 @@
 
 package org.apache.hadoop.ozone.recon;
 
-import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import com.google.inject.servlet.ServletModule;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import javax.inject.Inject;
-import javax.servlet.ServletContext;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriBuilder;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
-import org.apache.hadoop.ozone.recon.api.AccessHeatMapEndpoint;
-import org.apache.hadoop.ozone.recon.api.BlocksEndPoint;
-import org.apache.hadoop.ozone.recon.api.BucketEndpoint;
-import org.apache.hadoop.ozone.recon.api.ClusterStateEndpoint;
-import org.apache.hadoop.ozone.recon.api.ContainerEndpoint;
-import org.apache.hadoop.ozone.recon.api.FeaturesEndpoint;
-import org.apache.hadoop.ozone.recon.api.MetricsProxyEndpoint;
-import org.apache.hadoop.ozone.recon.api.NSSummaryEndpoint;
-import org.apache.hadoop.ozone.recon.api.NodeEndpoint;
-import org.apache.hadoop.ozone.recon.api.OMDBInsightEndpoint;
-import org.apache.hadoop.ozone.recon.api.PendingDeletionEndpoint;
-import org.apache.hadoop.ozone.recon.api.PipelineEndpoint;
-import org.apache.hadoop.ozone.recon.api.StorageDistributionEndpoint;
-import org.apache.hadoop.ozone.recon.api.TaskStatusService;
-import org.apache.hadoop.ozone.recon.api.TriggerDBSyncEndpoint;
-import org.apache.hadoop.ozone.recon.api.UtilizationEndpoint;
-import org.apache.hadoop.ozone.recon.api.VolumeEndpoint;
 import org.apache.hadoop.ozone.recon.api.filters.ReconAdminFilter;
 import org.apache.hadoop.ozone.recon.api.filters.ReconAuthFilter;
 import org.apache.hadoop.ozone.recon.chatbot.ChatbotConfigKeys;
-import org.apache.hadoop.ozone.recon.chatbot.api.ChatbotEndpoint;
-import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.jersey.server.ReconResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.servlet.ServletContainer;
-import org.jvnet.hk2.guice.bridge.api.GuiceBridge;
-import org.jvnet.hk2.guice.bridge.api.GuiceIntoHK2Bridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,8 +69,7 @@ public class ReconRestServletModule extends ServletModule {
       checkIfPackageExistsAndLog(pkg);
     }
     Map<String, String> params = new HashMap<>();
-    params.put("javax.ws.rs.Application",
-        GuiceResourceConfig.class.getCanonicalName());
+    params.put("javax.ws.rs.Application", ReconResourceConfig.class.getCanonicalName());
     params.put(ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE, "true");
     params.put(ServerProperties.METAINF_SERVICES_LOOKUP_DISABLE, "true");
     bind(ServletContainer.class).in(Scopes.SINGLETON);
@@ -134,55 +104,5 @@ public class ReconRestServletModule extends ServletModule {
     } else {
       LOG.warn("No Beans in '{}' found. Requests {} will fail.", pkg, BASE_API_PATH);
     }
-  }
-}
-
-/**
- * Class to bridge Guice bindings to Jersey hk2 bindings.
- */
-class GuiceResourceConfig extends Application {
-
-  private static final Set<Class<?>> BASE_RECON_API_RESOURCES = Collections.unmodifiableSet(
-      new HashSet<>(Arrays.asList(
-          AccessHeatMapEndpoint.class,
-          BlocksEndPoint.class,
-          BucketEndpoint.class,
-          ClusterStateEndpoint.class,
-          ContainerEndpoint.class,
-          FeaturesEndpoint.class,
-          MetricsProxyEndpoint.class,
-          NodeEndpoint.class,
-          NSSummaryEndpoint.class,
-          OMDBInsightEndpoint.class,
-          PendingDeletionEndpoint.class,
-          PipelineEndpoint.class,
-          StorageDistributionEndpoint.class,
-          TaskStatusService.class,
-          TriggerDBSyncEndpoint.class,
-          UtilizationEndpoint.class,
-          VolumeEndpoint.class)));
-
-  private final Set<Class<?>> resourceClasses;
-
-  @Inject
-  GuiceResourceConfig(ServiceLocator serviceLocator,
-      @Context ServletContext servletContext) {
-    Set<Class<?>> classes = new HashSet<>(BASE_RECON_API_RESOURCES);
-    OzoneConfiguration ozoneConf = new ConfigurationProvider().get();
-    if (ozoneConf != null && ChatbotConfigKeys.isChatbotEnabled(ozoneConf)) {
-      classes.add(ChatbotEndpoint.class);
-    }
-    resourceClasses = Collections.unmodifiableSet(classes);
-    GuiceBridge.getGuiceBridge().initializeGuiceBridge(serviceLocator);
-    GuiceIntoHK2Bridge guiceBridge = serviceLocator
-        .getService(GuiceIntoHK2Bridge.class);
-    Injector injector = (Injector) servletContext
-        .getAttribute(Injector.class.getName());
-    guiceBridge.bridgeGuiceInjector(injector);
-  }
-
-  @Override
-  public Set<Class<?>> getClasses() {
-    return resourceClasses;
   }
 }
