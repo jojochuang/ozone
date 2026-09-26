@@ -21,10 +21,15 @@ import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import com.google.inject.servlet.ServletModule;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
+import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriBuilder;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
@@ -52,7 +57,6 @@ import org.apache.hadoop.ozone.recon.api.filters.ReconAuthFilter;
 import org.apache.hadoop.ozone.recon.chatbot.ChatbotConfigKeys;
 import org.apache.hadoop.ozone.recon.chatbot.api.ChatbotEndpoint;
 import org.glassfish.hk2.api.ServiceLocator;
-import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.jvnet.hk2.guice.bridge.api.GuiceBridge;
@@ -96,6 +100,8 @@ public class ReconRestServletModule extends ServletModule {
     Map<String, String> params = new HashMap<>();
     params.put("javax.ws.rs.Application",
         GuiceResourceConfig.class.getCanonicalName());
+    params.put(ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE, "true");
+    params.put(ServerProperties.METAINF_SERVICES_LOOKUP_DISABLE, "true");
     bind(ServletContainer.class).in(Scopes.SINGLETON);
 
     String allApiPath = UriBuilder.fromPath(BASE_API_PATH).path("*").build().toString();
@@ -134,12 +140,39 @@ public class ReconRestServletModule extends ServletModule {
 /**
  * Class to bridge Guice bindings to Jersey hk2 bindings.
  */
-class GuiceResourceConfig extends ResourceConfig {
+class GuiceResourceConfig extends Application {
+
+  private static final Set<Class<?>> BASE_RECON_API_RESOURCES = Collections.unmodifiableSet(
+      new HashSet<>(Arrays.asList(
+          AccessHeatMapEndpoint.class,
+          BlocksEndPoint.class,
+          BucketEndpoint.class,
+          ClusterStateEndpoint.class,
+          ContainerEndpoint.class,
+          FeaturesEndpoint.class,
+          MetricsProxyEndpoint.class,
+          NodeEndpoint.class,
+          NSSummaryEndpoint.class,
+          OMDBInsightEndpoint.class,
+          PendingDeletionEndpoint.class,
+          PipelineEndpoint.class,
+          StorageDistributionEndpoint.class,
+          TaskStatusService.class,
+          TriggerDBSyncEndpoint.class,
+          UtilizationEndpoint.class,
+          VolumeEndpoint.class)));
+
+  private final Set<Class<?>> resourceClasses;
+
   @Inject
   GuiceResourceConfig(ServiceLocator serviceLocator,
       @Context ServletContext servletContext) {
-    property(ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE, true);
-    registerReconApiResources();
+    Set<Class<?>> classes = new HashSet<>(BASE_RECON_API_RESOURCES);
+    OzoneConfiguration ozoneConf = new ConfigurationProvider().get();
+    if (ozoneConf != null && ChatbotConfigKeys.isChatbotEnabled(ozoneConf)) {
+      classes.add(ChatbotEndpoint.class);
+    }
+    resourceClasses = Collections.unmodifiableSet(classes);
     GuiceBridge.getGuiceBridge().initializeGuiceBridge(serviceLocator);
     GuiceIntoHK2Bridge guiceBridge = serviceLocator
         .getService(GuiceIntoHK2Bridge.class);
@@ -148,27 +181,8 @@ class GuiceResourceConfig extends ResourceConfig {
     guiceBridge.bridgeGuiceInjector(injector);
   }
 
-  private void registerReconApiResources() {
-    register(AccessHeatMapEndpoint.class);
-    register(BlocksEndPoint.class);
-    register(BucketEndpoint.class);
-    register(ClusterStateEndpoint.class);
-    register(ContainerEndpoint.class);
-    register(FeaturesEndpoint.class);
-    register(MetricsProxyEndpoint.class);
-    register(NodeEndpoint.class);
-    register(NSSummaryEndpoint.class);
-    register(OMDBInsightEndpoint.class);
-    register(PendingDeletionEndpoint.class);
-    register(PipelineEndpoint.class);
-    register(StorageDistributionEndpoint.class);
-    register(TaskStatusService.class);
-    register(TriggerDBSyncEndpoint.class);
-    register(UtilizationEndpoint.class);
-    register(VolumeEndpoint.class);
-    OzoneConfiguration ozoneConf = new ConfigurationProvider().get();
-    if (ozoneConf != null && ChatbotConfigKeys.isChatbotEnabled(ozoneConf)) {
-      register(ChatbotEndpoint.class);
-    }
+  @Override
+  public Set<Class<?>> getClasses() {
+    return resourceClasses;
   }
 }

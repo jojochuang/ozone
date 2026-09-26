@@ -50,6 +50,8 @@ java_library(
     resources = glob(["src/test/resources/**"], allow_empty = True),
     deps = [
         ":ozone-iceberg",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_apache_hadoop_hadoop_mapreduce_client_core",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_jupiter_junit_jupiter_params",

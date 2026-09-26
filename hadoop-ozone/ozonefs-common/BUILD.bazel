@@ -51,6 +51,7 @@ java_library(
     resources = glob(["src/test/resources/**"], allow_empty = True),
     deps = [
         ":ozone-filesystem-common",
+        "//hadoop-hdds/client:hdds-client-tests",
         "@maven//:org_assertj_assertj_core",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_jupiter_junit_jupiter_params",
