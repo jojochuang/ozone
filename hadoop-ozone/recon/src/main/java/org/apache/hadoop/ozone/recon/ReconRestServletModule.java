@@ -30,11 +30,30 @@ import javax.ws.rs.core.UriBuilder;
 import org.apache.hadoop.hdds.conf.ConfigurationSource;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
+import org.apache.hadoop.ozone.recon.api.AccessHeatMapEndpoint;
+import org.apache.hadoop.ozone.recon.api.BlocksEndPoint;
+import org.apache.hadoop.ozone.recon.api.BucketEndpoint;
+import org.apache.hadoop.ozone.recon.api.ClusterStateEndpoint;
+import org.apache.hadoop.ozone.recon.api.ContainerEndpoint;
+import org.apache.hadoop.ozone.recon.api.FeaturesEndpoint;
+import org.apache.hadoop.ozone.recon.api.MetricsProxyEndpoint;
+import org.apache.hadoop.ozone.recon.api.NSSummaryEndpoint;
+import org.apache.hadoop.ozone.recon.api.NodeEndpoint;
+import org.apache.hadoop.ozone.recon.api.OMDBInsightEndpoint;
+import org.apache.hadoop.ozone.recon.api.PendingDeletionEndpoint;
+import org.apache.hadoop.ozone.recon.api.PipelineEndpoint;
+import org.apache.hadoop.ozone.recon.api.StorageDistributionEndpoint;
+import org.apache.hadoop.ozone.recon.api.TaskStatusService;
+import org.apache.hadoop.ozone.recon.api.TriggerDBSyncEndpoint;
+import org.apache.hadoop.ozone.recon.api.UtilizationEndpoint;
+import org.apache.hadoop.ozone.recon.api.VolumeEndpoint;
 import org.apache.hadoop.ozone.recon.api.filters.ReconAdminFilter;
 import org.apache.hadoop.ozone.recon.api.filters.ReconAuthFilter;
 import org.apache.hadoop.ozone.recon.chatbot.ChatbotConfigKeys;
+import org.apache.hadoop.ozone.recon.chatbot.api.ChatbotEndpoint;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.jvnet.hk2.guice.bridge.api.GuiceBridge;
 import org.jvnet.hk2.guice.bridge.api.GuiceIntoHK2Bridge;
@@ -71,21 +90,12 @@ public class ReconRestServletModule extends ServletModule {
   }
 
   private void configureApi(String... packages) {
-    StringBuilder sb = new StringBuilder();
-
     for (String pkg : packages) {
-      if (sb.length() > 0) {
-        sb.append(',');
-      }
       checkIfPackageExistsAndLog(pkg);
-      sb.append(pkg);
     }
     Map<String, String> params = new HashMap<>();
     params.put("javax.ws.rs.Application",
         GuiceResourceConfig.class.getCanonicalName());
-    if (sb.length() > 0) {
-      params.put("jersey.config.server.provider.packages", sb.toString());
-    }
     bind(ServletContainer.class).in(Scopes.SINGLETON);
 
     String allApiPath = UriBuilder.fromPath(BASE_API_PATH).path("*").build().toString();
@@ -128,11 +138,37 @@ class GuiceResourceConfig extends ResourceConfig {
   @Inject
   GuiceResourceConfig(ServiceLocator serviceLocator,
       @Context ServletContext servletContext) {
+    property(ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE, true);
+    registerReconApiResources();
     GuiceBridge.getGuiceBridge().initializeGuiceBridge(serviceLocator);
     GuiceIntoHK2Bridge guiceBridge = serviceLocator
         .getService(GuiceIntoHK2Bridge.class);
     Injector injector = (Injector) servletContext
         .getAttribute(Injector.class.getName());
     guiceBridge.bridgeGuiceInjector(injector);
+  }
+
+  private void registerReconApiResources() {
+    register(AccessHeatMapEndpoint.class);
+    register(BlocksEndPoint.class);
+    register(BucketEndpoint.class);
+    register(ClusterStateEndpoint.class);
+    register(ContainerEndpoint.class);
+    register(FeaturesEndpoint.class);
+    register(MetricsProxyEndpoint.class);
+    register(NodeEndpoint.class);
+    register(NSSummaryEndpoint.class);
+    register(OMDBInsightEndpoint.class);
+    register(PendingDeletionEndpoint.class);
+    register(PipelineEndpoint.class);
+    register(StorageDistributionEndpoint.class);
+    register(TaskStatusService.class);
+    register(TriggerDBSyncEndpoint.class);
+    register(UtilizationEndpoint.class);
+    register(VolumeEndpoint.class);
+    OzoneConfiguration ozoneConf = new ConfigurationProvider().get();
+    if (ozoneConf != null && ChatbotConfigKeys.isChatbotEnabled(ozoneConf)) {
+      register(ChatbotEndpoint.class);
+    }
   }
 }
