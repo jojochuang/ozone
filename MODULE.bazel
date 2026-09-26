@@ -250,6 +250,19 @@ maven.artifact(
     version = "3.4.3",
 )
 
+maven.artifact(
+    artifact = "hadoop-hdfs",
+    exclusions = [
+        "com.sun.jersey:jersey-core",
+        "com.sun.jersey:jersey-json",
+        "com.sun.jersey:jersey-server",
+        "com.sun.jersey:jersey-servlet",
+        "javax.ws.rs:jsr311-api",
+    ],
+    group = "org.apache.hadoop",
+    version = "3.4.3",
+)
+
 # Zookeeper pulls logback by default; Ozone uses reload4j (log4j 1.x). A second SLF4J
 # binding sends DEBUG noise to stdout and breaks acceptance checks for "Failed".
 maven.artifact(

@@ -166,10 +166,24 @@ _ozone_module_jar_for_label() {
   done < <("${BAZEL}" cquery "${label}" --output=files 2>/dev/null)
 }
 
+_ozone_is_legacy_jersey1_jar_name() {
+  local base="$1"
+  [[ "${base}" =~ ^jersey-core-1\. ]] && return 0
+  [[ "${base}" =~ ^jersey-server-1\. ]] && return 0
+  [[ "${base}" =~ ^jersey-json-1\. ]] && return 0
+  [[ "${base}" =~ ^jersey-servlet-1\. ]] && return 0
+  [[ "${base}" =~ ^jsr311-api-.*\.jar$ ]] && return 0
+  return 1
+}
+
 _ozone_filter_runtime_jar_paths() {
-  local rel
+  local rel base
   while IFS= read -r rel; do
     if _ozone_is_runtime_jar_path "${rel}"; then
+      base="$(basename "${rel}")"
+      if _ozone_is_legacy_jersey1_jar_name "${base}"; then
+        continue
+      fi
       echo "${rel}"
     fi
   done
@@ -213,6 +227,9 @@ _ozone_write_classpath_descriptor() {
   while IFS= read -r rel; do
     [[ -n "${rel}" ]] || continue
     base="$(basename "${rel}")"
+    if _ozone_is_legacy_jersey1_jar_name "${base}"; then
+      continue
+    fi
     entries+=("${base}")
   done < <("${BAZEL}" cquery "filter('.*\\.jar$', deps(${target}))" --output=files 2>/dev/null \
     | _ozone_filter_runtime_jar_paths || true)

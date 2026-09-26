@@ -26,6 +26,7 @@ import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.recon.ConfigurationProvider;
 import org.apache.hadoop.ozone.recon.ReconRestResources;
 import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.jersey.jackson.JacksonFeature;
 
 /**
  * Recon Jersey {@link ResourceConfig} that registers REST resources explicitly.
@@ -41,6 +42,7 @@ public class ReconResourceConfig extends ResourceConfig {
   ReconResourceConfig(ServiceLocator serviceLocator, @Context ServletContext servletContext) {
     property(ServerProperties.FEATURE_AUTO_DISCOVERY_DISABLE, true);
     property(ServerProperties.METAINF_SERVICES_LOOKUP_DISABLE, true);
+    register(JacksonFeature.class);
     OzoneConfiguration ozoneConf = new ConfigurationProvider().get();
     resourceClasses = ReconRestResources.resourceClasses(ozoneConf);
     for (Class<?> resourceClass : resourceClasses) {
