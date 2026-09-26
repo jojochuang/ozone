@@ -35,6 +35,8 @@ java_library(
         "@maven//:org_apache_ratis_ratis_client",
         "@maven//:org_apache_ratis_ratis_common",
         "@maven//:org_apache_ratis_ratis_grpc",
+        "@maven//:org_apache_ratis_ratis_metrics_api",
+        "@maven//:org_apache_ratis_ratis_metrics_dropwizard3",
         "@maven//:org_apache_ratis_ratis_proto",
         "@maven//:org_apache_ratis_ratis_thirdparty_misc",
         "@maven//:org_slf4j_slf4j_api",

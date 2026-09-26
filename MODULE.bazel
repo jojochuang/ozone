@@ -218,6 +218,8 @@ maven.install(
         "org.rocksdb:rocksdbjni:10.10.1.1",
         "org.slf4j:jcl-over-slf4j:2.0.18",
         "org.slf4j:jul-to-slf4j:2.0.18",
+        "org.slf4j:slf4j-api:2.0.18",
+        "org.slf4j:slf4j-reload4j:2.0.18",
         "software.amazon.awssdk:apache-client:2.46.17",
         "software.amazon.awssdk:s3-transfer-manager:2.46.17",
         "software.amazon.awssdk:s3:2.46.17",
