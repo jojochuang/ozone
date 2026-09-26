@@ -1,0 +1,308 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:codegen.bzl", "OZONE_ANNOTATION_PROCESSING_JAVACOPTS", "hdds_config_processor")
+load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+
+package(default_visibility = ["//visibility:public"])
+
+ozone_java_proto_library(
+    name = "scm-ratis-test-proto",
+    protos = ["src/test/proto/Proto2SCMRatisProtocolForTesting.proto"],
+)
+
+java_library(
+    name = "hdds-server-scm",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    javacopts = OZONE_ANNOTATION_PROCESSING_JAVACOPTS,
+    plugins = [hdds_config_processor()],
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/container-service:hdds-container-service",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-admin:hdds-interface-admin",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-hdds/interface-server:hdds-interface-server",
+        "//hadoop-hdds/managed-rocksdb:hdds-managed-rocksdb",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:commons_io_commons_io",
+        "@maven//:info_picocli_picocli",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_collections4",
+        "@maven//:org_apache_commons_commons_compress",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_ratis_ratis_client",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_grpc",
+        "@maven//:org_apache_ratis_ratis_proto",
+        "@maven//:org_apache_ratis_ratis_server",
+        "@maven//:org_apache_ratis_ratis_server_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_bouncycastle_bcpkix_jdk18on",
+        "@maven//:org_eclipse_jetty_jetty_webapp",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+java_library(
+    name = "hdds-server-scm-tests",
+    testonly = True,
+    tags = ["manual"],
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    deps = [
+        ":hdds-server-scm",
+        ":scm-ratis-test-proto",
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/container-service:hdds-container-service-tests",
+        "//hadoop-hdds/framework:hdds-server-framework-tests",
+        "//hadoop-hdds/test-utils:hdds-hadoop-test-jars",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:org_apache_commons_commons_math3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_junit_jupiter",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm",
+    package = "org.apache.hadoop.hdds.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-block",
+    package = "org.apache.hadoop.hdds.scm.block",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-command",
+    package = "org.apache.hadoop.hdds.scm.command",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container",
+    package = "org.apache.hadoop.hdds.scm.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-balancer",
+    package = "org.apache.hadoop.hdds.scm.container.balancer",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-placement-algorithms",
+    package = "org.apache.hadoop.hdds.scm.container.placement.algorithms",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-reconciliation",
+    package = "org.apache.hadoop.hdds.scm.container.reconciliation",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-replication",
+    package = "org.apache.hadoop.hdds.scm.container.replication",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-replication-health",
+    package = "org.apache.hadoop.hdds.scm.container.replication.health",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-report",
+    package = "org.apache.hadoop.hdds.scm.container.report",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-container-states",
+    package = "org.apache.hadoop.hdds.scm.container.states",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-ha",
+    package = "org.apache.hadoop.hdds.scm.ha",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-ha-invoker",
+    package = "org.apache.hadoop.hdds.scm.ha.invoker",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-ha-io",
+    package = "org.apache.hadoop.hdds.scm.ha.io",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-metadata",
+    package = "org.apache.hadoop.hdds.scm.metadata",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-node",
+    package = "org.apache.hadoop.hdds.scm.node",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-node-states",
+    package = "org.apache.hadoop.hdds.scm.node.states",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-pipeline",
+    package = "org.apache.hadoop.hdds.scm.pipeline",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-pipeline-choose-algorithms",
+    package = "org.apache.hadoop.hdds.scm.pipeline.choose.algorithms",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-pipeline-leader-choose-algorithms",
+    package = "org.apache.hadoop.hdds.scm.pipeline.leader.choose.algorithms",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-safemode",
+    package = "org.apache.hadoop.hdds.scm.safemode",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-security",
+    package = "org.apache.hadoop.hdds.scm.security",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-server",
+    package = "org.apache.hadoop.hdds.scm.server",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-hdds-scm-upgrade",
+    package = "org.apache.hadoop.hdds.scm.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-ozone-container-common",
+    package = "org.apache.hadoop.ozone.container.common",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-scm-tests-pkg-org-apache-hadoop-ozone-container-placement",
+    package = "org.apache.hadoop.ozone.container.placement",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-scm-tests"],
+)
+

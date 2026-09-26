@@ -19,18 +19,26 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/javadoc_bazel.sh" "$@"
+fi
+
 BASE_DIR="$(pwd -P)"
 REPORT_DIR=${OUTPUT_DIR:-"${BASE_DIR}/target/javadoc"}
+# shellcheck disable=SC2034
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
 MAVEN_OPTIONS="-B -fae -DskipDocs -DskipRecon -DskipShade --no-transfer-progress ${MAVEN_OPTIONS:-}"
 
 mvn ${MAVEN_OPTIONS} javadoc:aggregate "$@" | tee output.log
+# shellcheck disable=SC2034
 rc=$?
 
 mkdir -p "$REPORT_DIR"
 mv output.log target/reports/apidocs ${REPORT_DIR}/
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
 
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

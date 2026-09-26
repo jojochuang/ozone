@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Generate maven_artifacts.bzl from pom.xml dependencyManagement and module deps."""
+
+# pylint: disable=missing-function-docstring,import-outside-toplevel,line-too-long,duplicate-code
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from defusedxml import ElementTree as ET
+
+from pom_xml import parse
+
+ROOT = Path(__file__).resolve().parents[2]
+POM = ROOT / "pom.xml"
+OUT = Path(__file__).resolve().parent / "maven_artifacts.bzl"
+NS = {"m": "http://maven.apache.org/POM/4.0.0"}
+
+SKIP_ARTIFACT_IDS = frozenset({
+    "ratis-proto-shaded",
+})
+
+
+def _properties(pom_root: ET.Element) -> dict[str, str]:
+    props: dict[str, str] = {}
+    block = pom_root.find("m:properties", NS)
+    if block is not None:
+        for child in block:
+            tag = child.tag.split("}", 1)[-1]
+            props[tag] = (child.text or "").strip()
+    return props
+
+
+def resolve(version: str, props: dict[str, str], depth: int = 0) -> str:
+    if depth > 10 or not version.startswith("${"):
+        return version
+    key = version[2:-1]
+    return resolve(props.get(key, version), props, depth + 1)
+
+
+def _coords_from_dep(
+    dep: ET.Element,
+    props: dict[str, str],
+    bom: dict[tuple[str, str], str],
+) -> str | None:
+    group = dep.find("m:groupId", NS)
+    artifact = dep.find("m:artifactId", NS)
+    if group is None or artifact is None:
+        return None
+    group_id = (group.text or "").strip()
+    artifact_id = (artifact.text or "").strip()
+    if group_id == "org.apache.ozone" or artifact_id in SKIP_ARTIFACT_IDS:
+        return None
+    type_el = dep.find("m:type", NS)
+    dep_type = (type_el.text or "jar").strip() if type_el is not None else "jar"
+    if dep_type in ("pom",) or artifact_id.endswith("-bom"):
+        return None
+    version_el = dep.find("m:version", NS)
+    if version_el is not None and version_el.text:
+        ver = resolve(version_el.text.strip(), props)
+    else:
+        ver = bom.get((group_id, artifact_id), "")
+    if not ver or ver.startswith("${"):
+        return None
+    return f"{group_id}:{artifact_id}:{ver}"
+
+
+def collect_artifacts() -> set[str]:
+    from maven_bom import load_bom
+
+    root_pom = parse(POM).getroot()
+    props = _properties(root_pom)
+    bom = load_bom()
+    deps: set[str] = set()
+
+    dm = root_pom.find("m:dependencyManagement/m:dependencies", NS)
+    if dm is not None:
+        for dep in dm.findall("m:dependency", NS):
+            c = _coords_from_dep(dep, props, bom)
+            if c:
+                deps.add(c)
+
+    for pom_path in ROOT.glob("**/pom.xml"):
+        if "target" in pom_path.parts:
+            continue
+        pom_root = parse(pom_path).getroot()
+        local_props = {**props, **_properties(pom_root)}
+        for dep in pom_root.findall(".//m:dependencies/m:dependency", NS):
+            c = _coords_from_dep(dep, local_props, bom)
+            if c:
+                deps.add(c)
+    return deps
+
+
+def main() -> int:
+    if not POM.is_file():
+        print(
+            "No root pom.xml; maven_artifacts.bzl is the source of truth for external deps.",
+            file=sys.stderr,
+        )
+        return 0
+
+    deps = collect_artifacts()
+    lines = [
+        "# Licensed to the Apache Software Foundation (ASF) under one or more",
+        "# contributor license agreements.  See the NOTICE file distributed with",
+        "# this work for additional information regarding copyright ownership.",
+        "# The ASF licenses this file to You under the Apache License, Version 2.0",
+        "# (the \"License\"); you may not use this file except in compliance with",
+        "# the License.  You may obtain a copy of the License at",
+        "#",
+        "#     http://www.apache.org/licenses/LICENSE-2.0",
+        "#",
+        "# Unless required by applicable law or agreed to in writing, software",
+        "# distributed under the License is distributed on an \"AS IS\" BASIS,",
+        "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+        "# See the License for the specific language governing permissions and",
+        "# limitations under the License.",
+        "#",
+        "# Generated by tools/bazel/generate_maven_artifacts.py — do not edit by hand.",
+        "MAVEN_ARTIFACTS = [",
+    ]
+    for dep in sorted(deps):
+        lines.append(f'    "{dep}",')
+    lines.append("]")
+    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Wrote {len(deps)} artifacts to {OUT}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

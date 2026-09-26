@@ -1,0 +1,40 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+common --enable_bzlmod
+# Retry transient GitHub/BCR download failures in CI (e.g. bazel_features release 500).
+common --experimental_repository_downloader_retries=5
+common --java_language_version=17
+common --java_runtime_version=remotejdk_21
+common --tool_java_runtime_version=remotejdk_21
+common --tool_java_language_version=21
+
+build --javacopt=--release
+build --javacopt=17
+# Disable classpath annotation processors by default; java_library targets with
+# plugins must pass javacopts = ["-proc:full"] (see tools/bazel/codegen.bzl).
+build --javacopt=-proc:none
+build --javacopt=-Xep:All:OFF
+build --javacopt=-XepDisableAllChecks
+build --java_header_compilation=false
+build --strict_java_deps=off
+build --build_tag_filters=-manual
+build --host_javacopt=--release
+build --host_javacopt=17
+
+test --test_output=errors
+test --flaky_test_attempts=1
+
+try-import %workspace%/user.bazelrc

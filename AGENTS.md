@@ -10,7 +10,9 @@
 - Reuse existing Ozone and Ratis utilities when the surrounding code already uses them.
   Prefer extending an existing helper over duplicating logic or adding a new one-off abstraction.
 - If there are multiple reasonable interpretations, state the tradeoff and ask instead of guessing.
-- Do not wrap lines early just to make them look uniform. The checkstyle maximum (see `hadoop-hdds/dev-support/checkstyle/checkstyle.xml`) is 120 characters for Java. Use the full 120 characters before wrapping; never break a line that fits on one line.
+- Do not wrap lines early just to make them look uniform. The checkstyle maximum (see
+  `hadoop-hdds/dev-support/checkstyle/checkstyle.xml`) is 120 characters for Java. Use the full 120 characters
+  before wrapping; never break a line that fits on one line.
 - Use established Ozone vocabulary in code, docs, and PR text:
   SCM, OM, datanode, container, pipeline, volume, bucket, key, snapshot,
   Recon, FSO, OBS, and S3 Gateway.
@@ -18,12 +20,15 @@
 
 ## Repository Snapshot
 
-Apache Ozone is a multi-module Maven project. The root coordinates and version live in [`pom.xml`](./pom.xml).
+Apache Ozone is a multi-module Maven project migrating to Bazel (see
+[`tools/bazel/MIGRATION_STATUS.md`](./tools/bazel/MIGRATION_STATUS.md) and the
+[Bazel OEP](./hadoop-hdds/docs/content/design/bazel-build-migration.md)).
+The root coordinates and version live in [`pom.xml`](./pom.xml).
 
 Tech stack:
 
 - Java 8 bytecode with JDK 21 runtime compatibility (see the `[21,]` profile in `pom.xml`)
-- Maven build
+- Maven build (release and full CI); Bazel for incremental module builds (in progress)
 - Hadoop RPC and gRPC over Protobuf
 - RocksDB for persistent metadata
 - Apache Ratis for replicated state
@@ -67,6 +72,9 @@ Default local build flags:
 
 Primary commands:
 
+- Bazel spike (migrated HDDS modules): `./hadoop-ozone/dev-support/checks/bazel.sh`
+- Regenerate Maven lockfile for Bazel: `python3 tools/bazel/generate_module_bazel.py`
+- Regenerate module `BUILD.bazel` stubs: `python3 tools/bazel/generate_build_files.py`
 - Iterative full build: `mvn clean install -DskipTests -DskipShade -DskipRecon -DskipDocs`
 - Full compile/verify smoke check: `mvn clean verify -DskipTests -DskipShade -DskipRecon -DskipDocs`
 - Rebuild one module and its dependencies:
@@ -202,14 +210,17 @@ When assessing a potential security vulnerability in Apache Ozone, complete
 these steps before drafting any report or reaching any security conclusion.
 
 ### Step 1 — Read the threat model
+
 Read **[THREAT_MODEL.md](THREAT_MODEL.md)**: the multi-service trust boundaries,
 the **secure mode** knob, the properties provided vs. left to the operator, and
 the known non-findings.
 
 ### Step 2 — Read the security policy
+
 Read **[SECURITY.md](SECURITY.md)** for how to report.
 
 ### Key scoping facts (see THREAT_MODEL.md)
+
 - Ozone is a cluster of network services (S3 Gateway, OM, SCM/internal-CA,
   Datanodes/Ratis, Recon). Roles: untrusted client, authenticated-but-
   unauthorized user, operator, service peer, bounded-Byzantine datanode.
@@ -223,5 +234,6 @@ Read **[SECURITY.md](SECURITY.md)** for how to report.
 - integration-test modules, and test utilities are out of scope.
 
 ### Then assess
+
 Route the finding to exactly one disposition in **THREAT_MODEL.md section 13**,
 citing the section. If it cannot be routed, it is a `MODEL-GAP` — surface it.

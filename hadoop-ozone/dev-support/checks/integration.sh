@@ -15,16 +15,24 @@
 # limitations under the License.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+ROOT="$(cd "${DIR}/../../.." && pwd)"
+
+if [[ ! -f "${ROOT}/pom.xml" ]]; then
+  exec "${ROOT}/tools/bazel/checks/integration_bazel.sh" "$@"
+fi
+
+# shellcheck disable=SC2034
 CHECK=integration
 ERROR_PATTERN="\[ERROR\]"
 
 args=""
-if [[ "$@" =~ "-Ptest-flaky" ]]; then
+if [[ " $* " == *" -Ptest-flaky "* ]]; then
   args="$args -Dsurefire.rerunFailingTestsCount=5 -Dsurefire.fork.timeout=3600"
   # tests may pass on re-run, so we cannot rely on output for status
+  # shellcheck disable=SC2034
   ERROR_PATTERN=""
 fi
-if [[ "$@" =~ "-Ptest-" ]] && [[ ! "$@" =~ "-Ptest-filesystem" ]]; then
+if [[ " $* " == *" -Ptest-"* ]] && [[ " $* " != *" -Ptest-filesystem"* ]]; then
   args="$args -DskipShade"
 fi
 

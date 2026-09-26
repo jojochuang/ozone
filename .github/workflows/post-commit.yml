@@ -18,7 +18,7 @@ on:
     types: [opened, ready_for_review, synchronize]
   push:
 concurrency:
-  group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ozone', github.sha, github.ref_name) }}
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'apache/ozone' }}
 permissions:
   contents: read
@@ -27,8 +27,4 @@ jobs:
     if: github.event_name == 'pull_request'
       || (github.repository == 'apache/ozone' && !startsWith(github.ref_name, 'dependabot'))
       || (github.repository != 'apache/ozone' && github.ref_name != 'master')
-    uses: $/.github/workflows/ci.yml
-    secrets:
-      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-      OZONE_WEBSITE_BUILD: ${{ secrets.OZONE_WEBSITE_BUILD }}
-      SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+    uses: $/.github/workflows/ci-bazel.yml

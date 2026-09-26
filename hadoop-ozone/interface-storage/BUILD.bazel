@@ -1,0 +1,60 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:defs.bzl", "ozone_java_facade")
+load("//tools/bazel:java_proto.bzl", "ozone_java_proto_library")
+
+ozone_java_proto_library(
+    name = "ozone-interface-storage-proto",
+    import_proto_deps = ["//hadoop-hdds/interface-client:hdds_proto_files"],
+    protos = glob(["src/main/proto/*.proto"]),
+    deps = [
+        "//hadoop-hdds/interface-client:hdds-interface-client-standard",
+        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+java_library(
+    name = "ozone-interface-storage-java",
+    srcs = glob(["src/main/java/**/*.java"]),
+    deps = [
+        ":ozone-interface-storage-proto",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-hdds/rocksdb-checkpoint-differ:rocksdb-checkpoint-differ",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_ratis_ratis_common",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+ozone_java_facade(
+    name = "ozone-interface-storage",
+    deps = [
+        ":ozone-interface-storage-java",
+        ":ozone-interface-storage-proto",
+    ],
+    visibility = ["//visibility:public"],
+)

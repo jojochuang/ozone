@@ -1,0 +1,97 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "hdds-client",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    deps = [
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/erasurecode:hdds-erasurecode",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "@maven//:com_google_guava_guava",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_ratis_ratis_client",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_grpc",
+        "@maven//:org_apache_ratis_ratis_metrics_api",
+        "@maven//:org_apache_ratis_ratis_metrics_dropwizard3",
+        "@maven//:org_apache_ratis_ratis_proto",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+java_library(
+    name = "hdds-client-tests",
+    testonly = True,
+    tags = ["manual"],
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    deps = [
+        ":hdds-client",
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_junit_jupiter",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm",
+    package = "org.apache.hadoop.hdds.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm-client",
+    package = "org.apache.hadoop.hdds.scm.client",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-hdds-scm-storage",
+    package = "org.apache.hadoop.hdds.scm.storage",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-client-tests-pkg-org-apache-hadoop-ozone-client-io",
+    package = "org.apache.hadoop.ozone.client.io",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-client-tests"],
+)
+

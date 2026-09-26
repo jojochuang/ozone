@@ -21,6 +21,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/pmd_bazel.sh" "$@"
+fi
+
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/pmd"}
 mkdir -p "$REPORT_DIR"
 
@@ -32,10 +36,13 @@ declare -i rc
 
 #shellcheck disable=SC2086
 mvn $MAVEN_OPTIONS test-compile pmd:check "$@" | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 
 grep -o "PMD Failure.*" "${REPORT_DIR}/output.log" > "$REPORT_FILE"
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
 
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

@@ -23,11 +23,120 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/rat"}
 mkdir -p "$REPORT_DIR"
 
 REPORT_FILE="$REPORT_DIR/summary.txt"
+: > "${REPORT_DIR}/output.log"
 
-mvn -B --no-transfer-progress -fn org.apache.rat:apache-rat-plugin:check "$@" \
-    | tee "${REPORT_DIR}/output.log"
+declare -i rc=0
+if [[ -f pom.xml ]]; then
+  mvn -B --no-transfer-progress -fn org.apache.rat:apache-rat-plugin:check "$@" \
+      | tee "${REPORT_DIR}/output.log"
+  rc=${PIPESTATUS[0]}
+else
+  # shellcheck source=dev-support/ci/load_build_versions.sh
+  source dev-support/ci/load_build_versions.sh
+  RAT_VERSION="$(load_build_version apache-rat.version)"
+  TOOL_DIR="${REPORT_DIR}/tools"
+  mkdir -p "${TOOL_DIR}"
+  RAT_JAR="${TOOL_DIR}/apache-rat-${RAT_VERSION}.jar"
+  if [[ ! -f "${RAT_JAR}" ]]; then
+    curl -fsSL -o "${RAT_JAR}" \
+      "https://repo1.maven.org/maven2/org/apache/rat/apache-rat/${RAT_VERSION}/apache-rat-${RAT_VERSION}.jar"
+  fi
+  RAT_DIRS=(hadoop-hdds hadoop-ozone dev-support tools/bazel .github)
+  for scan_dir in "${RAT_DIRS[@]}"; do
+    [[ -d "${scan_dir}" ]] || continue
+    set +e
+    java -jar "${RAT_JAR}" --dir "${scan_dir}" >> "${REPORT_DIR}/output.log" 2>&1
+    set -e
+    # RAT exits non-zero when the report lists unapproved files; exclusions are applied below.
+  done
+  for scan_file in MODULE.bazel BUILD.bazel .bazelrc; do
+    [[ -f "${scan_file}" ]] || continue
+    if ! grep -q 'Licensed to the Apache Software Foundation' "${scan_file}"; then
+      echo "[ERROR] Missing ASF license header in ${scan_file}" >> "${REPORT_DIR}/output.log"
+      rc=1
+    fi
+  done
+  FILTER="${REPORT_DIR}/filter_unapproved.py"
+  cat > "${FILTER}" << 'PY'
+import re
+import sys
+from pathlib import Path, PurePath
 
-grep -r --include=rat.txt "!????" $dirs | tee "$REPORT_FILE"
+root = Path(".")
+excl_path = root / "dev-support/rat/rat-exclusions.txt"
+patterns: list[str] = []
+for line in excl_path.read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    patterns.append(line.replace("\\", "/"))
 
+log = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+in_section = False
+unapproved: list[str] = []
+for line in log.splitlines():
+    if "Files with unapproved licenses" in line:
+        in_section = True
+        continue
+    if in_section:
+        if line.strip().startswith("*") or not line.strip():
+            in_section = False
+            continue
+        m = re.match(r"\s+(.*\S)\s*$", line)
+        if m:
+            unapproved.append(m.group(1).lstrip("./"))
+
+def excluded(path: str) -> bool:
+    import fnmatch
+
+    norm = path.replace("\\", "/").lstrip("./")
+    candidates = {norm, "./" + norm}
+    if "/" in norm:
+        candidates.add(norm.split("/", 1)[1])
+    for pat in patterns:
+        for c in candidates:
+            if fnmatch.fnmatch(c, pat) or fnmatch.fnmatch(c, pat.lstrip("/")):
+                return True
+            if "**" in pat:
+                rx = "^" + fnmatch.translate(pat).replace(r"\*\*", ".*") + "$"
+                import re
+
+                if re.match(rx, c):
+                    return True
+    if "/target/" in norm or norm.startswith("bazel-"):
+        return True
+    return False
+
+remaining = [p for p in unapproved if not excluded(p)]
+if remaining:
+    print("[ERROR] RAT unapproved files not covered by rat-exclusions.txt:", file=sys.stderr)
+    for p in remaining[:50]:
+        print(f"  {p}", file=sys.stderr)
+    if len(remaining) > 50:
+        print(f"  ... and {len(remaining) - 50} more", file=sys.stderr)
+    sys.exit(1)
+PY
+  set +e
+  python3 "${FILTER}" "${REPORT_DIR}/output.log" >> "${REPORT_DIR}/output.log" 2>&1
+  filter_rc=$?
+  set -e
+  if [[ ${filter_rc} -ne 0 ]]; then
+    rc=1
+  fi
+fi
+
+if grep -q '\[ERROR\]' "${REPORT_DIR}/output.log" 2>/dev/null; then
+  grep '\[ERROR\]' "${REPORT_DIR}/output.log" | head -30 | tee "$REPORT_FILE"
+  rc=1
+else
+  : > "$REPORT_FILE"
+  if [[ ! -f pom.xml ]]; then
+    # shellcheck disable=SC2034
+    rc=0
+  fi
+fi
+
+# shellcheck disable=SC2034
 ERROR_PATTERN="\[ERROR\]"
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

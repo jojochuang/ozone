@@ -1,0 +1,55 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Hadoop test-jars (KeyStoreTestUtil, MiniDFSCluster helpers, etc.).
+java_library(
+    name = "hdds-hadoop-test-jars",
+    testonly = True,
+    exports = [
+        "@maven//:org_apache_hadoop_hadoop_common_tests_3_4_3",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_tests_3_4_3",
+        "@maven//:org_apache_hadoop_hadoop_kms_tests_3_4_3",
+    ],
+)
+
+java_library(
+    name = "hdds-test-utils",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    deps = [
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_logging_log4j_log4j_core",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_jacoco_org_jacoco_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_platform_junit_platform_engine",
+        "@maven//:org_junit_platform_junit_platform_launcher",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+

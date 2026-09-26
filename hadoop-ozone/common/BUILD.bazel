@@ -1,0 +1,190 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:codegen.bzl", "OZONE_ANNOTATION_PROCESSING_JAVACOPTS", "hdds_config_processor")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "ozone-common",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    javacopts = OZONE_ANNOTATION_PROCESSING_JAVACOPTS,
+    plugins = [hdds_config_processor()],
+    deps = [
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_apache_httpcomponents_httpclient",
+        "@maven//:org_apache_httpcomponents_httpcore",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_proto",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_rocksdb_rocksdbjni",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+java_library(
+    name = "ozone-common-tests",
+    testonly = True,
+    tags = ["manual"],
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    deps = [
+        ":ozone-common",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:io_grpc_grpc_testing",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_junit_jupiter",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone",
+    package = "org.apache.hadoop.ozone",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-client-checksum",
+    package = "org.apache.hadoop.ozone.client.checksum",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-client-io",
+    package = "org.apache.hadoop.ozone.client.io",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om",
+    package = "org.apache.hadoop.ozone.om",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om-exceptions",
+    package = "org.apache.hadoop.ozone.om.exceptions",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om-ha",
+    package = "org.apache.hadoop.ozone.om.ha",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om-helpers",
+    package = "org.apache.hadoop.ozone.om.helpers",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om-protocolPB",
+    package = "org.apache.hadoop.ozone.om.protocolPB",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-om-protocolPB-grpc",
+    package = "org.apache.hadoop.ozone.om.protocolPB.grpc",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-protocolPB",
+    package = "org.apache.hadoop.ozone.protocolPB",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-security",
+    package = "org.apache.hadoop.ozone.security",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-security-acl",
+    package = "org.apache.hadoop.ozone.security.acl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-snapshot",
+    package = "org.apache.hadoop.ozone.snapshot",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-common-tests-pkg-org-apache-hadoop-ozone-util",
+    package = "org.apache.hadoop.ozone.util",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-common-tests"],
+)
+

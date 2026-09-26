@@ -1,0 +1,4 @@
+//hadoop-hdds/config:TestConfigurationReflectionUtil
+//hadoop-hdds/config:hdds-config-tests-pkg-org-apache-hadoop-hdds-conf
+//hadoop-hdds/common:hdds-common-unit-hdds-utils
+//hadoop-hdds/common:hdds-common-unit-ozone-common

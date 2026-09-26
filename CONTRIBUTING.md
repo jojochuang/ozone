@@ -42,6 +42,7 @@ Requirements to compile the code:
 * Unix System
 * JDK 17 or later; client modules can be built with JDK 8
 * Maven 3.6.3 or later
+* (Optional, in progress) [Bazelisk](https://github.com/bazelbuild/bazelisk) for migrated Bazel targets — see [`tools/bazel/README.md`](tools/bazel/README.md)
 * Internet connection for first build (to fetch all Maven and Ozone dependencies)
 
 (Standard development tools such as make, gcc, etc. are required.)
@@ -53,6 +54,16 @@ After installing the requirements (especially Maven) build is as simple as:
 ```
 mvn clean verify -DskipTests
 ```
+
+### Bazel (migration spike)
+
+Apache Ozone is migrating to Bazel alongside Maven. Migrated modules can be built with:
+
+```bash
+./hadoop-ozone/dev-support/checks/bazel.sh
+```
+
+Maven remains required for full releases and most CI until the migration completes (see [`tools/bazel/MIGRATION_STATUS.md`](tools/bazel/MIGRATION_STATUS.md)).
 
 ### Useful Maven build options
 

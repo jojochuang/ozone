@@ -1,0 +1,2 @@
+# BUILD.bazel paths whose ozone_junit5_package targets stay non-manual (CI smoke).
+hadoop-hdds/config/BUILD.bazel

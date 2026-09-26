@@ -1,0 +1,313 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: ci-bazel
+
+# Gating jobs: bazel-verify, basic, bazel-unit (allowlist), bazel-milestones, bazel-dist,
+# parity-static, parity-integration (compile), recon-ui, bazel-release-staging.
+# Informational (continue-on-error): bazel-unit-full, acceptance, kubernetes — run real
+# tests; expected to fail until dist/classpath and unit parity land (see MIGRATION_STATUS.md).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  bazel-verify:
+    name: bazel verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Install Python deps for Bazel generators
+        run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Bazel verify (tests + default graph)
+        run: chmod +x tools/bazel/ci_retry.sh && ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/verify_build.sh
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bazel-testlogs
+          path: bazel-testlogs/**
+
+  basic:
+    name: basic (${{ matrix.check }})
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - author
+          - bats
+          - bazel
+          - rat
+          - checkstyle
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: ${{ matrix.check != 'bats' && 1 || 0 }}
+          persist-credentials: false
+      - name: Set up JDK 21
+        if: matrix.check == 'checkstyle' || matrix.check == 'rat'
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Python deps
+        if: matrix.check == 'bazel'
+        run: pip install defusedxml
+      - name: Install Bazelisk
+        if: matrix.check == 'bazel'
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Run check
+        run: hadoop-ozone/dev-support/checks/${{ matrix.check }}.sh
+
+  bazel-unit:
+    name: bazel unit (CI allowlist)
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Run CI unit allowlist
+        run: ./tools/bazel/verify_unit.sh --flaky_test_attempts=1
+
+  bazel-unit-full:
+    name: bazel unit (full matrix, informational)
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Promote wired unit packages
+        run: chmod +x tools/bazel/promote_unit_tags.sh && ./tools/bazel/promote_unit_tags.sh
+      - name: Run all unit-tagged tests
+        env:
+          BAZEL_UNIT_FULL: "true"
+        run: |
+          chmod +x tools/bazel/ci_retry.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/verify_unit.sh --flaky_test_attempts=1 --keep_going
+
+  bazel-milestones:
+    name: bazel milestones
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Extended compile milestones
+        run: chmod +x tools/bazel/ci_retry.sh && ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/verify_extended.sh
+
+  bazel-dist:
+    name: bazel dist layout
+    needs: bazel-milestones
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Stage Maven-style dist directory
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/stage_dist_layout.sh
+          ./tools/bazel/ci_retry.sh 3 30 ./tools/bazel/stage_dist_layout.sh
+
+  parity-static:
+    name: parity static (${{ matrix.check }})
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - findbugs_bazel
+          - pmd
+          - license
+          - javadoc
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Run check
+        run: |
+          chmod +x tools/bazel/checks/*.sh
+          if [[ "${{ matrix.check }}" == findbugs_bazel ]]; then
+            ./tools/bazel/checks/findbugs_bazel.sh
+          else
+            hadoop-ozone/dev-support/checks/${{ matrix.check }}.sh
+          fi
+
+  parity-integration:
+    name: parity integration (compile)
+    needs: bazel-milestones
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Integration classpath (Bazel)
+        run: chmod +x tools/bazel/checks/integration_bazel.sh && ./tools/bazel/checks/integration_bazel.sh
+
+  bazel-release-staging:
+    name: bazel maven staging (local)
+    needs: bazel-dist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Stage Maven-style artifacts
+        run: chmod +x tools/bazel/release/maven_staging.sh && ./tools/bazel/release/maven_staging.sh
+
+  kubernetes-execute:
+    name: kubernetes (informational)
+    needs: bazel-dist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Stage dist and run kubernetes/examples
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/checks/kubernetes_bazel.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/checks/kubernetes_bazel.sh
+
+  acceptance-execute:
+    name: acceptance (informational)
+    needs: bazel-dist
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: pip install defusedxml
+      - name: Install Bazelisk
+        run: |
+          mkdir -p "${HOME}/bin"
+          curl -fsSL -o "${HOME}/bin/bazel" https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x "${HOME}/bin/bazel"
+          echo "${HOME}/bin" >> "${GITHUB_PATH}"
+      - name: Stage dist and run compose acceptance (unsecure)
+        env:
+          OZONE_ACCEPTANCE_SUITE: unsecure
+        run: |
+          chmod +x tools/bazel/ci_retry.sh tools/bazel/checks/acceptance_bazel.sh
+          ./tools/bazel/ci_retry.sh 2 30 ./tools/bazel/checks/acceptance_bazel.sh unsecure
+      - name: Upload acceptance logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: acceptance-logs
+          path: target/acceptance/**
+
+  recon-ui:
+    name: recon npm ui
+    needs: bazel-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Build Recon web UI
+        run: chmod +x tools/bazel/recon_npm_build.sh && ./tools/bazel/recon_npm_build.sh

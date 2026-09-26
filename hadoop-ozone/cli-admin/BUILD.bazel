@@ -1,0 +1,140 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:codegen.bzl", "OZONE_ANNOTATION_PROCESSING_JAVACOPTS")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "ozone-cli-admin",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    javacopts = OZONE_ANNOTATION_PROCESSING_JAVACOPTS,
+    plugins = ["//tools/bazel:metainf_services"],
+    deps = [
+        "//hadoop-hdds/cli-common:hdds-cli-common",
+        "//hadoop-hdds/client:hdds-client",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/framework:hdds-server-framework",
+        "//hadoop-hdds/interface-admin:hdds-interface-admin",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-ozone/cli-shell:ozone-cli-shell",
+        "//hadoop-ozone/client:ozone-client",
+        "//hadoop-ozone/common:ozone-common",
+        "//hadoop-ozone/interface-client:ozone-interface-client",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_datatype_jackson_datatype_jsr310",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:info_picocli_picocli",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_hadoop_hadoop_hdfs_client",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_kohsuke_metainf_services_metainf_services",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+java_library(
+    name = "ozone-cli-admin-tests",
+    testonly = True,
+    tags = ["manual"],
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    deps = [
+        ":ozone-cli-admin",
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_junit_jupiter",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-cli",
+    package = "org.apache.hadoop.hdds.cli",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-scm-cli-cert",
+    package = "org.apache.hadoop.hdds.scm.cli.cert",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-scm-cli-container",
+    package = "org.apache.hadoop.hdds.scm.cli.container",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-scm-cli-datanode",
+    package = "org.apache.hadoop.hdds.scm.cli.datanode",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-scm-cli-pipeline",
+    package = "org.apache.hadoop.hdds.scm.cli.pipeline",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-hdds-util",
+    package = "org.apache.hadoop.hdds.util",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-ozone-admin-om-snapshot",
+    package = "org.apache.hadoop.ozone.admin.om.snapshot",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+
+ozone_junit5_package(
+    name = "ozone-cli-admin-tests-pkg-org-apache-hadoop-ozone-scm",
+    package = "org.apache.hadoop.ozone.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":ozone-cli-admin-tests"],
+)
+

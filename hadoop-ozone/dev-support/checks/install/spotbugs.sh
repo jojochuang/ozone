@@ -20,7 +20,23 @@
 : ${SPOTBUGS_VERSION:=3.1.12}
 
 _install_spotbugs() {
-  curl -LSs "https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz" | tar -xz -f -
+  local url archive attempt max_attempts=5
+  url="https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
+  archive="$(mktemp)"
+  for (( attempt=1; attempt<=max_attempts; attempt++ )); do
+    if curl -fLSs --retry 3 --retry-delay 2 -o "${archive}" "${url}" \
+        && [[ -s "${archive}" ]] \
+        && gzip -t "${archive}" 2>/dev/null; then
+      tar -xzf "${archive}"
+      rm -f "${archive}"
+      return 0
+    fi
+    echo "SpotBugs download failed or response was not a valid .tgz (attempt ${attempt}/${max_attempts})" >&2
+    rm -f "${archive}"
+    sleep $(( attempt * 2 ))
+  done
+  rm -f "${archive}"
+  return 1
 }
 
 _install_tool spotbugs "spotbugs-${SPOTBUGS_VERSION}/bin"

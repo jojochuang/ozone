@@ -34,6 +34,10 @@ set -euo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/license_bazel.sh" "$@"
+fi
+
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../../target/license"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="${REPORT_DIR}/summary.txt"
@@ -68,7 +72,10 @@ grep '(' ${src} \
     || true ) \
   | sort -u \
   | tee "${REPORT_FILE}"
+# shellcheck disable=SC2034
 rc=$?
 
+# shellcheck disable=SC2034
 ERROR_PATTERN=""
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

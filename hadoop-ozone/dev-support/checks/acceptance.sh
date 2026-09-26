@@ -19,6 +19,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml && "${OZONE_ACCEPTANCE_SKIP_BAZEL_WRAPPER:-}" != "true" ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/acceptance_bazel.sh" "$@"
+fi
+
 OZONE_ROOT=$(pwd -P)
 
 : ${HADOOP_AWS_DIR:=""}
@@ -32,7 +36,13 @@ source "${DIR}/_lib.sh"
 REPORT_DIR=${OUTPUT_DIR:-"${OZONE_ROOT}/target/acceptance"}
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout -Dscan=false)
+if [[ -f pom.xml ]]; then
+  OZONE_VERSION=$(mvn help:evaluate -Dexpression=ozone.version -q -DforceStdout -Dscan=false)
+else
+  # shellcheck source=dev-support/ci/load_build_versions.sh
+  source "${OZONE_ROOT}/dev-support/ci/load_build_versions.sh"
+  OZONE_VERSION="$(load_build_version ozone.version)"
+fi
 DIST_DIR="${OZONE_ROOT}/hadoop-ozone/dist/target/ozone-$OZONE_VERSION"
 
 # workaround attempt for https://github.com/docker/compose/issues/12747
@@ -88,21 +98,24 @@ export OZONE_ACCEPTANCE_SUITE OZONE_ACCEPTANCE_TEST_TYPE
 
 cd "$DIST_DIR/compose" || exit 1
 ./test-all.sh 2>&1 | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 
 if [[ "${OZONE_ACCEPTANCE_TEST_TYPE}" == "maven" ]]; then
-  pushd result
+  pushd result || exit 1
   source "${DIR}/_mvn_unit_report.sh"
   find . -name junit -print0 | xargs -r -0 rm -frv
   cp -rv * "${REPORT_DIR}"/
-  popd
+  popd || exit 1
+  # shellcheck disable=SC2034
   ERROR_PATTERN="\[ERROR\]"
 else
   cp -rv result/* "$REPORT_DIR/"
   grep -A1 FAIL "${REPORT_DIR}/output.log" | grep -v '^Output' > "${REPORT_FILE}"
+  # shellcheck disable=SC2034
   ERROR_PATTERN="FAIL"
 fi
 
-find "$REPORT_DIR" -type f -empty -not -name summary.txt -print0 | xargs -0 rm -v
+find "$REPORT_DIR" -type f -empty -not -name summary.txt -print0 | xargs -0 -r rm -v
 
 source "${DIR}/_post_process.sh"

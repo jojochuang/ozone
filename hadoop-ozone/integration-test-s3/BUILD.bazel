@@ -1,0 +1,71 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
+
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "ozone-integration-test-s3",
+    testonly = True,
+    tags = ["manual"],
+    exports = [
+        "//hadoop-ozone/integration-test:ozone-integration-test",
+        "//hadoop-ozone/integration-test:ozone-integration-test-tests",
+        "//hadoop-ozone/s3gateway:ozone-s3gateway",
+    ],
+)
+
+java_library(
+    name = "ozone-integration-test-s3-tests",
+    testonly = True,
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    tags = ["ozone-maven-stub", "manual"],
+    deps = [
+        ":ozone-integration-test-s3",
+        "@maven//:com_amazonaws_aws_java_sdk_core_1_12_788",
+        "@maven//:com_amazonaws_aws_java_sdk_s3_1_12_788",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_io_commons_io",
+        "@maven//:jakarta_xml_bind_jakarta_xml_bind_api",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_eclipse_jetty_jetty_client",
+        "@maven//:org_eclipse_jetty_jetty_proxy",
+        "@maven//:org_eclipse_jetty_jetty_server",
+        "@maven//:org_eclipse_jetty_jetty_servlet",
+        "@maven//:org_eclipse_jetty_jetty_util",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:software_amazon_awssdk_apache_client_2_46_17",
+        "@maven//:software_amazon_awssdk_s3_2_46_17",
+        "@maven//:software_amazon_awssdk_s3_transfer_manager_2_46_17",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "ozone-integration-test-s3-tests-pkg-org-apache-hadoop-ozone-s3-awssdk",
+    package = "org.apache.hadoop.ozone.s3.awssdk",
+    size = "large",
+    tags = ["integration", "manual"],
+    deps = [":ozone-integration-test-s3-tests"],
+)
+

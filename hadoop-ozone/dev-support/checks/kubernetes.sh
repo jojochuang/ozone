@@ -19,6 +19,10 @@ set -u -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../../.." || exit 1
 
+if [[ ! -f pom.xml ]]; then
+  exec "${DIR}/../../../tools/bazel/checks/kubernetes_bazel.sh" "$@"
+fi
+
 OZONE_ROOT=$(pwd -P)
 
 export KUBECONFIG
@@ -52,10 +56,13 @@ create_aws_dir
 
 cd "$DIST_DIR/kubernetes/examples" || exit 1
 ./test-all.sh 2>&1 | tee "${REPORT_DIR}/output.log"
+# shellcheck disable=SC2034
 rc=$?
 cp -r result/* "$REPORT_DIR/"
 
 grep -A1 FAIL "${REPORT_DIR}/output.log" > "${REPORT_FILE}"
 
+# shellcheck disable=SC2034
 ERROR_PATTERN="FAIL"
+# shellcheck source=./_post_process.sh
 source "${DIR}/_post_process.sh"

@@ -1,0 +1,306 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# pylint: skip-file
+
+# OZONE_BAZEL_GENERATED — refresh with tools/bazel/generate_build_files.py
+
+load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/bazel:junit5.bzl", "ozone_junit5_package")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "hdds-server-framework",
+    srcs = glob(["src/main/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/main/resources/**"], allow_empty = True),
+    deps = [
+        "//hadoop-hdds/annotations:hdds-annotation-processing",
+        "//hadoop-hdds/common:hdds-common",
+        "//hadoop-hdds/config:hdds-config",
+        "//hadoop-hdds/interface-admin:hdds-interface-admin",
+        "//hadoop-hdds/interface-client:hdds-interface-client",
+        "//hadoop-hdds/interface-server:hdds-interface-server",
+        "//hadoop-hdds/managed-rocksdb:hdds-managed-rocksdb",
+        "//hadoop-hdds/rocksdb-checkpoint-differ:rocksdb-checkpoint-differ",
+        "@maven//:ch_qos_reload4j_reload4j",
+        "@maven//:com_fasterxml_jackson_core_jackson_annotations",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
+        "@maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@maven//:com_fasterxml_jackson_datatype_jackson_datatype_jsr310",
+        "@maven//:com_github_jnr_jnr_constants",
+        "@maven//:com_github_jnr_jnr_posix",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:commons_fileupload_commons_fileupload",
+        "@maven//:commons_io_commons_io",
+        "@maven//:commons_validator_commons_validator",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_prometheus_simpleclient",
+        "@maven//:io_prometheus_simpleclient_common",
+        "@maven//:io_prometheus_simpleclient_dropwizard",
+        "@maven//:jakarta_annotation_jakarta_annotation_api",
+        "@maven//:jakarta_ws_rs_jakarta_ws_rs_api",
+        "@maven//:javax_servlet_javax_servlet_api",
+        "@maven//:org_apache_commons_commons_collections4",
+        "@maven//:org_apache_commons_commons_compress",
+        "@maven//:org_apache_commons_commons_configuration2",
+        "@maven//:org_apache_commons_commons_lang3",
+        "@maven//:org_apache_commons_commons_pool2",
+        "@maven//:org_apache_hadoop_hadoop_auth",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_logging_log4j_log4j_api",
+        "@maven//:org_apache_ratis_ratis_common",
+        "@maven//:org_apache_ratis_ratis_metrics_api",
+        "@maven//:org_apache_ratis_ratis_metrics_dropwizard3",
+        "@maven//:org_apache_ratis_ratis_server_api",
+        "@maven//:org_apache_ratis_ratis_thirdparty_misc",
+        "@maven//:org_bouncycastle_bcpkix_jdk18on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
+        "@maven//:org_eclipse_jetty_jetty_http",
+        "@maven//:org_eclipse_jetty_jetty_server",
+        "@maven//:org_eclipse_jetty_jetty_servlet",
+        "@maven//:org_eclipse_jetty_jetty_util",
+        "@maven//:org_eclipse_jetty_jetty_webapp",
+        "@maven//:javax_ws_rs_javax_ws_rs_api",
+        "@maven//:org_glassfish_jersey_containers_jersey_container_servlet_core",
+        "@maven//:org_glassfish_jersey_core_jersey_common",
+        "@maven//:org_glassfish_jersey_core_jersey_server",
+        "@maven//:org_glassfish_jersey_inject_jersey_hk2",
+        "@maven//:org_reflections_reflections",
+        "@maven//:org_rocksdb_rocksdbjni",
+        "@maven//:org_slf4j_jcl_over_slf4j",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_yaml_snakeyaml",
+    ],
+)
+
+java_library(
+    name = "hdds-server-framework-tests",
+    testonly = True,
+    tags = ["manual"],
+    srcs = glob(["src/test/java/**/*.java"], allow_empty = True),
+    resources = glob(["src/test/resources/**"], allow_empty = True),
+    deps = [
+        ":hdds-server-framework",
+        "//hadoop-hdds/common:hdds-common-tests",
+        "//hadoop-hdds/managed-rocksdb:hdds-managed-rocksdb-tests",
+        "//hadoop-hdds/test-utils:hdds-hadoop-test-jars",
+        "//hadoop-hdds/test-utils:hdds-test-utils",
+        "@maven//:org_apache_hadoop_hadoop_common",
+        "@maven//:org_apache_ratis_ratis_server",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+    ],
+)
+
+# OZONE_JUNIT5_WIRED
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-conf",
+    package = "org.apache.hadoop.hdds.conf",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-fs",
+    package = "org.apache.hadoop.hdds.fs",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-scm",
+    package = "org.apache.hadoop.hdds.scm",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-scm-exceptions",
+    package = "org.apache.hadoop.hdds.scm.exceptions",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-scm-ha",
+    package = "org.apache.hadoop.hdds.scm.ha",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-scm-net",
+    package = "org.apache.hadoop.hdds.scm.net",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-scm-proxy",
+    package = "org.apache.hadoop.hdds.scm.proxy",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-ssl",
+    package = "org.apache.hadoop.hdds.security.ssl",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-symmetric",
+    package = "org.apache.hadoop.hdds.security.symmetric",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-token",
+    package = "org.apache.hadoop.hdds.security.token",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-x509-certificate-authority",
+    package = "org.apache.hadoop.hdds.security.x509.certificate.authority",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-x509-certificate-client",
+    package = "org.apache.hadoop.hdds.security.x509.certificate.client",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-security-x509-certificate-utils",
+    package = "org.apache.hadoop.hdds.security.x509.certificate.utils",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-server",
+    package = "org.apache.hadoop.hdds.server",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-server-events",
+    package = "org.apache.hadoop.hdds.server.events",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-server-http",
+    package = "org.apache.hadoop.hdds.server.http",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-upgrade",
+    package = "org.apache.hadoop.hdds.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-utils",
+    package = "org.apache.hadoop.hdds.utils",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-utils-db",
+    package = "org.apache.hadoop.hdds.utils.db",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-hdds-utils-db-cache",
+    package = "org.apache.hadoop.hdds.utils.db.cache",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-ozone-audit",
+    package = "org.apache.hadoop.ozone.audit",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-ozone-lease",
+    package = "org.apache.hadoop.ozone.lease",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-ozone-upgrade",
+    package = "org.apache.hadoop.ozone.upgrade",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
+ozone_junit5_package(
+    name = "hdds-server-framework-tests-pkg-org-apache-hadoop-util",
+    package = "org.apache.hadoop.util",
+    size = "large",
+    tags = ["unit", "manual"],
+    deps = [":hdds-server-framework-tests"],
+)
+
