@@ -34,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      pr_repo:
+        description: "Repository for pr_number (owner/name), e.g. apache/ozone"
+        required: false
+        default: "apache/ozone"
+        type: string
       run_s3_tests:
         description: "Run ceph s3-tests"
         required: false
@@ -128,35 +133,51 @@ jobs:
             head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
             pr_url="$(jq -r '.html_url' <<< "${pr_json}")"
             short_sha="${head_sha:0:12}"
+            head_repo="$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
+            echo "checkout_repo=${head_repo}" >> "${GITHUB_OUTPUT}"
             echo "checkout_ref=${head_sha}" >> "${GITHUB_OUTPUT}"
             echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
             echo "pr_url=${pr_url}" >> "${GITHUB_OUTPUT}"
             echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
             echo "trigger_comment_url=${trigger_comment_url}" >> "${GITHUB_OUTPUT}"
             echo "post_comment=true" >> "${GITHUB_OUTPUT}"
+            echo "comment_owner=${GITHUB_REPOSITORY_OWNER}" >> "${GITHUB_OUTPUT}"
+            echo "comment_repo=${GITHUB_REPOSITORY#*/}" >> "${GITHUB_OUTPUT}"
           else
             ref="$(jq -r '.inputs.ref // "master"' "${event_file}")"
             pr_number="$(jq -r '.inputs.pr_number // ""' "${event_file}")"
+            pr_repo="$(jq -r '.inputs.pr_repo // "apache/ozone"' "${event_file}")"
             post_comment="$(jq -r '.inputs.post_comment // true' "${event_file}")"
-            echo "checkout_ref=${ref}" >> "${GITHUB_OUTPUT}"
-            echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
             echo "trigger_comment_url=" >> "${GITHUB_OUTPUT}"
             echo "post_comment=${post_comment}" >> "${GITHUB_OUTPUT}"
             if [[ -n "${pr_number}" ]]; then
-              pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
-              echo "pr_url=$(jq -r '.html_url' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
+              pr_json="$(gh api "repos/${pr_repo}/pulls/${pr_number}")"
               head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
-              echo "short_sha=${head_sha:0:12}" >> "${GITHUB_OUTPUT}"
+              head_repo="$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
+              short_sha="${head_sha:0:12}"
+              echo "checkout_repo=${head_repo}" >> "${GITHUB_OUTPUT}"
+              echo "checkout_ref=${head_sha}" >> "${GITHUB_OUTPUT}"
+              echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+              echo "pr_url=$(jq -r '.html_url' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
+              echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
+              echo "comment_owner=${pr_repo%%/*}" >> "${GITHUB_OUTPUT}"
+              echo "comment_repo=${pr_repo#*/}" >> "${GITHUB_OUTPUT}"
             else
+              echo "checkout_repo=${GITHUB_REPOSITORY}" >> "${GITHUB_OUTPUT}"
+              echo "checkout_ref=${ref}" >> "${GITHUB_OUTPUT}"
+              echo "pr_number=" >> "${GITHUB_OUTPUT}"
               echo "pr_url=" >> "${GITHUB_OUTPUT}"
               short_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "${ref}" | awk '{print $1}' | head -n1)"
               echo "short_sha=${short_sha:0:12}" >> "${GITHUB_OUTPUT}"
+              echo "comment_owner=${GITHUB_REPOSITORY_OWNER}" >> "${GITHUB_OUTPUT}"
+              echo "comment_repo=${GITHUB_REPOSITORY#*/}" >> "${GITHUB_OUTPUT}"
             fi
           fi
 
       - name: Checkout Ozone
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ steps.target.outputs.checkout_repo }}
           ref: ${{ steps.target.outputs.checkout_ref }}
           fetch-depth: 0
           persist-credentials: false
@@ -301,13 +322,14 @@ jobs:
         working-directory: s3-compat-harness
         env:
           POST_COMMENT_INPUT: "true"
-          OZONE_OWNER: ${{ github.repository_owner }}
-          OZONE_REPO_NAME: ${{ github.event.repository.name || 'ozone' }}
+          OZONE_OWNER: ${{ steps.target.outputs.comment_owner }}
+          OZONE_REPO_NAME: ${{ steps.target.outputs.comment_repo }}
           OZONE_PR_NUMBER: ${{ steps.target.outputs.pr_number }}
           TRIGGER_COMMENT_URL: ${{ steps.target.outputs.trigger_comment_url }}
           PR_COMMENT_MARKDOWN: ${{ github.workspace }}/out/s3-compat-run/pr-comment.md
           COMMENT_BODY_PATH: ${{ github.workspace }}/out/s3-compat-run/comment-body.md
           COMMENT_PAYLOAD_PATH: ${{ github.workspace }}/out/s3-compat-run/comment-payload.json
+          OZONE_PR_COMMENT_TOKEN: ${{ secrets.OZONE_PR_COMMENT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/post_pr_comment.sh
 
