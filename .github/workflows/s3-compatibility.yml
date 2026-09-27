@@ -107,10 +107,11 @@ jobs:
         if: ${{ github.event_name == 'issue_comment' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           gh api \
             --method POST \
-            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
             -f content='eyes'
 
       - name: Resolve run target
@@ -119,8 +120,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          event_file="${GITHUB_EVENT_PATH}"
           if [[ "${GITHUB_EVENT_NAME}" == "issue_comment" ]]; then
-            pr_number="${{ github.event.issue.number }}"
+            pr_number="$(jq -r '.issue.number' "${event_file}")"
+            trigger_comment_url="$(jq -r '.comment.html_url' "${event_file}")"
             pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
             head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
             pr_url="$(jq -r '.html_url' <<< "${pr_json}")"
@@ -129,15 +132,16 @@ jobs:
             echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
             echo "pr_url=${pr_url}" >> "${GITHUB_OUTPUT}"
             echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
-            echo "trigger_comment_url=${{ github.event.comment.html_url }}" >> "${GITHUB_OUTPUT}"
+            echo "trigger_comment_url=${trigger_comment_url}" >> "${GITHUB_OUTPUT}"
             echo "post_comment=true" >> "${GITHUB_OUTPUT}"
           else
-            ref="${{ inputs.ref }}"
-            pr_number="${{ inputs.pr_number }}"
+            ref="$(jq -r '.inputs.ref // "master"' "${event_file}")"
+            pr_number="$(jq -r '.inputs.pr_number // ""' "${event_file}")"
+            post_comment="$(jq -r '.inputs.post_comment // true' "${event_file}")"
             echo "checkout_ref=${ref}" >> "${GITHUB_OUTPUT}"
             echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
             echo "trigger_comment_url=" >> "${GITHUB_OUTPUT}"
-            echo "post_comment=${{ inputs.post_comment }}" >> "${GITHUB_OUTPUT}"
+            echo "post_comment=${post_comment}" >> "${GITHUB_OUTPUT}"
             if [[ -n "${pr_number}" ]]; then
               pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
               echo "pr_url=$(jq -r '.html_url' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
@@ -176,12 +180,9 @@ jobs:
           java-version: "21"
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4cb098589ba04698296 # v6.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Install workflow dependencies
         working-directory: s3-compat-harness
@@ -194,6 +195,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y "${missing[@]}"
           fi
+          python -m pip install --upgrade 'uv>=0.5,<0.9'
           uv sync --locked
           docker compose version || docker-compose --version
 
@@ -267,6 +269,9 @@ jobs:
       - name: Compare with latest published baseline
         if: ${{ always() && hashFiles('out/s3-compat-run/run.json') != '' }}
         working-directory: s3-compat-harness
+        env:
+          COMPARE_PR_URL: ${{ steps.target.outputs.pr_url }}
+          COMPARE_TRIGGER_COMMENT_URL: ${{ steps.target.outputs.trigger_comment_url }}
         run: |
           set -euo pipefail
           uv run python scripts/compare_runs.py \
@@ -274,8 +279,8 @@ jobs:
             --baseline-pages-data-dir "${PAGES_BASELINE_DIR}" \
             --output "${OUTPUT_ROOT}/pr-comment.md" \
             --verdict-file "${OUTPUT_ROOT}/verdict.json" \
-            --pr-url "${{ steps.target.outputs.pr_url }}" \
-            --trigger-comment-url "${{ steps.target.outputs.trigger_comment_url }}"
+            --pr-url "${COMPARE_PR_URL}" \
+            --trigger-comment-url "${COMPARE_TRIGGER_COMMENT_URL}"
 
       - name: Publish comparison summary
         if: ${{ always() && hashFiles('out/s3-compat-run/pr-comment.md') != '' }}
@@ -322,7 +327,7 @@ jobs:
 
       - name: Upload compatibility artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75ba540aaaef4e5f30c8eeac2c8 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ozone-s3-compatibility-${{ steps.target.outputs.pr_number || github.run_id }}
           path: out/s3-compat-run
