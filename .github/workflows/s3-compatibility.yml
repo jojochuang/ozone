@@ -1,0 +1,329 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# On-demand s3-tests and Mint compatibility vs the latest nightly baseline at
+# https://ozone.s3.peterxcli.dev/ — comment "/s3-compat" on a PR or use workflow_dispatch.
+
+name: s3-compatibility
+
+on:
+  issue_comment:
+    types:
+      - created
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or commit SHA)"
+        required: false
+        default: "master"
+        type: string
+      pr_number:
+        description: "Pull request number (for PR comments and optional workflow_dispatch reporting)"
+        required: false
+        default: ""
+        type: string
+      run_s3_tests:
+        description: "Run ceph s3-tests"
+        required: false
+        default: true
+        type: boolean
+      run_mint:
+        description: "Run MinIO Mint"
+        required: false
+        default: true
+        type: boolean
+      s3_tests_args:
+        description: "pytest selection for s3-tests"
+        required: false
+        default: "s3tests/functional"
+        type: string
+      mint_mode:
+        description: "Mint mode"
+        required: false
+        default: "core"
+        type: choice
+        options:
+          - core
+          - full
+      mint_targets:
+        description: "Optional Mint SDK targets, space separated"
+        required: false
+        default: ""
+        type: string
+      ozone_datanodes:
+        description: "Number of Ozone datanodes to start"
+        required: false
+        default: "1"
+        type: string
+      post_comment:
+        description: "Post comparison markdown on the pull request"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: s3-compat-${{ github.event.issue.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  S3_COMPAT_HARNESS_REF: c265805082b45608a1db04be0843f3d3b3bdbbe3
+  S3_COMPAT_HARNESS_REPO: peterxcli/ozone-s3-compatibility
+  HARNESS_DIR: ${{ github.workspace }}/s3-compat-harness
+  OUTPUT_ROOT: ${{ github.workspace }}/out/s3-compat-run
+  WORK_DIR: ${{ github.workspace }}/.s3-compat-work
+  PAGES_BASELINE_DIR: ${{ github.workspace }}/s3-compat-harness/.pages-repo/data
+
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && format('S3 compat {0} PR#{1}', inputs.ref, inputs.pr_number || 'none')
+  || format('S3 compat PR#{0}', github.event.issue.number) }}
+
+jobs:
+  s3-compatibility:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/s3-compat'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Acknowledge /s3-compat comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content='eyes'
+
+      - name: Resolve run target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "issue_comment" ]]; then
+            pr_number="${{ github.event.issue.number }}"
+            pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
+            head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
+            pr_url="$(jq -r '.html_url' <<< "${pr_json}")"
+            short_sha="${head_sha:0:12}"
+            echo "checkout_ref=${head_sha}" >> "${GITHUB_OUTPUT}"
+            echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+            echo "pr_url=${pr_url}" >> "${GITHUB_OUTPUT}"
+            echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
+            echo "trigger_comment_url=${{ github.event.comment.html_url }}" >> "${GITHUB_OUTPUT}"
+            echo "post_comment=true" >> "${GITHUB_OUTPUT}"
+          else
+            ref="${{ inputs.ref }}"
+            pr_number="${{ inputs.pr_number }}"
+            echo "checkout_ref=${ref}" >> "${GITHUB_OUTPUT}"
+            echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+            echo "trigger_comment_url=" >> "${GITHUB_OUTPUT}"
+            echo "post_comment=${{ inputs.post_comment }}" >> "${GITHUB_OUTPUT}"
+            if [[ -n "${pr_number}" ]]; then
+              pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
+              echo "pr_url=$(jq -r '.html_url' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
+              head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
+              echo "short_sha=${head_sha:0:12}" >> "${GITHUB_OUTPUT}"
+            else
+              echo "pr_url=" >> "${GITHUB_OUTPUT}"
+              short_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "${ref}" | awk '{print $1}' | head -n1)"
+              echo "short_sha=${short_sha:0:12}" >> "${GITHUB_OUTPUT}"
+            fi
+          fi
+
+      - name: Checkout Ozone
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.target.outputs.checkout_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout S3 compatibility harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.S3_COMPAT_HARNESS_REPO }}
+          ref: ${{ env.S3_COMPAT_HARNESS_REF }}
+          path: s3-compat-harness
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Apply harness overrides from Ozone
+        run: bash dev-support/s3-compatibility/apply-harness-overrides.sh "${HARNESS_DIR}"
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4cb098589ba04698296 # v6.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install workflow dependencies
+        working-directory: s3-compat-harness
+        run: |
+          set -euo pipefail
+          missing=()
+          command -v jq >/dev/null 2>&1 || missing+=("jq")
+          command -v mvn >/dev/null 2>&1 || missing+=("maven")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            sudo apt-get update
+            sudo apt-get install -y "${missing[@]}"
+          fi
+          uv sync --locked
+          docker compose version || docker-compose --version
+
+      - name: Prepare published baseline (gh-pages)
+        working-directory: s3-compat-harness
+        run: |
+          set -euo pipefail
+          rm -rf .pages-repo
+          git clone --depth 1 --branch gh-pages \
+            "https://github.com/${S3_COMPAT_HARNESS_REPO}.git" .pages-repo
+
+      - name: Initialize compatibility run context
+        id: init
+        working-directory: s3-compat-harness
+        env:
+          OZONE_REPO: ${{ github.workspace }}
+          OZONE_REF: HEAD
+          RUN_ID: >-
+            pr-${{ steps.target.outputs.pr_number || 'manual' }}-${{ steps.target.outputs.short_sha }}-${{ github.run_id }}
+          S3_TESTS_ARGS: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.s3_tests_args || 's3tests/functional' }}
+          S3_TESTS_INCLUDE_ALL_CASES: "true"
+          MINT_MODE: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.mint_mode || 'core' }}
+          MINT_TARGETS: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.mint_targets || '' }}
+          OZONE_DATANODES: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.ozone_datanodes || '1' }}
+        run: bash scripts/nightly/init.sh
+
+      - name: Clone and patch upstream suites
+        working-directory: s3-compat-harness
+        env:
+          OZONE_REPO: ${{ github.workspace }}
+          OZONE_REF: HEAD
+        run: bash scripts/nightly/clone_sources.sh
+
+      - name: Build Ozone distribution
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/build_ozone.sh
+
+      - name: Start Ozone cluster
+        id: start_cluster
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/start_cluster.sh
+
+      - name: Run s3-tests
+        if: >-
+          steps.start_cluster.outcome == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.run_s3_tests)
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/run_s3_tests.sh
+
+      - name: Run Mint
+        if: >-
+          steps.start_cluster.outcome == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.run_mint)
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/run_mint.sh
+
+      - name: Stop Ozone cluster
+        if: ${{ always() && hashFiles('out/s3-compat-run/state/exports.env') != '' }}
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/stop_cluster.sh
+
+      - name: Normalize compatibility run
+        if: ${{ always() && hashFiles('out/s3-compat-run/state/exports.env') != '' }}
+        working-directory: s3-compat-harness
+        run: bash scripts/nightly/normalize_run.sh
+
+      - name: Compare with latest published baseline
+        if: ${{ always() && hashFiles('out/s3-compat-run/run.json') != '' }}
+        working-directory: s3-compat-harness
+        run: |
+          set -euo pipefail
+          uv run python scripts/compare_runs.py \
+            --candidate "${OUTPUT_ROOT}/run.json" \
+            --baseline-pages-data-dir "${PAGES_BASELINE_DIR}" \
+            --output "${OUTPUT_ROOT}/pr-comment.md" \
+            --verdict-file "${OUTPUT_ROOT}/verdict.json" \
+            --pr-url "${{ steps.target.outputs.pr_url }}" \
+            --trigger-comment-url "${{ steps.target.outputs.trigger_comment_url }}"
+
+      - name: Publish comparison summary
+        if: ${{ always() && hashFiles('out/s3-compat-run/pr-comment.md') != '' }}
+        run: |
+          set -euo pipefail
+          {
+            echo "# Ozone S3 compatibility"
+            echo
+            cat out/s3-compat-run/pr-comment.md
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Post result comment
+        if: >-
+          always() &&
+          hashFiles('out/s3-compat-run/pr-comment.md') != '' &&
+          steps.target.outputs.post_comment == 'true' &&
+          steps.target.outputs.pr_number != ''
+        working-directory: s3-compat-harness
+        env:
+          POST_COMMENT_INPUT: "true"
+          OZONE_OWNER: ${{ github.repository_owner }}
+          OZONE_REPO_NAME: ${{ github.event.repository.name || 'ozone' }}
+          OZONE_PR_NUMBER: ${{ steps.target.outputs.pr_number }}
+          TRIGGER_COMMENT_URL: ${{ steps.target.outputs.trigger_comment_url }}
+          PR_COMMENT_MARKDOWN: ${{ github.workspace }}/out/s3-compat-run/pr-comment.md
+          COMMENT_BODY_PATH: ${{ github.workspace }}/out/s3-compat-run/comment-body.md
+          COMMENT_PAYLOAD_PATH: ${{ github.workspace }}/out/s3-compat-run/comment-payload.json
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/post_pr_comment.sh
+
+      - name: Fail on compatibility regression
+        if: ${{ always() && hashFiles('out/s3-compat-run/verdict.json') != '' }}
+        run: |
+          set -euo pipefail
+          overall="$(jq -r '.overall' out/s3-compat-run/verdict.json)"
+          echo "Overall compatibility verdict: ${overall}"
+          if [[ "${overall}" == "regression" ]]; then
+            echo "::error::S3 compatibility regressed vs the latest published nightly baseline."
+            exit 1
+          fi
+          if [[ "${overall}" == "unknown" ]]; then
+            echo "::warning::No baseline comparison verdict; see the workflow log and artifact."
+          fi
+
+      - name: Upload compatibility artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75ba540aaaef4e5f30c8eeac2c8 # v4.6.2
+        with:
+          name: ozone-s3-compatibility-${{ steps.target.outputs.pr_number || github.run_id }}
+          path: out/s3-compat-run
+          if-no-files-found: warn
