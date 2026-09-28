@@ -1,0 +1,11 @@
+{
+  "pr_number": "10572",
+  "pr_repo": "apache/ozone",
+  "post_comment": false,
+  "run_s3_tests": true,
+  "run_mint": true,
+  "s3_tests_args": "s3tests/functional",
+  "mint_mode": "core",
+  "mint_targets": "",
+  "ozone_datanodes": "1"
+}

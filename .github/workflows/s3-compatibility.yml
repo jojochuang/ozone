@@ -19,6 +19,11 @@
 name: s3-compatibility
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/s3-compat-run/request.json
   issue_comment:
     types:
       - created
@@ -84,7 +89,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: s3-compat-${{ github.event.issue.number || inputs.pr_number || github.run_id }}
+  group: s3-compat-${{ github.event.issue.number || inputs.pr_number || github.sha }}
   cancel-in-progress: false
 
 env:
@@ -97,12 +102,14 @@ env:
   OZONE_SRC_DIR: ${{ github.workspace }}/ozone-src
 
 run-name: >-
-  ${{ github.event_name == 'workflow_dispatch' && format('S3 compat {0} PR#{1}', inputs.ref, inputs.pr_number || 'none')
+  ${{ github.event_name == 'push' && format('S3 compat request PR#{0}', github.sha)
+  || (github.event_name == 'workflow_dispatch' && format('S3 compat {0} PR#{1}', inputs.ref, inputs.pr_number || 'none'))
   || format('S3 compat PR#{0}', github.event.issue.number) }}
 
 jobs:
   s3-compatibility:
     if: >-
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request && contains(github.event.comment.body, '/s3-compat'))
     runs-on: ubuntu-latest
@@ -127,7 +134,49 @@ jobs:
         run: |
           set -euo pipefail
           event_file="${GITHUB_EVENT_PATH}"
-          if [[ "${GITHUB_EVENT_NAME}" == "issue_comment" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            request_json="$(gh api "repos/${GITHUB_REPOSITORY}/contents/.github/s3-compat-run/request.json?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 -d)"
+            pr_number="$(jq -r '.pr_number // ""' <<< "${request_json}")"
+            pr_repo="$(jq -r '.pr_repo // "apache/ozone"' <<< "${request_json}")"
+            post_comment="$(jq -r '.post_comment // false' <<< "${request_json}")"
+            run_s3_tests="$(jq -r '.run_s3_tests // true' <<< "${request_json}")"
+            run_mint="$(jq -r '.run_mint // true' <<< "${request_json}")"
+            s3_tests_args="$(jq -r '.s3_tests_args // "s3tests/functional"' <<< "${request_json}")"
+            mint_mode="$(jq -r '.mint_mode // "core"' <<< "${request_json}")"
+            mint_targets="$(jq -r '.mint_targets // ""' <<< "${request_json}")"
+            ozone_datanodes="$(jq -r '.ozone_datanodes // "1"' <<< "${request_json}")"
+            echo "post_comment=${post_comment}" >> "${GITHUB_OUTPUT}"
+            echo "run_s3_tests=${run_s3_tests}" >> "${GITHUB_OUTPUT}"
+            echo "run_mint=${run_mint}" >> "${GITHUB_OUTPUT}"
+            echo "s3_tests_args=${s3_tests_args}" >> "${GITHUB_OUTPUT}"
+            echo "mint_mode=${mint_mode}" >> "${GITHUB_OUTPUT}"
+            echo "mint_targets=${mint_targets}" >> "${GITHUB_OUTPUT}"
+            echo "ozone_datanodes=${ozone_datanodes}" >> "${GITHUB_OUTPUT}"
+            if [[ -n "${pr_number}" ]]; then
+              pr_json="$(gh api "repos/${pr_repo}/pulls/${pr_number}")"
+              head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
+              head_repo="$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
+              short_sha="${head_sha:0:12}"
+              echo "checkout_repo=${head_repo}" >> "${GITHUB_OUTPUT}"
+              echo "checkout_ref=${head_sha}" >> "${GITHUB_OUTPUT}"
+              echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+              echo "pr_url=$(jq -r '.html_url' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
+              echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
+              echo "comment_owner=${pr_repo%%/*}" >> "${GITHUB_OUTPUT}"
+              echo "comment_repo=${pr_repo#*/}" >> "${GITHUB_OUTPUT}"
+            else
+              ref="$(jq -r '.ref // "master"' <<< "${request_json}")"
+              echo "checkout_repo=${GITHUB_REPOSITORY}" >> "${GITHUB_OUTPUT}"
+              echo "checkout_ref=${ref}" >> "${GITHUB_OUTPUT}"
+              echo "pr_number=" >> "${GITHUB_OUTPUT}"
+              echo "pr_url=" >> "${GITHUB_OUTPUT}"
+              short_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "${ref}" | awk '{print $1}' | head -n1)"
+              echo "short_sha=${short_sha:0:12}" >> "${GITHUB_OUTPUT}"
+              echo "comment_owner=${GITHUB_REPOSITORY_OWNER}" >> "${GITHUB_OUTPUT}"
+              echo "comment_repo=${GITHUB_REPOSITORY#*/}" >> "${GITHUB_OUTPUT}"
+            fi
+            echo "trigger_comment_url=" >> "${GITHUB_OUTPUT}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "issue_comment" ]]; then
             pr_number="$(jq -r '.issue.number' "${event_file}")"
             trigger_comment_url="$(jq -r '.comment.html_url' "${event_file}")"
             pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")"
@@ -144,13 +193,31 @@ jobs:
             echo "post_comment=true" >> "${GITHUB_OUTPUT}"
             echo "comment_owner=${GITHUB_REPOSITORY_OWNER}" >> "${GITHUB_OUTPUT}"
             echo "comment_repo=${GITHUB_REPOSITORY#*/}" >> "${GITHUB_OUTPUT}"
+            echo "run_s3_tests=true" >> "${GITHUB_OUTPUT}"
+            echo "run_mint=true" >> "${GITHUB_OUTPUT}"
+            echo "s3_tests_args=s3tests/functional" >> "${GITHUB_OUTPUT}"
+            echo "mint_mode=core" >> "${GITHUB_OUTPUT}"
+            echo "mint_targets=" >> "${GITHUB_OUTPUT}"
+            echo "ozone_datanodes=1" >> "${GITHUB_OUTPUT}"
           else
             ref="$(jq -r '.inputs.ref // "master"' "${event_file}")"
             pr_number="$(jq -r '.inputs.pr_number // ""' "${event_file}")"
             pr_repo="$(jq -r '.inputs.pr_repo // "apache/ozone"' "${event_file}")"
             post_comment="$(jq -r '.inputs.post_comment // true' "${event_file}")"
+            run_s3_tests="$(jq -r '.inputs.run_s3_tests // true' "${event_file}")"
+            run_mint="$(jq -r '.inputs.run_mint // true' "${event_file}")"
+            s3_tests_args="$(jq -r '.inputs.s3_tests_args // "s3tests/functional"' "${event_file}")"
+            mint_mode="$(jq -r '.inputs.mint_mode // "core"' "${event_file}")"
+            mint_targets="$(jq -r '.inputs.mint_targets // ""' "${event_file}")"
+            ozone_datanodes="$(jq -r '.inputs.ozone_datanodes // "1"' "${event_file}")"
             echo "trigger_comment_url=" >> "${GITHUB_OUTPUT}"
             echo "post_comment=${post_comment}" >> "${GITHUB_OUTPUT}"
+            echo "run_s3_tests=${run_s3_tests}" >> "${GITHUB_OUTPUT}"
+            echo "run_mint=${run_mint}" >> "${GITHUB_OUTPUT}"
+            echo "s3_tests_args=${s3_tests_args}" >> "${GITHUB_OUTPUT}"
+            echo "mint_mode=${mint_mode}" >> "${GITHUB_OUTPUT}"
+            echo "mint_targets=${mint_targets}" >> "${GITHUB_OUTPUT}"
+            echo "ozone_datanodes=${ozone_datanodes}" >> "${GITHUB_OUTPUT}"
             if [[ -n "${pr_number}" ]]; then
               pr_json="$(gh api "repos/${pr_repo}/pulls/${pr_number}")"
               head_sha="$(jq -r '.head.sha' <<< "${pr_json}")"
@@ -246,15 +313,11 @@ jobs:
           OZONE_REF: HEAD
           RUN_ID: >-
             pr-${{ steps.target.outputs.pr_number || 'manual' }}-${{ steps.target.outputs.short_sha }}-${{ github.run_id }}
-          S3_TESTS_ARGS: >-
-            ${{ github.event_name == 'workflow_dispatch' && inputs.s3_tests_args || 's3tests/functional' }}
+          S3_TESTS_ARGS: ${{ steps.target.outputs.s3_tests_args }}
           S3_TESTS_INCLUDE_ALL_CASES: "true"
-          MINT_MODE: >-
-            ${{ github.event_name == 'workflow_dispatch' && inputs.mint_mode || 'core' }}
-          MINT_TARGETS: >-
-            ${{ github.event_name == 'workflow_dispatch' && inputs.mint_targets || '' }}
-          OZONE_DATANODES: >-
-            ${{ github.event_name == 'workflow_dispatch' && inputs.ozone_datanodes || '1' }}
+          MINT_MODE: ${{ steps.target.outputs.mint_mode }}
+          MINT_TARGETS: ${{ steps.target.outputs.mint_targets }}
+          OZONE_DATANODES: ${{ steps.target.outputs.ozone_datanodes }}
         run: bash scripts/nightly/init.sh
 
       - name: Clone and patch upstream suites
@@ -276,14 +339,14 @@ jobs:
       - name: Run s3-tests
         if: >-
           steps.start_cluster.outcome == 'success' &&
-          (github.event_name != 'workflow_dispatch' || inputs.run_s3_tests)
+          steps.target.outputs.run_s3_tests != 'false'
         working-directory: s3-compat-harness
         run: bash scripts/nightly/run_s3_tests.sh
 
       - name: Run Mint
         if: >-
           steps.start_cluster.outcome == 'success' &&
-          (github.event_name != 'workflow_dispatch' || inputs.run_mint)
+          steps.target.outputs.run_mint != 'false'
         working-directory: s3-compat-harness
         run: bash scripts/nightly/run_mint.sh
 
