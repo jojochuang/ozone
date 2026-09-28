@@ -94,6 +94,7 @@ env:
   OUTPUT_ROOT: ${{ github.workspace }}/out/s3-compat-run
   WORK_DIR: ${{ github.workspace }}/.s3-compat-work
   PAGES_BASELINE_DIR: ${{ github.workspace }}/s3-compat-harness/.pages-repo/data
+  OZONE_SRC_DIR: ${{ github.workspace }}/ozone-src
 
 run-name: >-
   ${{ github.event_name == 'workflow_dispatch' && format('S3 compat {0} PR#{1}', inputs.ref, inputs.pr_number || 'none')
@@ -174,11 +175,20 @@ jobs:
             fi
           fi
 
+      - name: Checkout workflow support files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: dev-support/s3-compatibility
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
       - name: Checkout Ozone
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ steps.target.outputs.checkout_repo }}
           ref: ${{ steps.target.outputs.checkout_ref }}
+          path: ozone-src
           fetch-depth: 0
           persist-credentials: false
 
@@ -232,7 +242,7 @@ jobs:
         id: init
         working-directory: s3-compat-harness
         env:
-          OZONE_REPO: ${{ github.workspace }}
+          OZONE_REPO: ${{ env.OZONE_SRC_DIR }}
           OZONE_REF: HEAD
           RUN_ID: >-
             pr-${{ steps.target.outputs.pr_number || 'manual' }}-${{ steps.target.outputs.short_sha }}-${{ github.run_id }}
@@ -250,7 +260,7 @@ jobs:
       - name: Clone and patch upstream suites
         working-directory: s3-compat-harness
         env:
-          OZONE_REPO: ${{ github.workspace }}
+          OZONE_REPO: ${{ env.OZONE_SRC_DIR }}
           OZONE_REF: HEAD
         run: bash scripts/nightly/clone_sources.sh
 
