@@ -418,6 +418,12 @@ public interface NodeManager extends StorageContainerNodeProtocol,
    */
   NetworkTopology getClusterNetworkTopologyMap();
 
+  /**
+   * Refresh topology membership from the current stored node and health, coordinated with registration.
+   * Event handlers must use this instead of modifying topology using a possibly stale event payload.
+   */
+  void refreshNodeTopology(DatanodeID datanodeID) throws NodeNotFoundException;
+
   int totalHealthyVolumeCount();
 
   int pipelineLimit(DatanodeDetails dn);

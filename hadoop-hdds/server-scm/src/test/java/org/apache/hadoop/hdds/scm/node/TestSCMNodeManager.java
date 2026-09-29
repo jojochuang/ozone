@@ -49,8 +49,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,6 +68,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -90,6 +97,7 @@ import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolPro
 import org.apache.hadoop.hdds.protocol.proto.StorageContainerDatanodeProtocolProtos.StorageReportProto;
 import org.apache.hadoop.hdds.scm.HddsTestUtils;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+import org.apache.hadoop.hdds.scm.container.ContainerManager;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMNodeStat;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
@@ -99,6 +107,7 @@ import org.apache.hadoop.hdds.scm.net.NetworkTopologyImpl;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
+import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManagerImpl;
 import org.apache.hadoop.hdds.scm.safemode.SCMSafeModeManager;
 import org.apache.hadoop.hdds.scm.server.SCMDatanodeHeartbeatDispatcher.NodeReportFromDatanode;
@@ -456,6 +465,96 @@ public class TestSCMNodeManager {
   private static DatanodeDetails nodeInTopology(NetworkTopology clusterMap,
       DatanodeDetails node) {
     return (DatanodeDetails) clusterMap.getNode(node.getNetworkFullPath());
+  }
+
+  private static Stream<Arguments> registrationAndRemovalOrder() {
+    return Stream.of(Arguments.of(true, true), Arguments.of(true, false),
+        Arguments.of(false, true), Arguments.of(false, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("registrationAndRemovalOrder")
+  void testRegistrationAndDeadNodeRemoval(boolean versionChange, boolean removalFirst) throws Exception {
+    OzoneConfiguration conf = getConf();
+    conf.setTimeDuration(OZONE_SCM_HEARTBEAT_PROCESS_INTERVAL, 1, TimeUnit.HOURS);
+    SCMStorageConfig storage = mock(SCMStorageConfig.class);
+    when(storage.getClusterID()).thenReturn("cluster");
+    when(storage.getLayoutVersion()).thenReturn(MAX_LV);
+    EventPublisher publisher = mock(EventPublisher.class);
+    NetworkTopology topology = spy(new NetworkTopologyImpl(conf));
+    CountDownLatch topologyEntered = new CountDownLatch(1);
+    CountDownLatch continueTopology = new CountDownLatch(1);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try (SCMNodeManager nodeManager = new SCMNodeManager(conf, storage, publisher, topology,
+        SCMContext.emptyContext(), new HDDSLayoutVersionManager(storage.getLayoutVersion()))) {
+      UUID uuid = UUID.randomUUID();
+      DatanodeDetails original = datanodeWithoutDatastream(uuid).build();
+      original.setVersion("old");
+      registerNode(nodeManager, original);
+      DatanodeInfo oldNode = nodeManager.getNodeStateManager().getNode(original);
+      oldNode.setNodeStatus(NodeStatus.inServiceDead());
+      DatanodeDetails.Builder builder = datanodeWithoutDatastream(uuid);
+      if (!versionChange) {
+        builder.addPort(DatanodeDetails.newPort(DatanodeDetails.Port.Name.RATIS_DATASTREAM, 9855));
+      }
+      DatanodeDetails refreshed = builder.build();
+      refreshed.setVersion(versionChange ? "new" : "old");
+      DeadNodeHandler handler = new DeadNodeHandler(nodeManager, mock(PipelineManager.class),
+          mock(ContainerManager.class));
+      Runnable registration = () -> registerNode(nodeManager, refreshed);
+      Runnable removal = () -> handler.onMessage(oldNode, publisher);
+      if (removalFirst) {
+        doAnswer(invocation -> {
+          topologyEntered.countDown();
+          assertTrue(continueTopology.await(10, SECONDS));
+          return invocation.callRealMethod();
+        }).when(topology).remove(any());
+      } else {
+        doAnswer(invocation -> {
+          Object result = invocation.callRealMethod();
+          topologyEntered.countDown();
+          assertTrue(continueTopology.await(10, SECONDS));
+          return result;
+        }).when(topology).update(any(), any());
+      }
+      Future<?> first = executor.submit(removalFirst ? removal : registration);
+      try {
+        assertTrue(topologyEntered.await(10, SECONDS));
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        Future<?> second = executor.submit(() -> {
+          secondStarted.countDown();
+          (removalFirst ? registration : removal).run();
+        });
+        assertTrue(secondStarted.await(10, SECONDS));
+        // The competing operation must wait until both topology and node state have been updated.
+        assertThrows(TimeoutException.class, () -> second.get(200, MILLISECONDS));
+        continueTopology.countDown();
+        first.get(10, SECONDS);
+        second.get(10, SECONDS);
+      } finally {
+        continueTopology.countDown();
+      }
+      DatanodeDetails stored = nodeManager.getNode(original.getID());
+      assertEquals(NodeStatus.inServiceHealthy(), nodeManager.getNodeStatus(stored));
+      assertEquals(refreshed.getVersion(), stored.getVersion());
+      assertEquals(refreshed.getPorts(), stored.getPorts());
+      assertEquals(1, topology.getNumOfLeafNode("/"));
+      DatanodeDetails leaf = nodeInTopology(topology, stored);
+      assertNotNull(leaf, "The node must actually be in the tree, not just retain a parent reference");
+      assertEquals(refreshed.getVersion(), leaf.getVersion());
+      assertEquals(refreshed.getPorts(), leaf.getPorts());
+      assertTrue(topology.contains(stored));
+
+      // A delayed recovery event must not replace the refreshed details with its stale payload.
+      new HealthyReadOnlyNodeHandler(nodeManager, mock(PipelineManager.class)).onMessage(oldNode, publisher);
+      leaf = nodeInTopology(topology, stored);
+      assertEquals(refreshed.getVersion(), leaf.getVersion());
+      assertEquals(refreshed.getPorts(), leaf.getPorts());
+    } finally {
+      continueTopology.countDown();
+      executor.shutdownNow();
+      assertTrue(executor.awaitTermination(10, SECONDS));
+    }
   }
 
   /**

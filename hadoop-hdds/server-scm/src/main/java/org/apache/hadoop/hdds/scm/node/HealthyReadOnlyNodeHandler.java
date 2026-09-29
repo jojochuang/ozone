@@ -18,11 +18,10 @@
 package org.apache.hadoop.hdds.scm.node;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.Set;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
-import org.apache.hadoop.hdds.scm.net.NetworkTopology;
+import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.Pipeline;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineID;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
@@ -96,17 +95,10 @@ public class HealthyReadOnlyNodeHandler
       }
     }
 
-    // Always ensure the node is in the topology. Using unconditional add
-    // rather than a contains-then-add check to avoid a race with
-    // DeadNodeHandler, which may remove the node between the check and
-    // the add. InnerNodeImpl.add() is idempotent for existing nodes.
-    NetworkTopology nt = nodeManager.getClusterNetworkTopologyMap();
-    nt.add(datanodeDetails);
-    DatanodeDetails node = nodeManager.getNode(datanodeDetails.getID());
-    if (node != null) {
-      // make sure after DN is added back into topology, DatanodeDetails
-      // instance returned from nodeStateManager has parent correctly set.
-      Objects.requireNonNull(node.getParent(), "Parent == null");
+    try {
+      nodeManager.refreshNodeTopology(datanodeDetails.getID());
+    } catch (NodeNotFoundException ex) {
+      LOG.warn("Cannot refresh topology for unregistered datanode {}", datanodeDetails, ex);
     }
   }
 }

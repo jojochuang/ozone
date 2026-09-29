@@ -302,6 +302,7 @@ public class TestDeadNodeHandler {
     assertEquals(datanode3, container3Replicas.iterator().next().getDatanodeDetails());
 
     //datanode will be added back to ClusterNetworkTopology if it resurrects
+    setNodeHealthState(datanode1, HddsProtos.NodeState.HEALTHY_READONLY);
     healthyReadOnlyNodeHandler.onMessage(datanode1, publisher);
     assertTrue(
         nodeManager.getClusterNetworkTopologyMap().contains(datanode1));

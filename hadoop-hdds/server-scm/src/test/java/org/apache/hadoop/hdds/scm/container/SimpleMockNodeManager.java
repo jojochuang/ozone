@@ -379,6 +379,11 @@ public class SimpleMockNodeManager implements NodeManager {
   }
 
   @Override
+  public void refreshNodeTopology(DatanodeID datanodeID) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public int totalHealthyVolumeCount() {
     return 0;
   }

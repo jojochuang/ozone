@@ -958,6 +958,11 @@ public class MockNodeManager implements NodeManager {
   }
 
   @Override
+  public void refreshNodeTopology(DatanodeID datanodeID) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public int totalHealthyVolumeCount() {
     return healthyNodes.size() * numHealthyDisksPerDatanode;
   }

@@ -471,6 +471,7 @@ public class SCMNodeManager implements NodeManager, ContainerReplicaPendingOpsSu
       }
     } else {
       // Update datanode if it is registered but the ip or hostname changes
+      writeLock().lock();
       try {
         final DatanodeInfo oldNode = nodeStateManager.getNode(datanodeDetails);
         if (updateDnsToDnIdMap(oldNode.getHostName(), oldNode.getIpAddress(),
@@ -494,6 +495,8 @@ public class SCMNodeManager implements NodeManager, ContainerReplicaPendingOpsSu
       } catch (NodeNotFoundException e) {
         LOG.error("Cannot find datanode {} from nodeStateManager",
                 datanodeDetails);
+      } finally {
+        writeLock().unlock();
       }
     }
 
@@ -509,6 +512,7 @@ public class SCMNodeManager implements NodeManager, ContainerReplicaPendingOpsSu
    * the new node, and {@link NodeStateManager#updateNode} only picks it up because the stored
    * {@link DatanodeInfo} is copied from that node afterwards. Updating the node state alone would
    * leave the stale record in the topology and the stored node without a parent.
+   * The caller must hold the write lock to exclude topology refreshes from node event handlers.
    *
    * @return the refreshed node as held by the node state manager
    */
@@ -1984,6 +1988,26 @@ public class SCMNodeManager implements NodeManager, ContainerReplicaPendingOpsSu
   @Override
   public NetworkTopology getClusterNetworkTopologyMap() {
     return clusterMap;
+  }
+
+  @Override
+  public void refreshNodeTopology(DatanodeID datanodeID) throws NodeNotFoundException {
+    writeLock().lock();
+    try {
+      // Resolve the current object under the registration lock: an event may refer to an older registration.
+      DatanodeInfo node = nodeStateManager.getNode(datanodeID);
+      if (node.getNodeStatus().getHealth() == NodeState.DEAD) {
+        if (clusterMap.contains(node)) {
+          clusterMap.remove(node);
+        }
+        Preconditions.checkState(node.getParent() == null);
+      } else {
+        clusterMap.add(node);
+        Preconditions.checkState(node.getParent() != null);
+      }
+    } finally {
+      writeLock().unlock();
+    }
   }
 
   /**

@@ -19,7 +19,6 @@ package org.apache.hadoop.hdds.scm.node;
 
 import static org.apache.hadoop.hdds.scm.events.SCMEvents.CLOSE_CONTAINER;
 
-import com.google.common.base.Preconditions;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
@@ -32,7 +31,6 @@ import org.apache.hadoop.hdds.scm.container.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.ContainerManager;
 import org.apache.hadoop.hdds.scm.container.ContainerNotFoundException;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
-import org.apache.hadoop.hdds.scm.net.NetworkTopology;
 import org.apache.hadoop.hdds.scm.node.states.NodeNotFoundException;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
 import org.apache.hadoop.hdds.scm.pipeline.PipelineNotFoundException;
@@ -127,27 +125,8 @@ public class DeadNodeHandler implements EventHandler<DatanodeDetails> {
         deletedBlockLog.onDatanodeDead(datanodeDetails.getID());
       }
 
-      // Only remove from topology if the node is still DEAD. Between the time
-      // the DEAD_NODE event was fired and now, the node may have been
-      // resurrected (DEAD -> HEALTHY_READONLY) via a heartbeat. Removing a
-      // resurrected node from the topology would leave it reachable but
-      // invisible to the placement policy.
-      currentStatus = nodeManager.getNodeStatus(datanodeDetails);
-      if (currentStatus.getHealth() == HddsProtos.NodeState.DEAD) {
-        NetworkTopology nt = nodeManager.getClusterNetworkTopologyMap();
-        if (nt.contains(datanodeDetails)) {
-          nt.remove(datanodeDetails);
-          DatanodeDetails node = nodeManager.getNode(datanodeDetails.getID());
-          //make sure after DN is removed from topology,
-          //DatanodeDetails instance returned from nodeStateManager has no parent.
-          if (node != null) {
-            Preconditions.checkState(node.getParent() == null);
-          }
-        }
-      } else {
-        LOG.info("Skipping topology removal for dead node {} whose current " +
-            "state is {}", datanodeDetails, currentStatus.getHealth());
-      }
+      // Recheck current health and refresh topology atomically with re-registration.
+      nodeManager.refreshNodeTopology(datanodeDetails.getID());
     } catch (NodeNotFoundException ex) {
       // This should not happen, we cannot get a dead node event for an
       // unregistered datanode!
