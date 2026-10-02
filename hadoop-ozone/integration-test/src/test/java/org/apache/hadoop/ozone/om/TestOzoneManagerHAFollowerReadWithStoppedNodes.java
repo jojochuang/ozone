@@ -52,6 +52,7 @@ import org.apache.hadoop.ozone.om.helpers.OmMultipartUploadCompleteInfo;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolPB;
 import org.apache.log4j.Logger;
 import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ozone.test.tag.Slow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -64,6 +65,7 @@ import org.junit.jupiter.api.TestMethodOrder;
  * @see TestOzoneManagerHAFollowerReadWithAllRunning
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Slow("OM HA follower read with stopped nodes; covered by WithAllRunning variant for default CI")
 public class TestOzoneManagerHAFollowerReadWithStoppedNodes extends OzoneManagerHAFollowerReadTests {
 
   /**

@@ -72,6 +72,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.Logger;
 import org.apache.ozone.test.GenericTestUtils;
+import org.apache.ozone.test.tag.Slow;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
@@ -93,6 +94,7 @@ import org.slf4j.LoggerFactory;
  * @see TestOzoneManagerHAWithAllRunning
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Slow("OM HA with stopped nodes; WithAllRunning variant runs in default CI")
 public class TestOzoneManagerHAWithStoppedNodes extends OzoneManagerHATests {
   private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(
       TestOzoneManagerHAWithStoppedNodes.class);

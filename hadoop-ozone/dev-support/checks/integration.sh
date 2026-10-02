@@ -27,5 +27,8 @@ fi
 if [[ "$@" =~ "-Ptest-" ]] && [[ ! "$@" =~ "-Ptest-filesystem" ]]; then
   args="$args -DskipShade"
 fi
+if [[ "$@" =~ "-Ptest-filesystem" ]] || [[ "$@" =~ "-Ptest-client" ]]; then
+  args="$args -Pparallel-tests"
+fi
 
 source "${DIR}/junit.sh" $args "$@"
