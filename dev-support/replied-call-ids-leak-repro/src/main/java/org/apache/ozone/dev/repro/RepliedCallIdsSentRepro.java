@@ -79,13 +79,22 @@ public final class RepliedCallIdsSentRepro implements MiniRaftClusterWithGrpc.Fa
 
       int after = repliedCallIdsSentSize(client);
       System.out.printf("sent map size after %d write+watch pairs: %d%n", ITERATIONS, after);
-      int expectedMin = baseline + ITERATIONS - 2;
-      if (after < expectedMin) {
+      boolean expectLeak = Boolean.parseBoolean(System.getProperty("expectLeak", "false"));
+      if (expectLeak) {
+        int expectedMin = baseline + ITERATIONS - 2;
+        if (after < expectedMin) {
+          throw new AssertionError(String.format(
+              "Expected sent size >= %d (baseline %d + ~%d watches), but was %d",
+              expectedMin, baseline, ITERATIONS, after));
+        }
+        System.out.println("Leak repro succeeded: RepliedCallIds#sent grows with read-only watch RPCs.");
+      } else if (after > baseline + 2) {
         throw new AssertionError(String.format(
-            "Expected sent size >= %d (baseline %d + ~%d watches), but was %d",
-            expectedMin, baseline, ITERATIONS, after));
+            "Expected sent size to stay near baseline (%d) after read-only watch cleanup, but was %d",
+            baseline, after));
+      } else {
+        System.out.println("Fix verified: RepliedCallIds#sent stays bounded after read-only watch RPCs.");
       }
-      System.out.println("Repro succeeded: RepliedCallIds#sent grows with read-only watch RPCs.");
     }
   }
 

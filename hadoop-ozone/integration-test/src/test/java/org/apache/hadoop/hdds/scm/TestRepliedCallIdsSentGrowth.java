@@ -104,7 +104,6 @@ public class TestRepliedCallIdsSentGrowth {
       raftClient.async().watch(createReply.getLogIndex(), ReplicationLevel.MAJORITY_COMMITTED).get();
 
       int sentAfterCreate = repliedCallIdsSentSize(raftClient);
-      assertThat(sentAfterCreate).as("baseline sent entries after create+watch").isGreaterThan(0);
 
       for (int i = 0; i < WATCH_ITERATIONS; i++) {
         ContainerCommandRequestProto writeChunk = ContainerTestHelper.getWriteChunkRequest(
@@ -119,8 +118,8 @@ public class TestRepliedCallIdsSentGrowth {
 
       int sentAfterLoop = repliedCallIdsSentSize(raftClient);
       assertThat(sentAfterLoop)
-          .as("RepliedCallIds#sent should grow with each completed read-only watch")
-          .isGreaterThanOrEqualTo(sentAfterCreate + WATCH_ITERATIONS - 5);
+          .as("RepliedCallIds#sent must not grow with each completed read-only watch")
+          .isLessThanOrEqualTo(sentAfterCreate + 2);
       assertEquals(sentAfterLoop, repliedCallIdsSentSize(raftClient),
           "sent size should be stable once watches complete");
     }

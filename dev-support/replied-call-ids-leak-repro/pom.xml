@@ -10,7 +10,8 @@
   <name>RepliedCallIds watch leak repro</name>
 
   <properties>
-    <ratis.version>3.3.1</ratis.version>
+    <!-- Override: mvn -Dratis.version=3.3.1 exec:java to repro the leak on release bits -->
+    <ratis.version>3.3.0-SNAPSHOT</ratis.version>
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -44,7 +45,7 @@
     <dependency>
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-common</artifactId>
-      <version>3.3.0-SNAPSHOT</version>
+      <version>${ratis.version}</version>
       <type>test-jar</type>
     </dependency>
     <dependency>
