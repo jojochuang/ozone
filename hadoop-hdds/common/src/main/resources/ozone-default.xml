@@ -2004,6 +2004,15 @@
   </property>
 
   <property>
+    <name>ozone.s3g.standard.storage-class.use-client-default</name>
+    <value>false</value>
+    <tag>OZONE, S3GATEWAY</tag>
+    <description>When true, an explicit {@code x-amz-storage-class: STANDARD} request uses
+      {@code ozone.replication} and {@code ozone.replication.type} instead of Ratis factor three.
+      The {@code ozone local} runtime enables this for single-datanode clusters.</description>
+  </property>
+
+  <property>
     <name>ozone.s3g.https-address</name>
     <value>0.0.0.0:9879</value>
     <tag>OZONE, S3GATEWAY</tag>

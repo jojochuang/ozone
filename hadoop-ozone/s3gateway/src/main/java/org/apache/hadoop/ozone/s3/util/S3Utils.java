@@ -112,10 +112,25 @@ public final class S3Utils {
       ReplicationConfig clientConfiguredReplConfig,
       ReplicationConfig bucketReplConfig)
       throws OS3Exception {
+    return resolveS3ClientSideReplicationConfig(s3StorageTypeHeader, s3StorageConfigHeader,
+        clientConfiguredReplConfig, bucketReplConfig, false);
+  }
+
+  public static ReplicationConfig resolveS3ClientSideReplicationConfig(
+      String s3StorageTypeHeader, String s3StorageConfigHeader,
+      ReplicationConfig clientConfiguredReplConfig,
+      ReplicationConfig bucketReplConfig,
+      boolean standardStorageClassUsesClientDefault)
+      throws OS3Exception {
 
     // If user provided s3 storage type header is not null then map it
     // to ozone replication config
     if (!StringUtils.isEmpty(s3StorageTypeHeader)) {
+      if (standardStorageClassUsesClientDefault
+          && S3StorageType.STANDARD.name().equals(s3StorageTypeHeader)
+          && clientConfiguredReplConfig != null) {
+        return clientConfiguredReplConfig;
+      }
       return toReplicationConfig(s3StorageTypeHeader, s3StorageConfigHeader);
     }
 

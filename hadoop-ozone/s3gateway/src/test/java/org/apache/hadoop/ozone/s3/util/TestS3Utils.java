@@ -151,6 +151,13 @@ public class TestS3Utils {
   }
 
   @Test
+  public void testStandardStorageClassUsesClientDefaultWhenEnabled() throws OS3Exception {
+    ReplicationConfig resolved = S3Utils.resolveS3ClientSideReplicationConfig(
+        S3StorageType.STANDARD.name(), null, RATIS1REPLICATIONCONFIG, RATIS3REPLICATIONCONFIG, true);
+    assertEquals(RATIS1REPLICATIONCONFIG, resolved);
+  }
+
+  @Test
   public void testGenerateCanonicalUserId() {
     assertEquals(S3Owner.DEFAULT_S3OWNER_ID, S3Utils.generateCanonicalUserId("ozone"));
   }

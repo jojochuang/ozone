@@ -17,6 +17,8 @@
 
 package org.apache.hadoop.ozone.local;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -27,8 +29,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 /**
  * Integration tests for the S3 Gateway of the {@code ozone local} runtime.
@@ -44,6 +49,35 @@ class TestLocalOzoneS3 {
    * fix: non-secure OM has always skipped signature validation, so these assertions do not go red
    * against a runtime that also stores a secret in OM.
    */
+  @Test
+  void s3GatewayPutGetWithStandardStorageClass() throws Exception {
+    LocalOzoneClusterConfig config = LocalOzoneClusterConfig.builder(
+        tempDir.resolve("local-ozone-s3-standard")).build();
+    String bucket = "local-standard-" + UUID.randomUUID().toString().replace("-", "");
+    String key = "object";
+    byte[] payload = "payload".getBytes(UTF_8);
+
+    try (LocalOzoneCluster cluster = new LocalOzoneCluster(config, new OzoneConfiguration())) {
+      cluster.start();
+
+      AwsBasicCredentials credentials = AwsBasicCredentials.create(
+          LocalOzoneClusterConfig.LOCAL_S3_ACCESS_KEY, LocalOzoneClusterConfig.LOCAL_S3_SECRET_KEY);
+      try (S3Client s3 = S3Client.builder()
+          .endpointOverride(URI.create(cluster.getS3Endpoint()))
+          .region(Region.of(LocalOzoneClusterConfig.LOCAL_S3_REGION))
+          .credentialsProvider(StaticCredentialsProvider.create(credentials))
+          .forcePathStyle(true)
+          .build()) {
+        s3.createBucket(request -> request.bucket(bucket));
+        s3.putObject(request -> request.bucket(bucket).key(key).storageClass(StorageClass.STANDARD),
+            RequestBody.fromBytes(payload));
+        byte[] downloaded = s3.getObject(request -> request.bucket(bucket).key(key),
+            ResponseTransformer.toBytes()).asByteArray();
+        assertArrayEquals(payload, downloaded);
+      }
+    }
+  }
+
   @Test
   void s3GatewayServesRequests() throws Exception {
     LocalOzoneClusterConfig config = LocalOzoneClusterConfig.builder(tempDir.resolve("local-ozone-s3")).build();
