@@ -123,6 +123,16 @@ def main() -> None:
     builds = fetch_build_page(access_key, args.from_ms, args.query, args.max_builds)
   except urllib.error.HTTPError as e:
     body = e.read().decode("utf-8", errors="replace")[:500]
+    if e.code in (403, 404) and "accessBuildDataViaApi" in body:
+      raise SystemExit(
+          "Develocity access key is missing API permission (exportData / "
+          "Access build data via the API). Regenerate the key in My settings "
+          "with that permission enabled, then update ~/.asf-jira-pat.") from e
+    if e.code == 404:
+      raise SystemExit(
+          "Develocity /api/builds returned 404. If the key is new, ensure it "
+          "has 'Access build data via the API' (exportData). Otherwise the "
+          f"query may match no builds: {args.query}\n{body}") from e
     raise SystemExit(f"Develocity API HTTP {e.code}: {body}") from e
 
   summarize(builds)
