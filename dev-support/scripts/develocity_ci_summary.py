@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The ASF
+# licenses this file to You under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+"""Summarize Apache Ozone Main Develocity build scans for CI tuning."""
+
+from __future__ import annotations
+
+import argparse
+import configparser
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any, Dict, List, Optional
+
+DEVELOCITY_HOST = "https://develocity.apache.org"
+DEFAULT_CREDS = os.path.expanduser("~/.asf-jira-pat")
+ROOT_PROJECT = "Apache Ozone Main"
+
+
+def load_access_key(creds_path: str) -> str:
+  key = os.environ.get("DEVELOCITY_ACCESS_KEY", "").strip()
+  if key:
+    return key
+
+  if not os.path.isfile(creds_path):
+    raise SystemExit(
+        f"No DEVELOCITY_ACCESS_KEY in env and creds file missing: {creds_path}")
+
+  parser = configparser.ConfigParser()
+  parser.read(creds_path)
+  if parser.has_section("develocity"):
+    for option in ("DEVELOCITY_ACCESS_KEY", "develocity_access_key"):
+      key = parser.get("develocity", option, fallback="").strip()
+      if key:
+        return key
+
+  raise SystemExit(
+      "Add a Develocity access key to ~/.asf-jira-pat:\n"
+      "  [develocity]\n"
+      "  DEVELOCITY_ACCESS_KEY=<key from develocity.apache.org My settings>\n"
+      "Enable 'Access build data via the API' when creating the key.\n"
+      "Or export DEVELOCITY_ACCESS_KEY.")
+
+
+def api_get(path: str, access_key: str, params: Optional[Dict[str, str]] = None) -> Any:
+  query = urllib.parse.urlencode(params or {})
+  url = f"{DEVELOCITY_HOST}{path}"
+  if query:
+    url = f"{url}?{query}"
+  req = urllib.request.Request(
+      url,
+      headers={"Authorization": f"Bearer {access_key}", "Accept": "application/json"},
+  )
+  with urllib.request.urlopen(req, timeout=120) as resp:
+    return json.loads(resp.read().decode("utf-8"))
+
+
+def verify_api_permission(access_key: str) -> None:
+  """Raise SystemExit if the key cannot access build data via the API."""
+  url = (
+      f"{DEVELOCITY_HOST}/api/auth/token"
+      "?permissions=accessBuildDataViaApi&expiresInHours=1"
+  )
+  req = urllib.request.Request(url, method="POST", headers={
+      "Authorization": f"Bearer {access_key}",
+  })
+  try:
+    urllib.request.urlopen(req, timeout=30)
+  except urllib.error.HTTPError as e:
+    body = e.read().decode("utf-8", errors="replace")
+    if e.code == 403 and "accessBuildDataViaApi" in body:
+      raise SystemExit(
+          "This access key can sign in to Develocity (viewScan works) but lacks "
+          "'Access build data via the API' (accessBuildDataViaApi / api-client role). "
+          "New keys inherit account permissions only — in My settings → Permissions "
+          "confirm that permission, or ask a Develocity admin for the API Client role, "
+          "then update ~/.asf-jira-pat [develocity] DEVELOCITY_ACCESS_KEY.\n\n"
+          "Baseline (Failures UI export, Apache Ozone Main, Jul–Sep 2026):\n"
+          "  MDEP-187 reactor unpack (~75 builds) — addressed in HDDS-16600\n"
+          "  ozone-manager artifact:compare (~10) — intermittent on current CI\n"
+          "  hdds-rocks-native RocksDB wget timeout (~8) — HDDS-16600 retries\n"
+          "  dependency cascades from rocks-native (~8 each) — downstream of wget") from e
+    raise SystemExit(f"Develocity token probe HTTP {e.code}: {body[:500]}") from e
+
+
+def fetch_build_page(
+    access_key: str,
+    from_instant: int,
+    query: str,
+    max_builds: int,
+) -> List[Dict[str, Any]]:
+  params = {
+      "fromInstant": str(from_instant),
+      "reverse": "false",
+      "maxBuilds": str(max_builds),
+      "maxWaitSecs": "30",
+      "query": query,
+  }
+  data = api_get("/api/builds", access_key, params)
+  if not isinstance(data, list):
+    raise SystemExit(f"Unexpected /api/builds response: {type(data)}")
+  return data
+
+
+def median_ms(durations: List[int]) -> Optional[int]:
+  if not durations:
+    return None
+  ordered = sorted(durations)
+  mid = len(ordered) // 2
+  if len(ordered) % 2 == 0:
+    return (ordered[mid - 1] + ordered[mid]) // 2
+  return ordered[mid]
+
+
+def summarize(builds: List[Dict[str, Any]], query: str) -> None:
+  total = len(builds)
+  failed = sum(1 for b in builds if b.get("buildOutcome") == "failed")
+  non_verif = sum(1 for b in builds if b.get("hasNonVerificationFailure"))
+  verif = sum(1 for b in builds if b.get("hasVerificationFailure"))
+  print(f"Query: {query}")
+  print(f"Build scans (sample): {total}")
+  if total:
+    print(f"Failed: {failed} ({100.0 * failed / total:.1f}%)")
+    print(f"hasNonVerificationFailure: {non_verif}")
+    print(f"hasVerificationFailure: {verif}")
+  else:
+    print("Failed: 0")
+
+  all_durations = [b["buildDuration"] for b in builds if b.get("buildDuration") is not None]
+  if all_durations:
+    print(f"Build duration median (ms): {median_ms(all_durations)}")
+    print(f"Build duration max (ms): {max(all_durations)}")
+
+  for outcome in ("succeeded", "failed"):
+    subset = [
+        b["buildDuration"] for b in builds
+        if b.get("buildOutcome") == outcome and b.get("buildDuration") is not None
+    ]
+    med = median_ms(subset)
+    if med is not None:
+      print(f"Build duration median ({outcome}, ms): {med}")
+
+  failed_builds = [b for b in builds if b.get("buildOutcome") == "failed"][:5]
+  if failed_builds:
+    print("Recent failed scans (newest first in sample):")
+    for b in failed_builds:
+      scan_id = b.get("id", "?")
+      print(f"  {DEVELOCITY_HOST}/s/{scan_id}")
+
+
+def main() -> None:
+  ap = argparse.ArgumentParser(description=__doc__)
+  ap.add_argument(
+      "--from-ms",
+      type=int,
+      default=1782889200000,
+      help="Start instant (ms since epoch); default 2026-07-01 00:00 PDT",
+  )
+  ap.add_argument("--max-builds", type=int, default=200)
+  ap.add_argument("--creds", default=DEFAULT_CREDS)
+  ap.add_argument(
+      "--query",
+      default=f'maven.topLevelProjectName:"{ROOT_PROJECT}" tag:CI',
+      help="Develocity advanced search query",
+  )
+  ap.add_argument(
+      "--failures-only",
+      action="store_true",
+      help="Also summarize buildOutcome:failed hasNonVerificationFailure builds",
+  )
+  ap.add_argument(
+      "--builds-json",
+      metavar="FILE",
+      help="Analyze a saved /api/builds JSON array (skip live API; no key permission needed)",
+  )
+  args = ap.parse_args()
+
+  if args.builds_json:
+    with open(args.builds_json, encoding="utf-8") as f:
+      builds = json.load(f)
+    if not isinstance(builds, list):
+      raise SystemExit(f"--builds-json must be a JSON array, got {type(builds)}")
+    summarize(builds, args.query)
+    if args.failures_only:
+      filtered = [
+          b for b in builds
+          if b.get("buildOutcome") == "failed" and b.get("hasNonVerificationFailure")]
+      print()
+      print("--- Non-verification failures (from file) ---")
+      summarize(filtered, f"{args.query} (filtered from file)")
+    return
+
+  access_key = load_access_key(args.creds)
+  verify_api_permission(access_key)
+  try:
+    builds = fetch_build_page(access_key, args.from_ms, args.query, args.max_builds)
+  except urllib.error.HTTPError as e:
+    body = e.read().decode("utf-8", errors="replace")[:500]
+    if e.code in (403, 404) and "accessBuildDataViaApi" in body:
+      raise SystemExit(
+          "Develocity access key is missing API permission (exportData / "
+          "Access build data via the API). Regenerate the key in My settings "
+          "with that permission enabled, then update ~/.asf-jira-pat.") from e
+    if e.code == 404:
+      raise SystemExit(
+          "Develocity /api/builds returned 404. If the key is new, ensure it "
+          "has 'Access build data via the API' (exportData). Otherwise the "
+          f"query may match no builds: {args.query}\n{body}") from e
+    raise SystemExit(f"Develocity API HTTP {e.code}: {body}") from e
+
+  summarize(builds, args.query)
+  if args.failures_only:
+    fail_query = f"{args.query} buildOutcome:failed hasNonVerificationFailure:true"
+    print()
+    print("--- Non-verification failures (focused sample) ---")
+    summarize(
+        fetch_build_page(access_key, args.from_ms, fail_query, args.max_builds),
+        fail_query,
+    )
+
+
+if __name__ == "__main__":
+  main()

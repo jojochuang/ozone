@@ -17,7 +17,11 @@
 
 **/*.json
 .gitattributes
+.codefactor.yml
 .github/*
+dev-support/s3-compatibility/README.md
+s3-compatibility/README.md
+**/s3-compatibility/**
 AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md
