@@ -69,6 +69,29 @@ def api_get(path: str, access_key: str, params: Optional[Dict[str, str]] = None)
     return json.loads(resp.read().decode("utf-8"))
 
 
+def verify_api_permission(access_key: str) -> None:
+  """Raise SystemExit if the key cannot access build data via the API."""
+  url = (
+      f"{DEVELOCITY_HOST}/api/auth/token"
+      "?permissions=accessBuildDataViaApi&expiresInHours=1"
+  )
+  req = urllib.request.Request(url, method="POST", headers={
+      "Authorization": f"Bearer {access_key}",
+  })
+  try:
+    urllib.request.urlopen(req, timeout=30)
+  except urllib.error.HTTPError as e:
+    body = e.read().decode("utf-8", errors="replace")
+    if e.code == 403 and "accessBuildDataViaApi" in body:
+      raise SystemExit(
+          "This access key can sign in to Develocity but lacks "
+          "'Access build data via the API' (API Client / exportData). "
+          "Create a new access key with that permission, or ask an admin to "
+          "assign the API Client or Developer role, then update "
+          "~/.asf-jira-pat [develocity] DEVELOCITY_ACCESS_KEY.") from e
+    raise SystemExit(f"Develocity token probe HTTP {e.code}: {body[:500]}") from e
+
+
 def fetch_build_page(
     access_key: str,
     from_instant: int,
@@ -119,6 +142,7 @@ def main() -> None:
   args = ap.parse_args()
 
   access_key = load_access_key(args.creds)
+  verify_api_permission(access_key)
   try:
     builds = fetch_build_page(access_key, args.from_ms, args.query, args.max_builds)
   except urllib.error.HTTPError as e:
