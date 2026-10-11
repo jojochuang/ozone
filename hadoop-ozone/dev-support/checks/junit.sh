@@ -55,7 +55,14 @@ if [[ -f hadoop-ozone/dist/src/shell/ozone/ozone-functions.sh ]]; then
   ozone_java_setup
 fi
 
-mvn ${MAVEN_OPTIONS} clean
+if [[ "${OZONE_REPO_CACHED}" != "true" ]]; then
+  mvn ${MAVEN_OPTIONS} clean
+fi
+
+REACTOR_ARGS=()
+if [[ "${OZONE_REPO_CACHED}" == "true" ]] && [[ "${CHECK}" == "integration" ]]; then
+  REACTOR_ARGS=(-pl :ozone-integration-test)
+fi
 
 if [[ ${ITERATIONS} -gt 1 ]] && [[ ${OZONE_REPO_CACHED} == "false" ]]; then
   mvn ${MAVEN_OPTIONS} -DskipTests install
@@ -78,7 +85,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  mvn ${MAVEN_OPTIONS} -Dmaven-surefire-plugin.argLineAccessArgs="${OZONE_MODULE_ACCESS_ARGS}" "$@" "${PHASE}" \
+  mvn ${MAVEN_OPTIONS} "${REACTOR_ARGS[@]}" -Dmaven-surefire-plugin.argLineAccessArgs="${OZONE_MODULE_ACCESS_ARGS}" "$@" "${PHASE}" \
       | tee "${REPORT_DIR}/output.log"
   irc=$?
 
