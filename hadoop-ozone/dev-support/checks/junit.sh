@@ -59,9 +59,12 @@ if [[ "${OZONE_REPO_CACHED}" != "true" ]]; then
   mvn ${MAVEN_OPTIONS} clean
 fi
 
-REACTOR_ARGS=()
+INTEGRATION_REACTOR_PL=()
 if [[ "${OZONE_REPO_CACHED}" == "true" ]] && [[ "${CHECK}" == "integration" ]]; then
-  REACTOR_ARGS=(-pl :ozone-integration-test)
+  args_str="$*"
+  if [[ "${args_str}" != *"-Ptest-filesystem"* ]] && [[ "${args_str}" != *"-Dtest="* ]]; then
+    INTEGRATION_REACTOR_PL=(-pl '!:ozone-integration-test,!:ozone-integration-test-recon,!:ozone-integration-test-s3')
+  fi
 fi
 
 if [[ ${ITERATIONS} -gt 1 ]] && [[ ${OZONE_REPO_CACHED} == "false" ]]; then
@@ -85,7 +88,7 @@ for i in $(seq 1 ${ITERATIONS}); do
     mkdir -p "${REPORT_DIR}"
   fi
 
-  mvn ${MAVEN_OPTIONS} "${REACTOR_ARGS[@]}" -Dmaven-surefire-plugin.argLineAccessArgs="${OZONE_MODULE_ACCESS_ARGS}" "$@" "${PHASE}" \
+  mvn ${MAVEN_OPTIONS} "${INTEGRATION_REACTOR_PL[@]}" -Dmaven-surefire-plugin.argLineAccessArgs="${OZONE_MODULE_ACCESS_ARGS}" "$@" "${PHASE}" \
       | tee "${REPORT_DIR}/output.log"
   irc=$?
 
