@@ -1450,6 +1450,12 @@
                 "optional": true
               },
               {
+                "id": 8,
+                "name": "assumeS3Context",
+                "type": "bool",
+                "optional": true
+              },
+              {
                 "id": 11,
                 "name": "createVolumeRequest",
                 "type": "CreateVolumeRequest",
@@ -2712,6 +2718,12 @@
                 "id": 143,
                 "name": "submitSnapshotDiffResponse",
                 "type": "SubmitSnapshotDiffResponse",
+                "optional": true
+              },
+              {
+                "id": 162,
+                "name": "userPrincipal",
+                "type": "string",
                 "optional": true
               }
             ]
