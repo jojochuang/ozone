@@ -51,7 +51,7 @@ public final class NfsTlsContractServer {
 
   @SuppressWarnings("checkstyle:MethodLength")
   public static void main(String[] args) throws Exception {
-    if (args.length != 6 && args.length != 7) {
+    if (args.length != 6 && args.length != 7 && args.length != 8) {
       throw new IllegalArgumentException("Expected server cert/key, CA, allowed client cert, port file, and stop file");
     }
     X509Certificate allowed;
