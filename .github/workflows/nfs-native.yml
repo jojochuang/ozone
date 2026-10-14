@@ -173,4 +173,4 @@ jobs:
             --java-classpath "$classpath" \
             --native-client unused \
             --ganesha-image ozone-nfs-ganesha:ci \
-            GrpcTlsContract.test_ganesha_loads_ozone_export_and_completes_capability_handshake
+            GrpcTlsContract.test_ganesha_enforces_export_capabilities
