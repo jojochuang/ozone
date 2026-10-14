@@ -656,6 +656,9 @@ class TestNfsGatewayService {
     assertEquals(CapabilityResponse.Operation.MKDIR, response.getValue().getOperations(4));
     assertEquals(CapabilityResponse.Operation.REMOVE, response.getValue().getOperations(5));
     assertEquals(CapabilityResponse.Operation.RENAME, response.getValue().getOperations(6));
+    assertFalse(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.CREATE));
+    assertFalse(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.WRITE));
+    assertFalse(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.COMMIT));
     assertEquals(NfsObjectReader.MAX_READ_BYTES, response.getValue().getMaxReadBytes());
     assertEquals(256, response.getValue().getMaxDirectoryEntries());
     assertFalse(response.getValue().hasRootHandle());
@@ -688,7 +691,7 @@ class TestNfsGatewayService {
   }
 
   @Test
-  void advertisesCreateOnlyWhenLeaseSupportIsConfigured() {
+  void advertisesTransferOperationsOnlyWhenLeaseSupportIsConfigured() {
     NfsExportLeaseManager leaseManager = mock(NfsExportLeaseManager.class);
     when(leaseManager.isActive(exportUuid)).thenReturn(true);
     NfsGatewayService leasedService = new NfsGatewayService(Map.of(exportUuid, reader), leaseManager);
@@ -701,8 +704,10 @@ class TestNfsGatewayService {
 
     ArgumentCaptor<CapabilityResponse> response = ArgumentCaptor.forClass(CapabilityResponse.class);
     verify(observer).onNext(response.capture());
-    assertEquals(8, response.getValue().getOperationsCount());
+    assertEquals(10, response.getValue().getOperationsCount());
     assertTrue(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.CREATE));
+    assertTrue(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.WRITE));
+    assertTrue(response.getValue().getOperationsList().contains(CapabilityResponse.Operation.COMMIT));
   }
 
   @SuppressWarnings("unchecked")

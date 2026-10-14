@@ -332,7 +332,8 @@ int main(int argc, char **argv) {
         mode != "unsupported-version";
     const uint64_t expected_operations = supported ? ((UINT64_C(1) << 1) | (UINT64_C(1) << 2) |
         (UINT64_C(1) << 3) | (UINT64_C(1) << 4) | (UINT64_C(1) << 5) |
-        (UINT64_C(1) << 6) | (UINT64_C(1) << 7) | (UINT64_C(1) << 8)) : 0;
+        (UINT64_C(1) << 6) | (UINT64_C(1) << 7) | (UINT64_C(1) << 8) |
+        (UINT64_C(1) << 9) | (UINT64_C(1) << 10)) : 0;
     return status == std::atoi(argv[6]) && nfs_status == static_cast<uint32_t>(std::atoi(argv[7]))
         && operations == expected_operations ? 0 : 1;
   } catch (...) {

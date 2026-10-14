@@ -102,7 +102,7 @@ public final class NfsGatewayService extends NfsGatewayGrpc.NfsGatewayImplBase {
           .addOperations(Operation.REMOVE).addOperations(Operation.RENAME)
           .setMaxReadBytes(NfsObjectReader.MAX_READ_BYTES).setMaxDirectoryEntries(MAX_DIRECTORY_ENTRIES);
       if (leaseManager != null) {
-        response.addOperations(Operation.CREATE);
+        response.addOperations(Operation.CREATE).addOperations(Operation.WRITE).addOperations(Operation.COMMIT);
       }
       observer.onNext(response.build());
       observer.onCompleted();

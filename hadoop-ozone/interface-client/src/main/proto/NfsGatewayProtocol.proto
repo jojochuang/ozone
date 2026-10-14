@@ -57,6 +57,8 @@ message CapabilityResponse {
     MKDIR = 6;
     REMOVE = 7;
     RENAME = 8;
+    WRITE = 9;
+    COMMIT = 10;
   }
   required Result result = 1;
   required uint32 version = 2;

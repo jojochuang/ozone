@@ -128,7 +128,7 @@ extern "C" int ozone_grpc_capabilities(struct ozone_grpc_client *client,
     }
     uint64_t supported = 0;
     for (int operation : response.operations()) {
-      if (operation < 1 || operation > 8) return grpc::StatusCode::FAILED_PRECONDITION;
+      if (operation < 1 || operation > 10) return grpc::StatusCode::FAILED_PRECONDITION;
       supported |= UINT64_C(1) << operation;
     }
     *nfs_status = response.result().nfs_status();
