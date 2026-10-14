@@ -46,5 +46,43 @@ class ProcessRssSamplerTest(unittest.TestCase):
         self.assertEqual({}, benchmark_ganesha_ozone.ProcessRssSampler([]).results())
 
 
+class BenchmarkMetricsTest(unittest.TestCase):
+    def test_reads_per_operation_counts_for_requested_nfs_mount(self):
+        mountstats = """device ganesha:/ozone mounted on /mnt/ozone with fstype nfs4 statvers=1.1
+opts: rw,vers=4.1
+per-op statistics
+READ: 17 17 1024 0 0 1 2 3
+WRITE: 9 9 512 0 0 1 2 3
+device ganesha:/other mounted on /mnt/other with fstype nfs4 statvers=1.1
+opts: rw,vers=4.1
+per-op statistics
+READ: 100 100 2048 0 0 1 2 3
+"""
+        with patch("builtins.open", mock_open(read_data=mountstats)):
+            operations = benchmark_ganesha_ozone.read_mountstats("/mnt/ozone", "/mountstats")
+
+        self.assertEqual({"READ": 17, "WRITE": 9}, operations)
+
+    def test_reads_om_request_counters_from_jmx_bean(self):
+        payload = {
+            "beans": [
+                {"name": "Hadoop:service=OzoneManager,name=OMMetrics",
+                 "NumKeyOps": 42, "NumFSOps": 17, "tag.Hostname": "om-1", "OtherMetric": 1.5},
+                {"name": "Hadoop:service=OzoneManager,name=OMInfo", "NumKeyOps": 100},
+            ]
+        }
+
+        self.assertEqual({"NumKeyOps": 42, "NumFSOps": 17},
+                         benchmark_ganesha_ozone.parse_om_jmx_metrics(payload))
+
+    def test_counter_delta_and_reset_are_reported(self):
+        before = {"NumKeyOps": 10, "NumFSOps": 5, "NumKeyLists": 3}
+        after = {"NumKeyOps": 16, "NumFSOps": 9, "NumKeyLists": 1}
+
+        self.assertEqual({"NumFSOps": 4, "NumKeyOps": 6},
+                         benchmark_ganesha_ozone.counter_delta(before, after))
+        self.assertEqual(["NumKeyLists"], benchmark_ganesha_ozone.counter_resets(before, after))
+
+
 if __name__ == "__main__":
     unittest.main()

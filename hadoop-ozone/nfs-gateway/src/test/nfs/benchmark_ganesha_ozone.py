@@ -29,6 +29,7 @@ import statistics
 import sys
 import threading
 import time
+from urllib.request import urlopen
 import uuid
 
 from test_ganesha_write import require_nfs41_krb5p_mount
@@ -69,6 +70,68 @@ def mount_options(mount):
             if path == str(mount):
                 return {"source": fields[0], "options": fields[3].split(",")}
     raise ValueError("NFS mount disappeared before the benchmark started")
+
+
+def read_mountstats(mount, mountstats_path="/proc/self/mountstats"):
+    with open(mountstats_path, encoding="utf-8") as mountstats:
+        lines = mountstats.readlines()
+
+    mounted_path = str(mount)
+    for index, line in enumerate(lines):
+        if not line.startswith("device "):
+            continue
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        path = re.sub(r"\\([0-7]{3})", lambda match: chr(int(match.group(1), 8)), fields[4])
+        if path != mounted_path or " nfs" not in line:
+            continue
+        operations = {}
+        for operation_index, operation_line in enumerate(lines[index + 1:], start=index + 1):
+            if operation_line.startswith("device "):
+                break
+            if operation_line.strip() == "per-op statistics":
+                for stats_line in lines[operation_index + 1:]:
+                    if stats_line.startswith("device ") or not stats_line.strip():
+                        break
+                    match = re.match(r"([^:]+):\s+(\d+)", stats_line)
+                    if match:
+                        operations[match.group(1)] = int(match.group(2))
+                break
+        if operations:
+            return operations
+    raise ValueError("NFS per-operation statistics not found for mount {}".format(mount))
+
+
+def read_om_jmx_metrics(jmx_url):
+    with urlopen(jmx_url, timeout=5) as response:
+        payload = json.load(response)
+    return parse_om_jmx_metrics(payload)
+
+
+def parse_om_jmx_metrics(payload):
+    beans = payload.get("beans", [])
+    bean = next((item for item in beans
+                 if "name=OMMetrics" in item.get("name", "")), None)
+    if bean is None:
+        raise ValueError("OMMetrics bean not found in JMX response")
+    return {
+        name: value for name, value in bean.items()
+        if name.startswith("Num") and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    }
+
+
+def counter_delta(before, after):
+    return {
+        name: after[name] - before[name]
+        for name in sorted(before.keys() & after.keys())
+        if after[name] > before[name]
+    }
+
+
+def counter_resets(before, after):
+    return sorted(name for name in before.keys() & after.keys() if after[name] < before[name])
 
 
 def sequential_transfer(directory, total_bytes, chunk_bytes):
@@ -217,7 +280,10 @@ class ProcessRssSampler:
         }
 
 
-def run_benchmark(mount, total_bytes, chunk_bytes, small_file_count, small_file_bytes, processes):
+def run_benchmark(mount, total_bytes, chunk_bytes, small_file_count, small_file_bytes, processes,
+                  om_jmx_url=None):
+    nfs_operations_before = read_mountstats(mount)
+    om_metrics_before = read_om_jmx_metrics(om_jmx_url) if om_jmx_url else None
     work_dir = mount / ("nfs-benchmark-" + uuid.uuid4().hex)
     work_dir.mkdir()
     sampler = ProcessRssSampler(processes)
@@ -230,21 +296,37 @@ def run_benchmark(mount, total_bytes, chunk_bytes, small_file_count, small_file_
               file=sys.stderr, flush=True)
         small = small_files(work_dir, small_file_count, small_file_bytes)
         sampler.stop()
-        return {
-            "platform": platform.platform(),
-            "architecture": platform.machine(),
-            "python": platform.python_version(),
-            "mount": mount_options(mount),
-            "sequential": sequential,
-            "small_files": small,
-            "client_process_peak_rss_mib": peak_rss_mib(),
-            "server_processes": sampler.results(),
-        }
     finally:
         sampler.stop()
         for path in work_dir.iterdir():
             path.unlink()
         work_dir.rmdir()
+
+    nfs_operations_after = read_mountstats(mount)
+    result = {
+        "platform": platform.platform(),
+        "architecture": platform.machine(),
+        "python": platform.python_version(),
+        "mount": mount_options(mount),
+        "sequential": sequential,
+        "small_files": small,
+        "client_process_peak_rss_mib": peak_rss_mib(),
+        "server_processes": sampler.results(),
+        "nfs_client_rpc_operations": counter_delta(nfs_operations_before, nfs_operations_after),
+        "nfs_client_rpc_counter_resets": counter_resets(nfs_operations_before, nfs_operations_after),
+    }
+    if om_jmx_url:
+        om_metrics_after = read_om_jmx_metrics(om_jmx_url)
+        result["om_metrics"] = {
+            "counter_delta": counter_delta(om_metrics_before, om_metrics_after),
+            "counter_resets": counter_resets(om_metrics_before, om_metrics_after),
+        }
+        nfs_rpc_count = sum(result["nfs_client_rpc_operations"].values())
+        key_ops = result["om_metrics"]["counter_delta"].get("NumKeyOps")
+        if (key_ops is not None and nfs_rpc_count and not result["om_metrics"]["counter_resets"]
+                and not result["nfs_client_rpc_counter_resets"]):
+            result["om_metrics"]["key_ops_per_nfs_rpc"] = round(key_ops / nfs_rpc_count, 6)
+    return result
 
 
 if __name__ == "__main__":
@@ -254,6 +336,10 @@ if __name__ == "__main__":
     parser.add_argument("--chunk-bytes", type=int, default=1024 * 1024)
     parser.add_argument("--small-files", type=int, default=50)
     parser.add_argument("--small-file-bytes", type=int, default=4096)
+    parser.add_argument(
+        "--om-jmx-url",
+        help="optional active OM /jmx URL for request-counter deltas (for example http://om:9874/jmx)",
+    )
     parser.add_argument(
         "--process", action="append", default=[], metavar="NAME=PID",
         help="sample peak RSS for a local Linux process; repeat for Ganesha, gateway, and OM",
@@ -282,4 +368,5 @@ if __name__ == "__main__":
         arguments.small_files,
         arguments.small_file_bytes,
         processes,
+        arguments.om_jmx_url,
     ), indent=2, sort_keys=True))
