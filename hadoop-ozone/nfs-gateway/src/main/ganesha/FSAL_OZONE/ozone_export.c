@@ -34,9 +34,10 @@
 
 #define OZONE_PEM_MAX_BYTES (1024 * 1024)
 #define OZONE_REQUIRED_OPERATIONS ((UINT64_C(1) << 1) | (UINT64_C(1) << 2) | \
-				       (UINT64_C(1) << 3) | (UINT64_C(1) << 4) | \
-				       (UINT64_C(1) << 5) | (UINT64_C(1) << 6) | \
-				       (UINT64_C(1) << 7) | (UINT64_C(1) << 8))
+					       (UINT64_C(1) << 3) | (UINT64_C(1) << 4) | \
+					       (UINT64_C(1) << 5) | (UINT64_C(1) << 6) | \
+					       (UINT64_C(1) << 7) | (UINT64_C(1) << 8) | \
+					       (UINT64_C(1) << 9) | (UINT64_C(1) << 10))
 
 struct ozone_export_config {
 	char *address;

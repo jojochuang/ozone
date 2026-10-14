@@ -639,6 +639,14 @@ class TestNfsGatewayService {
   }
 
   @Test
+  void capabilityOperationIdsAreAppendOnly() {
+    assertEquals(5, CapabilityResponse.Operation.CREATE.getNumber());
+    assertEquals(8, CapabilityResponse.Operation.RENAME.getNumber());
+    assertEquals(9, CapabilityResponse.Operation.WRITE.getNumber());
+    assertEquals(10, CapabilityResponse.Operation.COMMIT.getNumber());
+  }
+
+  @Test
   void advertisesImplementedExportOperations() {
     StreamObserver<CapabilityResponse> observer = observer();
     try (MockedStatic<NfsTlsPeerInterceptor> ignored = mockStatic(NfsTlsPeerInterceptor.class)) {
