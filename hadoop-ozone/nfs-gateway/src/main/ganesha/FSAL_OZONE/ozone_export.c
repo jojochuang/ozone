@@ -305,6 +305,9 @@ fsal_status_t ozone_fsal_create_export(struct fsal_module *fsal_hdl,
 		goto fail;
 	}
 	if ((operations & OZONE_REQUIRED_OPERATIONS) != OZONE_REQUIRED_OPERATIONS) {
+		LogCrit(COMPONENT_FSAL,
+			"OZONE backend is missing required operations (required 0x%llx, provided 0x%llx)",
+			(unsigned long long)OZONE_REQUIRED_OPERATIONS, (unsigned long long)operations);
 		status = fsalstat(ERR_FSAL_NOTSUPP, 0);
 		goto fail;
 	}

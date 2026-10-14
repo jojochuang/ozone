@@ -241,10 +241,11 @@ public final class NfsTlsContractServer {
     }).when(reader).publishStagedFile(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
         org.mockito.ArgumentMatchers.any());
+    boolean transferEnabled = args.length < 8 || !"read-only".equals(args[7]);
     NfsGatewayService service = new NfsGatewayService(Map.of(ByteString.copyFrom(uuidBytes(export)), reader),
-        leaseManager);
+        transferEnabled ? leaseManager : null);
     BindableService bindableService = service;
-    if (args.length == 7) {
+    if (args.length >= 7) {
       java.nio.file.Path capabilitiesMarker = java.nio.file.Paths.get(args[6]);
       ServerInterceptor markerInterceptor = new ServerInterceptor() {
         @Override

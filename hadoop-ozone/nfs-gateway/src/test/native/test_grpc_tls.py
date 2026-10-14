@@ -234,7 +234,7 @@ class GrpcTlsContract(unittest.TestCase):
     def test_unknown_protocol_version_is_rejected(self):
         self.check_call(9, 5, mode="unsupported-version")
 
-    def test_ganesha_loads_ozone_export_and_completes_capability_handshake(self):
+    def test_ganesha_enforces_export_capabilities(self):
         if not OPTIONS.ganesha_image:
             self.skipTest("Ganesha runtime image was not supplied")
         self.capabilities_marker.unlink(missing_ok=True)
@@ -316,6 +316,75 @@ EXPORT {
                 forwarder.server_close()
                 forwarder_thread.join(timeout=5)
         self.assertTrue(self.capabilities_marker.exists(), log_path.read_text()[-4000:])
+
+        read_only_port = self.root / "read-only-port"
+        read_only_stop = self.root / "read-only-stop"
+        read_only_marker = self.root / "read-only-capabilities"
+        read_only_server_log = open(self.root / "read-only-server.log", "w")
+        read_only_server = subprocess.Popen([
+            "java", "-cp", OPTIONS.java_classpath,
+            "org.apache.hadoop.ozone.nfs.gateway.NfsTlsContractServer",
+            str(self.root / "server.crt"), str(self.root / "server.key"), str(self.root / "ca.crt"),
+            str(self.root / "allowed.crt"), str(read_only_port), str(read_only_stop), str(read_only_marker),
+            "read-only"], stdout=read_only_server_log, stderr=subprocess.STDOUT)
+        read_only_forwarder = None
+        read_only_thread = None
+        try:
+            deadline = time.monotonic() + 30
+            while not read_only_port.exists():
+                if read_only_server.poll() is not None or time.monotonic() >= deadline:
+                    self.fail("Read-only TLS server failed to start:\n"
+                              + (self.root / "read-only-server.log").read_text()[-4000:])
+                time.sleep(0.05)
+            read_only_forwarder = _TcpForwardServer(int(read_only_port.read_text()))
+            read_only_thread = threading.Thread(target=read_only_forwarder.serve_forever, daemon=True)
+            read_only_thread.start()
+            read_only_marker.unlink(missing_ok=True)
+            read_only_config = self.root / "ganesha-read-only.conf"
+            read_only_config.write_text((self.root / "ganesha.conf").read_text().replace(
+                "host.docker.internal:{}".format(forwarder.server_address[1]),
+                "host.docker.internal:{}".format(read_only_forwarder.server_address[1])))
+            read_only_container = "ozone-nfs-ganesha-read-only-{}".format(os.getpid())
+            read_only_log = self.root / "ganesha-read-only.log"
+            with open(read_only_log, "w") as ganesha_log:
+                process = subprocess.Popen([
+                    "docker", "run", "--rm", "--name", read_only_container,
+                    "--add-host", "host.docker.internal:host-gateway",
+                    "--mount", "type=bind,source={},target=/contract".format(self.root),
+                    OPTIONS.ganesha_image, "sh", "-c",
+                    "rpcbind -w && exec ganesha.nfsd -F -L STDOUT -p /contract/ganesha-read-only.pid "
+                    "-f /contract/ganesha-read-only.conf"], stdout=ganesha_log, stderr=subprocess.STDOUT)
+                try:
+                    deadline = time.monotonic() + 30
+                    while "OZONE backend is missing required operations" not in read_only_log.read_text():
+                        if process.poll() is not None:
+                            self.fail("Ganesha exited before rejecting incomplete capabilities:\n"
+                                      + read_only_log.read_text()[-4000:])
+                        if time.monotonic() >= deadline:
+                            self.fail("Ganesha did not reject incomplete capabilities:\n"
+                                      + read_only_log.read_text()[-4000:])
+                        time.sleep(0.1)
+                    self.assertTrue(read_only_marker.exists(), read_only_log.read_text()[-4000:])
+                finally:
+                    subprocess.run(["docker", "rm", "--force", read_only_container],
+                                   check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=5)
+        finally:
+            if read_only_forwarder is not None:
+                read_only_forwarder.shutdown()
+                read_only_forwarder.server_close()
+                read_only_thread.join(timeout=5)
+            read_only_stop.touch()
+            try:
+                read_only_server.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                read_only_server.kill()
+                read_only_server.wait(timeout=5)
+            read_only_server_log.close()
 
 
 if __name__ == "__main__":
