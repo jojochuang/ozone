@@ -165,6 +165,39 @@ public final class OMFileRequest {
     }
   }
 
+  /** Reject deletion of a bucket with a live NFS export lease. */
+  public static void validateNfsExportLeaseInactive(OMMetadataManager manager, long volumeId, long bucketId)
+      throws IOException {
+    Table<String, OmNfsLeaseInfo> leaseTable = manager.getNfsExportLeaseTable();
+    Map<String, OmNfsLeaseInfo> leases = new HashMap<>();
+    try (KeyValueIterator<String, OmNfsLeaseInfo> iterator = leaseTable.iterator()) {
+      while (iterator.hasNext()) {
+        Table.KeyValue<String, OmNfsLeaseInfo> entry = iterator.next();
+        if (entry != null) {
+          leases.put(entry.getKey(), entry.getValue());
+        }
+      }
+    }
+    Iterator<Map.Entry<CacheKey<String>, CacheValue<OmNfsLeaseInfo>>> cacheIterator = leaseTable.cacheIterator();
+    while (cacheIterator.hasNext()) {
+      Map.Entry<CacheKey<String>, CacheValue<OmNfsLeaseInfo>> entry = cacheIterator.next();
+      OmNfsLeaseInfo lease = entry.getValue().getCacheValue();
+      if (lease == null) {
+        leases.remove(entry.getKey().getCacheKey());
+      } else {
+        leases.put(entry.getKey().getCacheKey(), lease);
+      }
+    }
+    long now = Time.now();
+    for (OmNfsLeaseInfo lease : leases.values()) {
+      if (lease.getProtobuf().getKind() == PersistedNfsLeaseInfo.Kind.EXPORT
+          && lease.getProtobuf().getVolumeID() == volumeId && lease.getProtobuf().getBucketID() == bucketId
+          && lease.getProtobuf().getExpiresAtMillis() > now) {
+        throw new OMException("Bucket has an active NFS export lease", OMException.ResultCodes.NFS_LEASE_CONFLICT);
+      }
+    }
+  }
+
   /** Reject a directory mutation while any descendant file has a live NFS writer lease. */
   public static void validateNfsDirectoryLeasesInactive(OMMetadataManager manager, long volumeId, long bucketId,
       long directoryObjectId) throws IOException {

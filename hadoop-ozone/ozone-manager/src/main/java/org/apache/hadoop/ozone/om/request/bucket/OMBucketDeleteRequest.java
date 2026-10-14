@@ -44,6 +44,7 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
+import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.request.validation.RequestFeatureValidator;
 import org.apache.hadoop.ozone.om.request.validation.ValidationCondition;
@@ -129,12 +130,7 @@ public class OMBucketDeleteRequest extends OMClientRequest {
         throw new OMException("Bucket not found", BUCKET_NOT_FOUND);
       }
 
-      //Check if bucket is empty
-      if (!omMetadataManager.isBucketEmpty(volumeName, bucketName)) {
-        LOG.debug("bucket: {} is not empty ", bucketName);
-        throw new OMException("Bucket is not empty",
-            OMException.ResultCodes.BUCKET_NOT_EMPTY);
-      }
+      validateBucketEmptyAndNfsExportLeaseInactive(omMetadataManager, volumeName, bucketName, omBucketInfo);
 
       // Check if bucket does not contain incomplete MPUs
       if (omMetadataManager.containsIncompleteMPUs(volumeName, bucketName)) {
@@ -222,6 +218,16 @@ public class OMBucketDeleteRequest extends OMClientRequest {
       LOG.error("Delete bucket failed for bucket:{} in volume:{}", bucketName,
           volumeName, exception);
       return omClientResponse;
+    }
+  }
+
+  private void validateBucketEmptyAndNfsExportLeaseInactive(OMMetadataManager metadataManager, String volumeName,
+      String bucketName, OmBucketInfo bucketInfo) throws IOException {
+    OMFileRequest.validateNfsExportLeaseInactive(metadataManager, metadataManager.getVolumeId(volumeName),
+        bucketInfo.getObjectID());
+    if (!metadataManager.isBucketEmpty(volumeName, bucketName)) {
+      LOG.debug("bucket: {} is not empty ", bucketName);
+      throw new OMException("Bucket is not empty", OMException.ResultCodes.BUCKET_NOT_EMPTY);
     }
   }
 

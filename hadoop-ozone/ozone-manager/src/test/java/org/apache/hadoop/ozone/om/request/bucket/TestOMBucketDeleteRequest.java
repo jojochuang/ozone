@@ -29,9 +29,11 @@ import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
 import org.apache.hadoop.hdds.utils.db.cache.CacheKey;
 import org.apache.hadoop.hdds.utils.db.cache.CacheValue;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
 import org.apache.hadoop.ozone.om.helpers.OmMultipartKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.request.util.OMMultipartUploadUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -154,6 +156,38 @@ public class TestOMBucketDeleteRequest extends BucketRequestTests {
         omClientResponse.getOMResponse().getStatus());
     assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
+  }
+
+  @Test
+  public void testBucketDeleteWithNfsExportLease() throws Exception {
+    String volumeName = UUID.randomUUID().toString();
+    String bucketName = UUID.randomUUID().toString();
+    OMRequestTestUtils.addVolumeToDB(volumeName, omMetadataManager);
+    OMRequestTestUtils.addBucketToDB(volumeName, bucketName, omMetadataManager, BucketLayout.FILE_SYSTEM_OPTIMIZED);
+
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    String exportUuid = UUID.randomUUID().toString();
+    OmNfsLeaseInfo activeLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId, 1,
+        Time.now() + 60_000, "nfs-gateway", 1);
+    omMetadataManager.getNfsExportLeaseTable().addCacheEntry(new CacheKey<>(exportUuid),
+        CacheValue.get(1L, activeLease));
+
+    OMClientResponse response = new OMBucketDeleteRequest(createDeleteBucketRequest(volumeName, bucketName))
+        .validateAndUpdateCache(ozoneManager, 2L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT, response.getOMResponse().getStatus());
+    assertNotNull(omMetadataManager.getBucketTable().get(omMetadataManager.getBucketKey(volumeName, bucketName)));
+
+    OmNfsLeaseInfo expiredLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId, 1,
+        Time.now() - 1, "nfs-gateway", 1);
+    omMetadataManager.getNfsExportLeaseTable().addCacheEntry(new CacheKey<>(exportUuid),
+        CacheValue.get(3L, expiredLease));
+    response = new OMBucketDeleteRequest(createDeleteBucketRequest(volumeName, bucketName))
+        .validateAndUpdateCache(ozoneManager, 4L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.OK, response.getOMResponse().getStatus());
+    assertNull(omMetadataManager.getBucketTable().get(omMetadataManager.getBucketKey(volumeName, bucketName)));
   }
 
   private OMRequest createDeleteBucketRequest(String volumeName,
