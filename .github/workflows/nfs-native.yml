@@ -53,6 +53,8 @@ permissions: { }
 jobs:
   linux-native:
     runs-on: ubuntu-24.04
+    env:
+      MAVEN_OPTS: -Ddevelocity.enabled=false
     permissions:
       contents: read
     steps:
