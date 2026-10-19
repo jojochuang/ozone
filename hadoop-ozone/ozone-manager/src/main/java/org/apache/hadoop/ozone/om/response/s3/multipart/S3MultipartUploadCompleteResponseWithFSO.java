@@ -22,6 +22,7 @@ import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.DIRECTORY_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.FILE_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.MULTIPART_INFO_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.MULTIPART_PARTS_TABLE;
+import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.NFS_OBJECT_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.OPEN_FILE_TABLE;
 
 import jakarta.annotation.Nonnull;
@@ -47,7 +48,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
  * 2) Add file to FileTable,
  * 3) Delete unused parts.
  */
-@CleanupTableInfo(cleanupTables = {OPEN_FILE_TABLE, FILE_TABLE, DELETED_TABLE,
+@CleanupTableInfo(cleanupTables = {OPEN_FILE_TABLE, FILE_TABLE, NFS_OBJECT_TABLE, DELETED_TABLE,
     MULTIPART_INFO_TABLE, MULTIPART_PARTS_TABLE, DIRECTORY_TABLE})
 public class S3MultipartUploadCompleteResponseWithFSO
         extends S3MultipartUploadCompleteResponse {
@@ -56,6 +57,7 @@ public class S3MultipartUploadCompleteResponseWithFSO
   private long bucketId;
 
   private List<OmDirectoryInfo> missingParentInfos;
+  private OmDirectoryInfo nfsParentDirectoryInfo;
 
   private OmMultipartKeyInfo multipartKeyInfo;
 
@@ -72,6 +74,24 @@ public class S3MultipartUploadCompleteResponseWithFSO
       List<OmDirectoryInfo> missingParentInfos,
       OmMultipartKeyInfo multipartKeyInfo,
       List<OmMultipartPartKey> multipartPartKeysToDelete) {
+    this(omResponse, multipartKey, multipartOpenKey, omKeyInfo, allKeyInfoToRemove, bucketLayout,
+        omBucketInfo, volumeId, bucketId, missingParentInfos, multipartKeyInfo, multipartPartKeysToDelete, null);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public S3MultipartUploadCompleteResponseWithFSO(
+      @Nonnull OMResponse omResponse,
+      @Nonnull String multipartKey,
+      @Nonnull String multipartOpenKey,
+      @Nonnull OmKeyInfo omKeyInfo,
+      @Nonnull List<OmKeyInfo> allKeyInfoToRemove,
+      @Nonnull BucketLayout bucketLayout,
+      OmBucketInfo omBucketInfo,
+      @Nonnull long volumeId, @Nonnull long bucketId,
+      List<OmDirectoryInfo> missingParentInfos,
+      OmMultipartKeyInfo multipartKeyInfo,
+      List<OmMultipartPartKey> multipartPartKeysToDelete,
+      OmDirectoryInfo nfsParentDirectoryInfo) {
     super(omResponse, multipartKey, multipartOpenKey, omKeyInfo,
         allKeyInfoToRemove, bucketLayout, omBucketInfo, bucketId,
         multipartPartKeysToDelete);
@@ -79,6 +99,7 @@ public class S3MultipartUploadCompleteResponseWithFSO
     this.bucketId = bucketId;
     this.missingParentInfos = missingParentInfos;
     this.multipartKeyInfo = multipartKeyInfo;
+    this.nfsParentDirectoryInfo = nfsParentDirectoryInfo;
   }
 
   /**
@@ -97,11 +118,7 @@ public class S3MultipartUploadCompleteResponseWithFSO
     if (missingParentInfos != null) {
       // Create missing parent directory entries.
       for (OmDirectoryInfo parentDirInfo : missingParentInfos) {
-        final String parentKey = omMetadataManager.getOzonePathKey(
-            volumeId, bucketId, parentDirInfo.getParentObjectID(),
-            parentDirInfo.getName());
-        omMetadataManager.getDirectoryTable().putWithBatch(batchOperation,
-            parentKey, parentDirInfo);
+        OMFileRequest.addToDirectoryTable(omMetadataManager, batchOperation, parentDirInfo, volumeId, bucketId);
       }
 
       // namespace quota changes for parent directory
@@ -124,6 +141,10 @@ public class S3MultipartUploadCompleteResponseWithFSO
             bucketId);
       }
     }
+
+    if (nfsParentDirectoryInfo != null) {
+      OMFileRequest.addToDirectoryTable(omMetadataManager, batchOperation, nfsParentDirectoryInfo, volumeId, bucketId);
+    }
     super.addToDBBatch(omMetadataManager, batchOperation);
   }
 
@@ -144,4 +165,3 @@ public class S3MultipartUploadCompleteResponseWithFSO
   }
 
 }
-

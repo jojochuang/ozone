@@ -45,6 +45,29 @@ public class TestOzoneFsUtils {
     assertFalse(OzoneFSUtils.isValidName("/a//b"));
   }
 
+  @Test
+  public void testGetFileName() {
+    assertEquals("file", OzoneFSUtils.getFileName("dir/file"));
+    assertEquals("café 文件", OzoneFSUtils.getFileName("dir/café 文件"));
+    assertEquals("dir", OzoneFSUtils.getFileName("dir/"));
+    assertEquals("/", OzoneFSUtils.getFileName("/"));
+  }
+
+  @Test
+  public void testUnicodePathComponents() {
+    assertEquals(1, OzoneFSUtils.getFileCount("file"));
+    assertEquals(2, OzoneFSUtils.getFileCount("dir/file"));
+    assertEquals(1, OzoneFSUtils.getFileCount("café 文件"));
+    assertEquals(2, OzoneFSUtils.getFileCount("dir/café 文件"));
+    assertEquals(0, OzoneFSUtils.getFileCount("/"));
+    assertEquals(1, OzoneFSUtils.getFileCount(""));
+    assertEquals("", OzoneFSUtils.getParentDir("file"));
+    assertEquals("dir", OzoneFSUtils.getParentDir("dir/file/"));
+    assertEquals("dir", OzoneFSUtils.getParentDir("dir/café 文件"));
+    assertEquals("/dir", OzoneFSUtils.getParentDir("/dir/café 文件"));
+    assertEquals("", OzoneFSUtils.getParentDir("/"));
+  }
+
   /**
    * In these scenarios below, OzoneFSUtils.canEnableHsync() should return false:
    * 1. ozone.hbase.enhancements.allowed = false, ozone.fs.hsync.enabled = false

@@ -62,6 +62,7 @@ import org.apache.hadoop.ozone.security.acl.OzoneObjInfo;
 import org.apache.hadoop.ozone.security.acl.RequestContext;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authentication.client.AuthenticationException;
+import org.apache.hadoop.util.Time;
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,7 +116,8 @@ public abstract class OMClientRequest implements RequestAuditor {
   public OMRequest preExecute(OzoneManager ozoneManager)
       throws IOException {
     final OMRequest.Builder requestBuilder = getOmRequest().toBuilder()
-        .setUserInfo(getUserIfNotExists(ozoneManager));
+        .setUserInfo(getUserIfNotExists(ozoneManager))
+        .setLeaderTimeMillis(Time.now());
 
     // VersionManager is always expected in production OzoneManager instances.
     // Some unit tests use a minimal mocked OzoneManager, so perform null check here.

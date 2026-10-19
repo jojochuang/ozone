@@ -231,6 +231,10 @@ public final class OmUtils {
     case ListMultiPartUploadParts:
     case GetFileStatus:
     case LookupFile:
+    case LookupNfsObject:
+    case LookupNfsChildren:
+    case LookupNfsTransferRanges:
+    case LookupNfsFileLease:
     case ListStatus:
     case ListStatusLight:
     case GetAcl:
@@ -329,6 +333,10 @@ public final class OmUtils {
     case SetTimes:
     case AbortExpiredMultiPartUploads:
     case SetSnapshotProperty:
+    case BootstrapNfsObjectIndex:
+    case NfsExportLease:
+    case NfsFileLease:
+    case NfsTransferRange:
     case QuotaRepair:
     case PutObjectTagging:
     case DeleteObjectTagging:
@@ -458,6 +466,14 @@ public final class OmUtils {
     case SetTimes:
     case AbortExpiredMultiPartUploads:
     case SetSnapshotProperty:
+    case BootstrapNfsObjectIndex:
+    case NfsExportLease:
+    case NfsFileLease:
+    case NfsTransferRange:
+    case LookupNfsObject:
+    case LookupNfsChildren:
+    case LookupNfsTransferRanges:
+    case LookupNfsFileLease:
     case QuotaRepair:
     case PutObjectTagging:
     case DeleteObjectTagging:

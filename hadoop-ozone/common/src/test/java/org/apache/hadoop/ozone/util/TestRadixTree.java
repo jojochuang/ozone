@@ -145,4 +145,16 @@ public class TestRadixTree {
     ROOT.removePrefixPath("d/a");
     assertEquals("/" + PATH_BCD.toString(), ROOT.getLongestPrefix(PATH_BCD.toString()));
   }
+
+  @Test
+  public void testUnicodePathComponents() {
+    RadixTree<Integer> tree = new RadixTree<>();
+    tree.insert("ozone/café 文件", 1);
+
+    assertEquals("/ozone/café 文件", tree.getLongestPrefix("ozone/café 文件/child"));
+    assertEquals(1, tree.getLastNodeInPrefixPath("ozone/café 文件").getValue());
+
+    tree.removePrefixPath("ozone/café 文件");
+    assertEquals("/", tree.getLongestPrefix("ozone/café 文件/child"));
+  }
 }

@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.om.response.key;
 
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.BUCKET_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.DIRECTORY_TABLE;
+import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.NFS_OBJECT_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.OPEN_FILE_TABLE;
 
 import jakarta.annotation.Nonnull;
@@ -34,7 +35,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 /**
  * Response for CreateKey request - prefix layout.
  */
-@CleanupTableInfo(cleanupTables = {DIRECTORY_TABLE, OPEN_FILE_TABLE,
+@CleanupTableInfo(cleanupTables = {NFS_OBJECT_TABLE, DIRECTORY_TABLE, OPEN_FILE_TABLE,
     BUCKET_TABLE})
 public class OMKeyCreateResponseWithFSO extends OMFileCreateResponseWithFSO {
 

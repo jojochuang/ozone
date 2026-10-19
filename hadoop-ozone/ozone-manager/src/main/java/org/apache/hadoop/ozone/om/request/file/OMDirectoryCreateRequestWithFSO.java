@@ -26,8 +26,6 @@ import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.OMDirectoryR
 
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.ozone.audit.AuditLogger;
@@ -112,14 +110,11 @@ public class OMDirectoryCreateRequestWithFSO extends OMDirectoryCreateRequest {
 
       validateBucketAndVolume(omMetadataManager, volumeName, bucketName);
 
-      Path keyPath = Paths.get(keyName);
-
       // Need to check if any files exist in the given path, if they exist we
       // cannot create a directory with the given key.
       // Verify the path against directory table
       OMFileRequest.OMPathInfoWithFSO omPathInfo =
-          OMFileRequest.verifyDirectoryKeysInPath(omMetadataManager, volumeName,
-              bucketName, keyName, keyPath);
+          OMFileRequest.verifyDirectoryKeysInPath(omMetadataManager, volumeName, bucketName, keyName);
       OMFileRequest.OMDirectoryResult omDirectoryResult =
           omPathInfo.getDirectoryResult();
 
@@ -156,6 +151,17 @@ public class OMDirectoryCreateRequestWithFSO extends OMDirectoryCreateRequest {
         OMFileRequest.addDirectoryTableCacheEntries(omMetadataManager,
             volumeId, bucketId, trxnLogIndex,
             missingParentInfos, dirInfo);
+        long parentObjectId = dirInfo.getParentObjectID();
+        if (parentObjectId == bucketId) {
+          omBucketInfo = OMFileRequest.updateNfsBucketVerifierCacheEntry(
+              omMetadataManager, omBucketInfo, trxnLogIndex);
+        } else if (missingParentInfos.stream().noneMatch(parent -> parent.getObjectID() == parentObjectId)) {
+          OmDirectoryInfo parent = OMFileRequest.updateNfsDirectoryVerifierCacheEntry(
+              omMetadataManager, volumeId, bucketId, parentObjectId, trxnLogIndex);
+          if (parent != null) {
+            missingParentInfos.add(parent);
+          }
+        }
 
         // Publish only here: createDirectoryInfoWithACL above can still fail with UNAUTHORIZED.
         omMetadataManager.getBucketTable().addCacheEntry(

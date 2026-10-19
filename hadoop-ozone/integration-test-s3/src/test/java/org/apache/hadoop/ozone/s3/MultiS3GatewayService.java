@@ -49,7 +49,8 @@ public class MultiS3GatewayService implements MiniOzoneCluster.Service {
     List<String> urls = new ArrayList<>();
     for (S3GatewayService service : gatewayServices) {
       service.start(conf);
-      String redirectUrl = "http://" + service.getConf().get(S3GatewayConfigKeys.OZONE_S3G_HTTP_ADDRESS_KEY);
+      URI gatewayUri = new URI("http://" + service.getConf().get(S3GatewayConfigKeys.OZONE_S3G_HTTP_ADDRESS_KEY));
+      String redirectUrl = "http://127.0.0.1:" + gatewayUri.getPort();
       urls.add(redirectUrl);
     }
 

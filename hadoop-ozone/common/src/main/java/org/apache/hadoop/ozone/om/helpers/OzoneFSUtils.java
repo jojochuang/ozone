@@ -269,12 +269,15 @@ public final class OzoneFSUtils {
    * name 'file1'.
    */
   public static String getFileName(@Nonnull String keyName) {
-    java.nio.file.Path fileName = Paths.get(keyName).getFileName();
-    if (fileName != null) {
-      return fileName.toString();
+    int end = keyName.length();
+    while (end > 1 && keyName.charAt(end - 1) == '/') {
+      end--;
     }
-    // failed to converts a path key
-    return keyName;
+    if (end == 1 && keyName.charAt(0) == '/') {
+      return keyName;
+    }
+    int separator = keyName.lastIndexOf('/', end - 1);
+    return separator >= 0 ? keyName.substring(separator + 1, end) : keyName.substring(0, end);
   }
 
   /**
@@ -362,12 +365,18 @@ public final class OzoneFSUtils {
    * @return parent directory. If not found then return keyName itself.
    */
   public static String getParentDir(@Nonnull String keyName) {
-    java.nio.file.Path fileName = Paths.get(keyName).getParent();
-    if (fileName != null) {
-      return fileName.toString();
+    int end = keyName.length();
+    while (end > 1 && keyName.charAt(end - 1) == '/') {
+      end--;
     }
-    // no parent directory.
-    return "";
+    if (end == 1 && keyName.charAt(0) == '/') {
+      return "";
+    }
+    int separator = keyName.lastIndexOf('/', end - 1);
+    if (separator == 0) {
+      return "/";
+    }
+    return separator > 0 ? keyName.substring(0, separator) : "";
   }
 
   /**
@@ -392,8 +401,8 @@ public final class OzoneFSUtils {
    * @return path components count
    */
   public static int getFileCount(String keyName) {
-    java.nio.file.Path keyPath = Paths.get(keyName);
-    return keyPath.getNameCount();
+    String[] components = StringUtils.split(keyName, '/');
+    return components == null ? (keyName.isEmpty() ? 1 : 0) : components.length;
   }
 
   public static String removeTrailingSlashIfNeeded(String key) {

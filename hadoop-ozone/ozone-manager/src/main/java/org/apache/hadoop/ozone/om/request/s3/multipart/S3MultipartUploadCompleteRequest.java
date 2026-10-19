@@ -276,6 +276,10 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
       // BUCKET_LOCK is held, so validation and commit are atomic.
       // Only 412 PreconditionFailed is possible; 409 Conflict cannot occur.
       OmKeyInfo existingKeyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(dbOzoneKey);
+      if (existingKeyInfo != null) {
+        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, existingKeyInfo,
+            getOmRequest().getLeaderTimeMillis());
+      }
       validateAtomicRewrite(existingKeyInfo, keyArgs);
       validateIfMatchETag(keyArgs, existingKeyInfo);
 
@@ -425,7 +429,7 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
       OmBucketInfo omBucketInfo,
       long volumeId, long bucketId, List<OmDirectoryInfo> missingParentInfos,
       OmMultipartKeyInfo multipartKeyInfo,
-      List<OmMultipartPartKey> multipartPartKeysToDelete) {
+      List<OmMultipartPartKey> multipartPartKeysToDelete) throws IOException {
 
     return new S3MultipartUploadCompleteResponse(omResponse.build(),
         multipartKey, dbMultipartOpenKey, omKeyInfo, allKeyInfoToRemove,

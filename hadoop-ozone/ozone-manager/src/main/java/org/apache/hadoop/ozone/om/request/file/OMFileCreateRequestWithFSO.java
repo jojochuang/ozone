@@ -20,8 +20,6 @@ package org.apache.hadoop.ozone.om.request.file;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.LeveledResource.BUCKET_LOCK;
 
 import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +37,15 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.om.response.file.OMFileCreateResponseWithFSO;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateFileRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateFileResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFileCreateRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFileCreateResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
@@ -101,6 +102,10 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
     int numKeysCreated = 0;
 
     OMClientResponse omClientResponse = null;
+    OmNfsLeaseInfo nfsFileLease = null;
+    OmNfsLeaseInfo nfsExportLease = null;
+    NfsFileCreateRequest nfsFileCreateRequest = null;
+    String nfsFileLeaseKey = null;
     OMResponse.Builder omResponse = OmResponseUtil.getOMResponseBuilder(
         getOmRequest());
     Exception exception = null;
@@ -127,7 +132,7 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
 
       OMFileRequest.OMPathInfoWithFSO pathInfoFSO =
               OMFileRequest.verifyDirectoryKeysInPath(omMetadataManager,
-                      volumeName, bucketName, keyName, Paths.get(keyName));
+                      volumeName, bucketName, keyName);
 
       if (pathInfoFSO.getDirectoryResult()
               == OMFileRequest.OMDirectoryResult.FILE_EXISTS) {
@@ -136,11 +141,35 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
                 pathInfoFSO.getLeafNodeName());
         dbFileInfo = OMFileRequest.getOmKeyInfoFromFileTable(false,
                 omMetadataManager, dbFileKey, keyName);
+        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, dbFileInfo,
+            getOmRequest().getLeaderTimeMillis());
       }
 
       // check if the file or directory already existed in OM
       checkDirectoryResult(keyName, isOverWrite,
               pathInfoFSO.getDirectoryResult());
+
+      if (createFileRequest.hasNfsFileCreateRequest()) {
+        nfsFileCreateRequest = createFileRequest.getNfsFileCreateRequest();
+        if (isOverWrite || dbFileInfo != null) {
+          throw new OMException("NFS writer leases only support creating a new file",
+              OMException.ResultCodes.NOT_SUPPORTED_OPERATION);
+        }
+        if (!omMetadataManager.isNfsWriterLeaseEnabled() || !omMetadataManager.isNfsObjectIndexReady()) {
+          throw new OMException("NFS writer lease feature is not ready",
+              OMException.ResultCodes.NOT_SUPPORTED_OPERATION);
+        }
+        String exportLeaseKey = omMetadataManager.getNfsExportLeaseKey(nfsFileCreateRequest.getExportUUID());
+        nfsExportLease = omMetadataManager.getNfsExportLeaseTable().get(exportLeaseKey);
+        if (nfsExportLease == null
+            || !nfsExportLease.getProtobuf().getGatewayID().equals(nfsFileCreateRequest.getGatewayID())
+            || nfsExportLease.getProtobuf().getGatewayGeneration() != nfsFileCreateRequest.getGatewayGeneration()
+            || nfsExportLease.getProtobuf().getVolumeID() != volumeId
+            || nfsExportLease.getProtobuf().getBucketID() != bucketId) {
+          throw new OMException("NFS export owner is stale or bound to another bucket",
+              OMException.ResultCodes.NFS_LEASE_CONFLICT);
+        }
+      }
 
       if (!isRecursive) {
         checkAllParentsExist(keyArgs, pathInfoFSO);
@@ -153,6 +182,15 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
 
       missingParentInfos = getAllMissingParentDirInfo(
           ozoneManager, keyArgs, bucketInfo, pathInfoFSO, trxnLogIndex);
+      if (nfsFileCreateRequest != null) {
+        long objectId = pathInfoFSO.getLeafNodeObjectId();
+        nfsFileLeaseKey = omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, objectId);
+        nfsFileLease = OmNfsLeaseInfo.acquireFileLease(
+            omMetadataManager.getNfsFileLeaseTable().get(nfsFileLeaseKey), nfsExportLease, objectId,
+            nfsFileCreateRequest.getTransferID(), getOmRequest().getUserInfo().getUserName(),
+            nfsFileCreateRequest.getOwnerToken(),
+            nfsFileCreateRequest.getLeaderTimeMillis(), nfsFileCreateRequest.getLeaseDurationMillis());
+      }
 
       // total number of keys created.
       numKeysCreated = missingParentInfos.size();
@@ -204,6 +242,19 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
       // Skip adding for the file key itself, until Key Commit.
       OMFileRequest.addDirectoryTableCacheEntries(omMetadataManager, volumeId,
               bucketId, trxnLogIndex, missingParentInfos, null);
+      if (!missingParentInfos.isEmpty()) {
+        long parentObjectId = missingParentInfos.get(0).getParentObjectID();
+        if (parentObjectId == bucketId) {
+          omBucketInfo = OMFileRequest.updateNfsBucketVerifierCacheEntry(
+              omMetadataManager, omBucketInfo, trxnLogIndex);
+        } else {
+          OmDirectoryInfo parent = OMFileRequest.updateNfsDirectoryVerifierCacheEntry(
+              omMetadataManager, volumeId, bucketId, parentObjectId, trxnLogIndex);
+          if (parent != null) {
+            missingParentInfos.add(0, parent);
+          }
+        }
+      }
 
       omMetadataManager.getBucketTable().addCacheEntry(
           omMetadataManager.getBucketKey(volumeName, bucketName), omBucketInfo, trxnLogIndex);
@@ -211,20 +262,29 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
       // Prepare response. Sets user given full key name in the 'keyName'
       // attribute in response object.
       int clientVersion = getOmRequest().getVersion();
-      omResponse.setCreateFileResponse(CreateFileResponse.newBuilder()
+      CreateFileResponse.Builder createFileResponse = CreateFileResponse.newBuilder()
           .setKeyInfo(omFileInfo.getNetworkProtobuf(keyName, clientVersion,
               keyArgs.getLatestVersionLocation()))
           .setID(clientID)
-          .setOpenVersion(openVersion).build())
-          .setCmdType(Type.CreateFile);
+          .setOpenVersion(openVersion);
+      if (nfsFileLease != null) {
+        createFileResponse.setNfsFileCreateResponse(toNfsFileCreateResponse(nfsFileLease));
+        omMetadataManager.getNfsFileLeaseTable().addCacheEntry(nfsFileLeaseKey, nfsFileLease, trxnLogIndex);
+      }
+      omResponse.setCreateFileResponse(createFileResponse.build()).setCmdType(Type.CreateFile);
       omClientResponse = new OMFileCreateResponseWithFSO(omResponse.build(),
               omFileInfo, missingParentInfos, clientID,
-              omBucketInfo.copyObject(), volumeId);
+              omBucketInfo.copyObject(), volumeId, nfsFileLeaseKey, nfsFileLease);
 
       result = Result.SUCCESS;
-    } catch (IOException | InvalidPathException ex) {
+    } catch (IOException | IllegalArgumentException | IllegalStateException | ArithmeticException ex) {
       result = Result.FAILURE;
       exception = ex;
+      if (ex instanceof IllegalStateException) {
+        exception = new OMException(ex.getMessage(), OMException.ResultCodes.NFS_LEASE_CONFLICT);
+      } else if (ex instanceof IllegalArgumentException || ex instanceof ArithmeticException) {
+        exception = new OMException(ex.getMessage(), OMException.ResultCodes.INVALID_REQUEST);
+      }
       omMetrics.incNumCreateFileFails();
       omResponse.setCmdType(Type.CreateFile);
       omClientResponse = new OMFileCreateResponseWithFSO(createErrorOMResponse(
@@ -260,5 +320,13 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
     }
 
     return omClientResponse;
+  }
+
+  private static NfsFileCreateResponse toNfsFileCreateResponse(OmNfsLeaseInfo lease) {
+    return NfsFileCreateResponse.newBuilder().setObjectID(lease.getProtobuf().getObjectID())
+        .setGatewayGeneration(lease.getProtobuf().getGatewayGeneration())
+        .setGeneration(lease.getProtobuf().getGeneration())
+        .setExpiresAtMillis(lease.getProtobuf().getExpiresAtMillis())
+        .setOwnerToken(lease.getProtobuf().getOwnerToken()).build();
   }
 }

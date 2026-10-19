@@ -20,6 +20,8 @@ package org.apache.hadoop.ozone.om.response.key;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.BUCKET_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.DELETED_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.FILE_TABLE;
+import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.NFS_FILE_LEASE_TABLE;
+import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.NFS_OBJECT_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.OPEN_FILE_TABLE;
 
 import jakarta.annotation.Nonnull;
@@ -29,7 +31,9 @@ import org.apache.hadoop.hdds.utils.db.BatchOperation;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.RepeatedOmKeyInfo;
 import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
 import org.apache.hadoop.ozone.om.response.CleanupTableInfo;
@@ -38,11 +42,15 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 /**
  * Response for CommitKey request - prefix layout1.
  */
-@CleanupTableInfo(cleanupTables = {OPEN_FILE_TABLE, FILE_TABLE, DELETED_TABLE,
+@CleanupTableInfo(cleanupTables = {OPEN_FILE_TABLE, FILE_TABLE, NFS_OBJECT_TABLE, NFS_FILE_LEASE_TABLE, DELETED_TABLE,
     BUCKET_TABLE})
 public class OMKeyCommitResponseWithFSO extends OMKeyCommitResponse {
 
   private long volumeId;
+  private Long replacedObjectId;
+  private OmDirectoryInfo nfsParentDirectoryInfo;
+  private String nfsFileLeaseKey;
+  private OmNfsLeaseInfo nfsFileLease;
 
   @SuppressWarnings("checkstyle:ParameterNumber")
   public OMKeyCommitResponseWithFSO(
@@ -53,9 +61,45 @@ public class OMKeyCommitResponseWithFSO extends OMKeyCommitResponse {
       Map<String, RepeatedOmKeyInfo> deleteKeyMap, long volumeId,
       boolean isHSync,
       OmKeyInfo newOpenKeyInfo, String openKeyNameToUpdate, OmKeyInfo openKeyToUpdate) {
+    this(omResponse, omKeyInfo, ozoneKeyName, openKeyName, omBucketInfo, deleteKeyMap, volumeId,
+        isHSync, newOpenKeyInfo, openKeyNameToUpdate, openKeyToUpdate, null);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OMKeyCommitResponseWithFSO(
+      @Nonnull OMResponse omResponse, @Nonnull OmKeyInfo omKeyInfo,
+      String ozoneKeyName, String openKeyName, @Nonnull OmBucketInfo omBucketInfo,
+      Map<String, RepeatedOmKeyInfo> deleteKeyMap, long volumeId, boolean isHSync,
+      OmKeyInfo newOpenKeyInfo, String openKeyNameToUpdate, OmKeyInfo openKeyToUpdate, Long replacedObjectId) {
+    this(omResponse, omKeyInfo, ozoneKeyName, openKeyName, omBucketInfo, deleteKeyMap, volumeId, isHSync,
+        newOpenKeyInfo, openKeyNameToUpdate, openKeyToUpdate, replacedObjectId, null);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OMKeyCommitResponseWithFSO(
+      @Nonnull OMResponse omResponse, @Nonnull OmKeyInfo omKeyInfo,
+      String ozoneKeyName, String openKeyName, @Nonnull OmBucketInfo omBucketInfo,
+      Map<String, RepeatedOmKeyInfo> deleteKeyMap, long volumeId, boolean isHSync,
+      OmKeyInfo newOpenKeyInfo, String openKeyNameToUpdate, OmKeyInfo openKeyToUpdate, Long replacedObjectId,
+      OmDirectoryInfo nfsParentDirectoryInfo) {
+    this(omResponse, omKeyInfo, ozoneKeyName, openKeyName, omBucketInfo, deleteKeyMap, volumeId, isHSync,
+        newOpenKeyInfo, openKeyNameToUpdate, openKeyToUpdate, replacedObjectId, nfsParentDirectoryInfo, null, null);
+  }
+
+  @SuppressWarnings("checkstyle:ParameterNumber")
+  public OMKeyCommitResponseWithFSO(
+      @Nonnull OMResponse omResponse, @Nonnull OmKeyInfo omKeyInfo,
+      String ozoneKeyName, String openKeyName, @Nonnull OmBucketInfo omBucketInfo,
+      Map<String, RepeatedOmKeyInfo> deleteKeyMap, long volumeId, boolean isHSync,
+      OmKeyInfo newOpenKeyInfo, String openKeyNameToUpdate, OmKeyInfo openKeyToUpdate, Long replacedObjectId,
+      OmDirectoryInfo nfsParentDirectoryInfo, String nfsFileLeaseKey, OmNfsLeaseInfo nfsFileLease) {
     super(omResponse, omKeyInfo, ozoneKeyName, openKeyName,
         omBucketInfo, deleteKeyMap, isHSync, newOpenKeyInfo, openKeyNameToUpdate, openKeyToUpdate);
     this.volumeId = volumeId;
+    this.replacedObjectId = replacedObjectId;
+    this.nfsParentDirectoryInfo = nfsParentDirectoryInfo;
+    this.nfsFileLeaseKey = nfsFileLeaseKey;
+    this.nfsFileLease = nfsFileLease;
   }
 
   /**
@@ -81,8 +125,19 @@ public class OMKeyCommitResponseWithFSO extends OMKeyCommitResponse {
           batchOperation, getOpenKeyName(), getNewOpenKeyInfo());
     }
 
+    if (replacedObjectId != null && replacedObjectId != getOmKeyInfo().getObjectID()) {
+      OMFileRequest.deleteNfsObjectFromDB(omMetadataManager, batchOperation,
+          volumeId, getOmBucketInfo().getObjectID(), replacedObjectId);
+    }
     OMFileRequest.addToFileTable(omMetadataManager, batchOperation,
         getOmKeyInfo(), volumeId, getOmBucketInfo().getObjectID());
+    if (nfsParentDirectoryInfo != null) {
+      OMFileRequest.addToDirectoryTable(omMetadataManager, batchOperation, nfsParentDirectoryInfo,
+          volumeId, getOmBucketInfo().getObjectID());
+    }
+    if (nfsFileLease != null) {
+      omMetadataManager.getNfsFileLeaseTable().putWithBatch(batchOperation, nfsFileLeaseKey, nfsFileLease);
+    }
 
     updateDeletedTable(omMetadataManager, batchOperation);
     handleOpenKeyToUpdate(omMetadataManager, batchOperation);

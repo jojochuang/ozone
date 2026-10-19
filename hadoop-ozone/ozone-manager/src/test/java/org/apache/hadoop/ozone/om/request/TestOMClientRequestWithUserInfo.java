@@ -126,6 +126,8 @@ public class TestOMClientRequestWithUserInfo {
           omBucketCreateRequest.preExecute(ozoneManager);
 
       assertTrue(modifiedRequest.hasUserInfo());
+      assertTrue(modifiedRequest.hasLeaderTimeMillis());
+      assertTrue(modifiedRequest.getLeaderTimeMillis() > 0);
 
       // Now pass modified request to OMBucketCreateRequest and check ugi and
       // remote Address.

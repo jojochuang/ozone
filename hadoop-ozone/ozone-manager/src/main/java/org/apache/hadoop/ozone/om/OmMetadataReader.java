@@ -25,6 +25,7 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_FS_LISTING_PAGE_SIZE
 import static org.apache.hadoop.ozone.om.OzoneManager.getS3Auth;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.INVALID_REQUEST;
+import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.LeveledResource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.util.MetricUtil.captureLatencyNs;
 
 import java.io.IOException;
@@ -44,8 +45,12 @@ import org.apache.hadoop.ozone.audit.AuditLogger;
 import org.apache.hadoop.ozone.audit.AuditMessage;
 import org.apache.hadoop.ozone.audit.Auditor;
 import org.apache.hadoop.ozone.audit.OMAction;
+import org.apache.hadoop.ozone.nfs.NfsChildrenPage;
+import org.apache.hadoop.ozone.nfs.NfsFileHandle;
+import org.apache.hadoop.ozone.nfs.NfsObjectLookup;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.BasicOmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.KeyInfoWithVolumeContext;
 import org.apache.hadoop.ozone.om.helpers.ListKeysLightResult;
 import org.apache.hadoop.ozone.om.helpers.ListKeysResult;
@@ -53,12 +58,21 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketArgs;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsObjectInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsTransferRangeInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatusLight;
 import org.apache.hadoop.ozone.om.helpers.S3VolumeContext;
 import org.apache.hadoop.ozone.om.protocolPB.grpc.GrpcClientConstants;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
+import org.apache.hadoop.ozone.om.request.file.OMFileRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.LookupNfsFileLeaseRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.LookupNfsFileLeaseResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.LookupNfsTransferRangesRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.LookupNfsTransferRangesResponse;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsTransferRangeEntry;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.S3Authentication;
 import org.apache.hadoop.ozone.security.STSTokenIdentifier;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
@@ -112,6 +126,409 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
     this.perfMetrics = ozoneManager.getPerfMetrics();
     this.accessAuthorizer = accessAuthorizer != null ? accessAuthorizer
         : OzoneAccessAuthorizer.get();
+  }
+
+  @Override
+  public OzoneFileStatus lookupNfsObject(OmKeyArgs args, long volumeId, long bucketId, long objectId,
+      NfsFileHandle.Kind kind) throws IOException {
+    return lookupNfsObjectDetails(args, volumeId, bucketId, objectId, kind).getStatus();
+  }
+
+  @Override
+  public NfsObjectLookup lookupNfsObjectDetails(OmKeyArgs args, long volumeId, long bucketId, long objectId,
+      NfsFileHandle.Kind kind) throws IOException {
+    OMMetadataManager manager = keyManager.getMetadataManager();
+    Map<String, String> auditMap = args.toAuditMap();
+    auditMap.put("volumeID", Long.toString(volumeId));
+    auditMap.put("bucketID", Long.toString(bucketId));
+    auditMap.put("objectID", Long.toString(objectId));
+    boolean success = false;
+    String volumeOwner = isAclEnabled
+        ? ozoneManager.getVolumeOwner(args.getVolumeName(), ACLType.READ, ResourceType.KEY) : null;
+    try {
+      for (int attempt = 0; attempt < 3; attempt++) {
+        String path;
+        String bucketOwner = null;
+        manager.getLock().acquireReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        try {
+          if (args.getKeyName() != null && !args.getKeyName().isEmpty()) {
+            throw new OMException("NFS identity lookup does not accept a path", INVALID_REQUEST);
+          }
+          path = OMFileRequest.getNfsObjectPath(manager, args.getVolumeName(), args.getBucketName(),
+              volumeId, bucketId, objectId, kind);
+          if (isAclEnabled) {
+            OmBucketInfo bucket = manager.getBucketTable().get(
+                manager.getBucketKey(args.getVolumeName(), args.getBucketName()));
+            bucketOwner = bucket.getOwner();
+          }
+        } finally {
+          manager.getLock().releaseReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        }
+
+        OmKeyArgs resolved = args.toBuilder().setKeyName(path).build();
+        auditMap.put(OzoneConsts.KEY, path);
+        if (isAclEnabled) {
+          checkAcls(getResourceType(resolved), StoreType.OZONE, ACLType.READ,
+              resolved.getVolumeName(), resolved.getBucketName(), path, volumeOwner, bucketOwner);
+        }
+
+        manager.getLock().acquireReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        try {
+          String currentPath = OMFileRequest.getNfsObjectPath(manager, args.getVolumeName(), args.getBucketName(),
+              volumeId, bucketId, objectId, kind);
+          if (!path.equals(currentPath)) {
+            continue;
+          }
+          metrics.incNumGetFileStatus();
+          OzoneFileStatus status = keyManager.getFileStatus(
+              resolved.toBuilder().setHeadOp(true).build(), getClientAddress());
+          long changeId;
+          if (kind == NfsFileHandle.Kind.BUCKET) {
+            OmBucketInfo bucket = manager.getBucketTable().get(
+                manager.getBucketKey(args.getVolumeName(), args.getBucketName()));
+            if (bucket == null) {
+              throw new OMException("Bucket not found", ResultCodes.BUCKET_NOT_FOUND);
+            }
+            changeId = bucket.getUpdateID();
+          } else {
+            changeId = status.getKeyInfo() == null ? 0 : status.getKeyInfo().getUpdateID();
+          }
+          if (kind != NfsFileHandle.Kind.BUCKET && (status.getKeyInfo() == null
+              || status.getKeyInfo().getObjectID() != objectId
+              || status.isFile() != (kind == NfsFileHandle.Kind.FILE))) {
+            throw new OMException("NFS status does not match object identity", ResultCodes.FILE_NOT_FOUND);
+          }
+          if (kind == NfsFileHandle.Kind.FILE && !args.isHeadOp()) {
+            OmKeyInfo file = keyManager.lookupFile(resolved, getClientAddress());
+            if (file.getObjectID() != objectId) {
+              throw new OMException("NFS file identity changed", ResultCodes.FILE_NOT_FOUND);
+            }
+            status = new OzoneFileStatus(file, status.getBlockSize(), false);
+            changeId = file.getUpdateID();
+          }
+          success = true;
+          return new NfsObjectLookup(status, changeId);
+        } finally {
+          manager.getLock().releaseReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        }
+      }
+      throw new OMException("NFS object changed during lookup", ResultCodes.FILE_NOT_FOUND);
+    } catch (IOException ex) {
+      metrics.incNumGetFileStatusFails();
+      audit.logReadFailure(buildAuditMessageForFailure(OMAction.LOOKUP_NFS_OBJECT, auditMap, ex));
+      throw ex;
+    } finally {
+      if (success) {
+        audit.logReadSuccess(buildAuditMessageForSuccess(OMAction.LOOKUP_NFS_OBJECT, auditMap));
+      }
+    }
+  }
+
+  @Override
+  public NfsChildrenPage lookupNfsChildren(OmKeyArgs args, long volumeId, long bucketId, long parentObjectId,
+      NfsFileHandle.Kind parentKind, String name, Integer maxEntries, Long startAfterObjectId, Long verifier)
+      throws IOException {
+    OMMetadataManager manager = keyManager.getMetadataManager();
+    Map<String, String> auditMap = args.toAuditMap();
+    auditMap.put("volumeID", Long.toString(volumeId));
+    auditMap.put("bucketID", Long.toString(bucketId));
+    auditMap.put("parentObjectID", Long.toString(parentObjectId));
+    boolean success = false;
+    String volumeOwner = isAclEnabled
+        ? ozoneManager.getVolumeOwner(args.getVolumeName(), ACLType.READ, ResourceType.KEY) : null;
+    try {
+      if (args.getKeyName() != null && !args.getKeyName().isEmpty()) {
+        throw new OMException("NFS child lookup does not accept a path", INVALID_REQUEST);
+      }
+      if (parentKind != NfsFileHandle.Kind.BUCKET && parentKind != NfsFileHandle.Kind.DIRECTORY) {
+        throw new OMException("NFS parent handle is not a directory", INVALID_REQUEST);
+      }
+      validateNfsChildRequest(name, maxEntries, startAfterObjectId, verifier);
+      for (int attempt = 0; attempt < 3; attempt++) {
+        String parentPath;
+        manager.getLock().acquireReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        try {
+          parentPath = OMFileRequest.getNfsObjectPath(manager, args.getVolumeName(), args.getBucketName(),
+              volumeId, bucketId, parentObjectId, parentKind);
+        } finally {
+          manager.getLock().releaseReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        }
+
+        OmKeyArgs parentArgs = args.toBuilder().setKeyName(parentPath).setHeadOp(true)
+            .setSortDatanodesInPipeline(false).build();
+        ResolvedBucket bucket = ozoneManager.resolveBucketLink(parentArgs);
+        parentArgs = bucket.update(parentArgs);
+        auditMap.put(OzoneConsts.KEY, parentPath);
+        if (isAclEnabled) {
+          checkListStatusAcls(parentArgs, bucket, volumeOwner);
+        }
+
+        String childPath = name == null ? null : parentPath.isEmpty() ? name
+            : OzoneFSUtils.appendFileNameToKeyPath(parentPath, name);
+        if (childPath != null && isAclEnabled) {
+          checkAcls(getResourceType(parentArgs.toBuilder().setKeyName(childPath).build()), StoreType.OZONE,
+              ACLType.READ, bucket, childPath, volumeOwner);
+        }
+
+        manager.getLock().acquireReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        try {
+          String currentParentPath = OMFileRequest.getNfsObjectPath(manager, args.getVolumeName(),
+              args.getBucketName(), volumeId, bucketId, parentObjectId, parentKind);
+          if (!parentPath.equals(currentParentPath)) {
+            continue;
+          }
+
+          long currentVerifier;
+          if (parentKind == NfsFileHandle.Kind.BUCKET) {
+            OmBucketInfo bucketInfo = manager.getBucketTable().get(manager.getBucketKey(
+                parentArgs.getVolumeName(), parentArgs.getBucketName()));
+            currentVerifier = bucketInfo.getUpdateID();
+          } else {
+            OzoneFileStatus parentStatus = keyManager.getFileStatus(parentArgs, getClientAddress());
+            if (!parentStatus.isDirectory() || parentStatus.getKeyInfo() == null
+                || parentStatus.getKeyInfo().getObjectID() != parentObjectId) {
+              throw new OMException("NFS directory identity is stale", ResultCodes.FILE_NOT_FOUND);
+            }
+            currentVerifier = parentStatus.getKeyInfo().getUpdateID();
+          }
+
+          if (verifier != null && verifier.longValue() != currentVerifier) {
+            throw new OMException("NFS directory changed during listing", ResultCodes.NFS_DIRECTORY_CHANGED);
+          }
+          if (name != null) {
+            OmKeyArgs childArgs = parentArgs.toBuilder().setKeyName(childPath).build();
+            OzoneFileStatus child = keyManager.getFileStatus(childArgs.toBuilder().setHeadOp(true).build(),
+                getClientAddress());
+            success = true;
+            return new NfsChildrenPage(java.util.Collections.singletonList(child), currentVerifier, true);
+          }
+
+          final String startAfterName;
+          if (startAfterObjectId != null) {
+            OmNfsObjectInfo cursor = manager.getNfsObjectTable().get(
+                manager.getNfsObjectKey(volumeId, bucketId, startAfterObjectId));
+            if (cursor == null || cursor.getParentObjectID() != parentObjectId) {
+              throw new OMException("NFS directory cursor is stale", ResultCodes.INVALID_REQUEST);
+            }
+            startAfterName = cursor.getName();
+          } else {
+            startAfterName = null;
+          }
+          String startKey = startAfterName == null ? null : parentPath.isEmpty() ? startAfterName
+              : OzoneFSUtils.appendFileNameToKeyPath(parentPath, startAfterName);
+          List<OzoneFileStatus> listed = keyManager.listStatus(parentArgs.toBuilder().setHeadOp(false).build(),
+              false, startKey, maxEntries + 1L, getClientAddress(), false, false);
+          List<OzoneFileStatus> children = listed.stream()
+              .filter(status -> startAfterName == null
+                  || status.getKeyInfo().getFileName().compareTo(startAfterName) > 0)
+              .collect(Collectors.toList());
+          boolean eof = children.size() <= maxEntries;
+          if (!eof) {
+            children = children.subList(0, maxEntries);
+          }
+          success = true;
+          return new NfsChildrenPage(children, currentVerifier, eof);
+        } finally {
+          manager.getLock().releaseReadLock(BUCKET_LOCK, args.getVolumeName(), args.getBucketName());
+        }
+      }
+      throw new OMException("NFS directory changed during child lookup", ResultCodes.FILE_NOT_FOUND);
+    } catch (IOException ex) {
+      audit.logReadFailure(buildAuditMessageForFailure(OMAction.LOOKUP_NFS_CHILDREN, auditMap, ex));
+      throw ex;
+    } finally {
+      if (success) {
+        audit.logReadSuccess(buildAuditMessageForSuccess(OMAction.LOOKUP_NFS_CHILDREN, auditMap));
+      }
+    }
+  }
+
+  @Override
+  public LookupNfsTransferRangesResponse lookupNfsTransferRanges(OmKeyArgs args,
+      LookupNfsTransferRangesRequest request) throws IOException {
+    OMMetadataManager metadataManager = keyManager.getMetadataManager();
+    if (!request.isInitialized() || request.getObjectID() == 0 || request.getLeaseGeneration() == 0
+        || request.getOwnerToken().isEmpty() || request.getRequesterPrincipal().isEmpty()) {
+      throw new OMException("NFS range lookup identity is incomplete", INVALID_REQUEST);
+    }
+    int maxEntries = request.hasMaxEntries() ? request.getMaxEntries() : 256;
+    if (maxEntries < 1 || maxEntries > 1000) {
+      throw new OMException("NFS range lookup page size is invalid", INVALID_REQUEST);
+    }
+    Map<String, String> auditMap = args.toAuditMap();
+    auditMap.put("exportUUID", request.getExportUUID());
+    auditMap.put("objectID", Long.toUnsignedString(request.getObjectID()));
+    boolean success = false;
+    // This internal gateway read is authorized by the active file lease and its recorded caller principal.
+    metadataManager.getLock().acquireReadLock(BUCKET_LOCK, request.getVolumeName(), request.getBucketName());
+    try {
+      if (!metadataManager.isNfsDurableWriteRangesEnabled() || !metadataManager.isNfsObjectIndexReady()) {
+        throw new OMException("NFS durable write ranges are not enabled", ResultCodes.NOT_SUPPORTED_OPERATION);
+      }
+      OmBucketInfo bucket = metadataManager.getBucketTable().get(
+          metadataManager.getBucketKey(request.getVolumeName(), request.getBucketName()));
+      if (bucket == null || bucket.getObjectID() != request.getBucketID()
+          || metadataManager.getVolumeId(request.getVolumeName()) != request.getVolumeID()) {
+        throw new OMException("NFS range lookup bucket identity changed", ResultCodes.BUCKET_NOT_FOUND);
+      }
+      if (bucket.getBucketLayout() != BucketLayout.FILE_SYSTEM_OPTIMIZED) {
+        throw new OMException("NFS durable writes require a native FSO bucket", ResultCodes.NOT_SUPPORTED_OPERATION);
+      }
+      OmNfsLeaseInfo exportLease = metadataManager.getNfsExportLeaseTable().get(
+          metadataManager.getNfsExportLeaseKey(request.getExportUUID()));
+      String fileLeaseKey = metadataManager.getNfsFileLeaseKey(request.getVolumeID(), request.getBucketID(),
+          request.getObjectID());
+      OmNfsLeaseInfo fileLease = metadataManager.getNfsFileLeaseTable().get(fileLeaseKey);
+      try {
+        if (fileLease == null || !request.getRequesterPrincipal().equals(fileLease.getOwnerPrincipal())) {
+          throw new IllegalStateException("NFS file lease principal does not match");
+        }
+        fileLease.validateFileCommit(exportLease, request.getExportUUID(), request.getGatewayID(),
+            request.getGatewayGeneration(), request.getTransferID(), request.getLeaseGeneration(),
+            request.getOwnerToken(), System.currentTimeMillis());
+      } catch (IllegalStateException conflict) {
+        throw new OMException(conflict.getMessage(), ResultCodes.NFS_LEASE_CONFLICT);
+      }
+      String prefix = metadataManager.getNfsObjectKey(request.getVolumeID(), request.getBucketID(),
+          request.getObjectID()) + "/" + request.getExportUUID() + "/";
+      String marker = request.hasStartAfterKey() ? request.getStartAfterKey() : "";
+      if (!marker.isEmpty() && !marker.startsWith(prefix)) {
+        throw new OMException("NFS range lookup marker is invalid", INVALID_REQUEST);
+      }
+      LookupNfsTransferRangesResponse.Builder response = LookupNfsTransferRangesResponse.newBuilder();
+      String lastKey = null;
+      boolean more = false;
+      try (org.apache.hadoop.hdds.utils.db.Table.KeyValueIterator<String, OmNfsTransferRangeInfo> iterator =
+               metadataManager.getNfsTransferRangeTable().iterator(prefix,
+                   org.apache.hadoop.hdds.utils.db.IteratorType.KEY_AND_VALUE)) {
+        while (iterator.hasNext()) {
+          org.apache.hadoop.hdds.utils.db.Table.KeyValue<String, OmNfsTransferRangeInfo> entry = iterator.next();
+          if (entry.getKey().compareTo(marker) <= 0) {
+            continue;
+          }
+          if (response.getRangesCount() == maxEntries) {
+            more = true;
+            break;
+          }
+          OmNfsTransferRangeInfo range = entry.getValue();
+          if (!range.getExportUUID().equals(request.getExportUUID())
+              || range.getVolumeID() != request.getVolumeID() || range.getBucketID() != request.getBucketID()
+              || range.getObjectID() != request.getObjectID()
+              || !range.getTransferID().equals(request.getTransferID())) {
+            continue;
+          }
+          org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos.PersistedNfsTransferRangeInfo.State
+              rangeState = range.getState();
+          boolean cleanupWork = rangeState == org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos
+              .PersistedNfsTransferRangeInfo.State.CLEANUP_PENDING
+              || rangeState == org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos
+              .PersistedNfsTransferRangeInfo.State.PENDING_STAGE
+              && range.getLeaseGeneration() < request.getLeaseGeneration();
+          if (rangeState != org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos
+              .PersistedNfsTransferRangeInfo.State.RECORDED && !cleanupWork) {
+            continue;
+          }
+          response.addRanges(NfsTransferRangeEntry.newBuilder().setLeaseGeneration(range.getLeaseGeneration())
+              .setOffset(range.getOffset()).setLength(range.getLength()).setTransferID(range.getTransferID())
+              .setStagingKey(range.getStagingKey()).setSha256(range.getSha256())
+              .setTransactionIndex(range.getTransactionIndex())
+              .setState(NfsTransferRangeEntry.State.valueOf(rangeState.name())));
+          lastKey = entry.getKey();
+        }
+      }
+      response.setEof(!more);
+      if (more && lastKey != null) {
+        response.setNextMarker(lastKey);
+      }
+      success = true;
+      return response.build();
+    } finally {
+      metadataManager.getLock().releaseReadLock(BUCKET_LOCK, request.getVolumeName(), request.getBucketName());
+      if (success) {
+        audit.logReadSuccess(buildAuditMessageForSuccess(OMAction.NFS_TRANSFER_RANGE, auditMap));
+      }
+    }
+  }
+
+  @Override
+  public LookupNfsFileLeaseResponse lookupNfsFileLease(OmKeyArgs args, LookupNfsFileLeaseRequest request)
+      throws IOException {
+    if (!request.isInitialized() || request.getExportUUID().isEmpty() || request.getVolumeID() == 0
+        || request.getBucketID() == 0 || request.getObjectID() == 0 || request.getRequesterPrincipal().isEmpty()
+        || request.getGatewayID().isEmpty() || request.getGatewayGeneration() == 0) {
+      throw new OMException("NFS file lease lookup identity is incomplete", INVALID_REQUEST);
+    }
+    UserGroupInformation remoteUser = getRemoteUser();
+    if (remoteUser == null || !request.getRequesterPrincipal().equals(remoteUser.getShortUserName())) {
+      throw new OMException("NFS file lease lookup caller does not match the authenticated user",
+          ResultCodes.PERMISSION_DENIED);
+    }
+    // The lease state is exposed only after OM authorizes the caller to read this file.
+    lookupNfsObjectDetails(args, request.getVolumeID(), request.getBucketID(), request.getObjectID(),
+        NfsFileHandle.Kind.FILE);
+    OMMetadataManager metadataManager = keyManager.getMetadataManager();
+    Map<String, String> auditMap = args.toAuditMap();
+    auditMap.put("exportUUID", request.getExportUUID());
+    auditMap.put("objectID", Long.toUnsignedString(request.getObjectID()));
+    boolean success = false;
+    metadataManager.getLock().acquireReadLock(BUCKET_LOCK, request.getVolumeName(), request.getBucketName());
+    try {
+      if (!metadataManager.isNfsWriterLeaseEnabled() || !metadataManager.isNfsObjectIndexReady()) {
+        throw new OMException("NFS file lease lookup is not enabled", ResultCodes.NOT_SUPPORTED_OPERATION);
+      }
+      OmBucketInfo bucket = metadataManager.getBucketTable().get(
+          metadataManager.getBucketKey(request.getVolumeName(), request.getBucketName()));
+      if (bucket == null || bucket.getObjectID() != request.getBucketID()
+          || metadataManager.getVolumeId(request.getVolumeName()) != request.getVolumeID()) {
+        throw new OMException("NFS file lease lookup bucket identity changed", ResultCodes.BUCKET_NOT_FOUND);
+      }
+      if (bucket.getBucketLayout() != BucketLayout.FILE_SYSTEM_OPTIMIZED) {
+        throw new OMException("NFS file leases require a native FSO bucket", ResultCodes.NOT_SUPPORTED_OPERATION);
+      }
+      String exportKey = metadataManager.getNfsExportLeaseKey(request.getExportUUID());
+      OmNfsLeaseInfo exportLease = metadataManager.getNfsExportLeaseTable().get(exportKey);
+      String key = metadataManager.getNfsFileLeaseKey(request.getVolumeID(), request.getBucketID(),
+          request.getObjectID());
+      OmNfsLeaseInfo lease = metadataManager.getNfsFileLeaseTable().get(key);
+      boolean recoverable = exportLease != null && lease != null
+          && exportLease.getProtobuf().getGatewayID().equals(request.getGatewayID())
+          && exportLease.getProtobuf().getGatewayGeneration() == request.getGatewayGeneration()
+          && exportLease.getProtobuf().getExpiresAtMillis() > System.currentTimeMillis()
+          && lease.getProtobuf().getExportUUID().equals(request.getExportUUID())
+          && request.getRequesterPrincipal().equals(lease.getOwnerPrincipal())
+          && !lease.getProtobuf().getContentPublished();
+      success = true;
+      return LookupNfsFileLeaseResponse.newBuilder().setRecoverable(recoverable).build();
+    } catch (IOException ex) {
+      audit.logReadFailure(buildAuditMessageForFailure(OMAction.LOOKUP_NFS_FILE_LEASE, auditMap, ex));
+      throw ex;
+    } finally {
+      metadataManager.getLock().releaseReadLock(BUCKET_LOCK, request.getVolumeName(), request.getBucketName());
+      if (success) {
+        audit.logReadSuccess(buildAuditMessageForSuccess(OMAction.LOOKUP_NFS_FILE_LEASE, auditMap));
+      }
+    }
+  }
+
+  private static void validateNfsChildRequest(String name, Integer maxEntries, Long startAfterObjectId,
+      Long verifier) throws OMException {
+    if (name != null) {
+      if (maxEntries != null || startAfterObjectId != null || verifier != null) {
+        throw new OMException("NFS child lookup cannot include paging fields", INVALID_REQUEST);
+      }
+      validateNfsChildName(name);
+      return;
+    }
+    if (maxEntries == null || maxEntries < 1 || maxEntries > 256
+        || ((startAfterObjectId == null) != (verifier == null))) {
+      throw new OMException("Invalid NFS directory page request", INVALID_REQUEST);
+    }
+  }
+
+  private static void validateNfsChildName(String name) throws OMException {
+    if (name.isEmpty() || name.indexOf('/') >= 0 || !name.equals(OzoneFSUtils.isValidKeyPath(name))) {
+      throw new OMException("Invalid NFS child name", INVALID_REQUEST);
+    }
   }
 
   /**
@@ -607,6 +1024,15 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
   void checkAcls(ResourceType resType, StoreType store,
       ACLType acl, String vol, String bucket, String key)
       throws IOException {
+    String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
+    String bucketOwner = ozoneManager.getBucketOwner(vol, bucket, acl, resType);
+    checkAcls(resType, store, acl, vol, bucket, key, volumeOwner, bucketOwner);
+  }
+
+  @SuppressWarnings("parameternumber")
+  private void checkAcls(ResourceType resType, StoreType store,
+      ACLType acl, String vol, String bucket, String key, String volumeOwner, String bucketOwner)
+      throws IOException {
     UserGroupInformation user;
     if (getS3Auth() != null) {
       final String effectiveAccessId = OzoneManager.getS3AuthEffectiveAccessId();
@@ -618,9 +1044,6 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
     }
 
     InetAddress remoteIp = ProtobufRpcEngine.Server.getRemoteIp();
-    String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
-    String bucketOwner = ozoneManager.getBucketOwner(vol, bucket, acl, resType);
-
     OzoneAclUtils.checkAllAcls(this, resType, store, acl,
         vol, bucket, key, volumeOwner, bucketOwner,
         user != null ? user : getRemoteUser(),
@@ -643,6 +1066,14 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
   void checkAcls(ResourceType resType, StoreType store,
       ACLType acl, ResolvedBucket resolvedBucket, String key)
       throws IOException {
+    String vol = resolvedBucket.realVolume();
+    String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
+    checkAcls(resType, store, acl, resolvedBucket, key, volumeOwner);
+  }
+
+  private void checkAcls(ResourceType resType, StoreType store,
+      ACLType acl, ResolvedBucket resolvedBucket, String key, String volumeOwner)
+      throws IOException {
     UserGroupInformation user;
     if (getS3Auth() != null) {
       final String effectiveAccessId = OzoneManager.getS3AuthEffectiveAccessId();
@@ -656,7 +1087,6 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
     String vol = resolvedBucket.realVolume();
     String bucket = resolvedBucket.realBucket();
     InetAddress remoteIp = ProtobufRpcEngine.Server.getRemoteIp();
-    String volumeOwner = ozoneManager.getVolumeOwner(vol, acl, resType);
     String bucketOwner = resolvedBucket.bucketOwner();
 
     OzoneAclUtils.checkAllAcls(this, resType, store, acl,
@@ -831,14 +1261,23 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
   }
 
   private void checkListStatusAcls(OmKeyArgs args, ResolvedBucket bucket) throws IOException {
+    checkListStatusAcls(args, bucket, null);
+  }
+
+  private void checkListStatusAcls(OmKeyArgs args, ResolvedBucket bucket, String volumeOwner) throws IOException {
     if (isStsS3Request()) {
+      if (volumeOwner == null) {
+        checkAcls(ResourceType.KEY, StoreType.OZONE, ACLType.READ, bucket.realVolume(), bucket.realBucket(),
+            getStsListStatusAclKey(args));
+        return;
+      }
       checkAcls(
           ResourceType.KEY, StoreType.OZONE, ACLType.READ, bucket.realVolume(), bucket.realBucket(),
-          getStsListStatusAclKey(args));
+          getStsListStatusAclKey(args), volumeOwner, bucket.bucketOwner());
       return;
     }
 
-    checkAcls(getResourceType(args), StoreType.OZONE, ACLType.READ, bucket, args.getKeyName());
+    checkAcls(getResourceType(args), StoreType.OZONE, ACLType.READ, bucket, args.getKeyName(), volumeOwner);
   }
 
   private static String getStsListStatusAclKey(OmKeyArgs args) throws OMException {

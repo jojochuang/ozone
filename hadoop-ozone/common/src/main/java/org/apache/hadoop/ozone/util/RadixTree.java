@@ -18,8 +18,6 @@
 package org.apache.hadoop.ozone.util;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,10 +67,9 @@ public class RadixTree<T> {
   public void insert(String path, T val) {
     // all prefix path inserted should end with "/"
     RadixNode<T> n = root;
-    Path p = Paths.get(path);
-    for (int level = 0; level < p.getNameCount(); level++) {
+    List<String> components = pathComponents(path);
+    for (String component : components) {
       HashMap<String, RadixNode> child = n.getChildren();
-      String component = p.getName(level).toString();
       if (child.containsKey(component)) {
         n = child.get(component);
       } else {
@@ -93,11 +90,11 @@ public class RadixTree<T> {
    */
   public RadixNode<T> getLastNodeInPrefixPath(String path) {
     List<RadixNode<T>> lpp = getLongestPrefixPath(path);
-    Path p = Paths.get(path);
-    if (lpp.size() != p.getNameCount() + 1) {
+    List<String> components = pathComponents(path);
+    if (lpp.size() != components.size() + 1) {
       return null;
     } else {
-      return lpp.get(p.getNameCount());
+      return lpp.get(components.size());
     }
   }
 
@@ -106,8 +103,7 @@ public class RadixTree<T> {
    * @param path
    */
   public void removePrefixPath(String path) {
-    Path p = Paths.get(path);
-    removePrefixPathInternal(root, p, 0);
+    removePrefixPathInternal(root, pathComponents(path), 0);
   }
 
   /**
@@ -120,20 +116,20 @@ public class RadixTree<T> {
    *         false otherwise.
    */
   private boolean removePrefixPathInternal(RadixNode<T> current,
-      Path path, int level) {
+      List<String> components, int level) {
     // last component is processed
-    if (level == path.getNameCount()) {
+    if (level == components.size()) {
       return current.hasChildren();
     }
 
     // not last component, recur for next component
-    String name = path.getName(level).toString();
+    String name = components.get(level);
     RadixNode<T> node = current.getChildren().get(name);
     if (node == null)  {
       return false;
     }
 
-    if (removePrefixPathInternal(node, path, level + 1)) {
+    if (removePrefixPathInternal(node, components, level + 1)) {
       current.getChildren().remove(name);
       return current.hasChildren();
     }
@@ -147,16 +143,16 @@ public class RadixTree<T> {
    */
   public List<RadixNode<T>> getLongestPrefixPath(String path) {
     RadixNode n = root;
-    Path p = Paths.get(path);
+    List<String> components = pathComponents(path);
     int level = 0;
     List<RadixNode<T>> result = new ArrayList<>();
     result.add(root);
-    while (level < p.getNameCount()) {
+    while (level < components.size()) {
       HashMap<String, RadixNode> children = n.getChildren();
       if (children.isEmpty()) {
         break;
       }
-      String component = p.getName(level).toString();
+      String component = components.get(level);
       if (children.containsKey(component)) {
         n = children.get(component);
         result.add(n);
@@ -191,14 +187,14 @@ public class RadixTree<T> {
    */
   public String getLongestPrefix(String path) {
     RadixNode<T> n = root;
-    Path p = Paths.get(path);
+    List<String> components = pathComponents(path);
     int level = 0;
-    while (level < p.getNameCount()) {
+    while (level < components.size()) {
       HashMap<String, RadixNode> children = n.getChildren();
       if (children.isEmpty()) {
         break;
       }
-      String component = p.getName(level).toString();
+      String component = components.get(level);
       if (children.containsKey(component)) {
         n = children.get(component);
         level++;
@@ -208,12 +204,24 @@ public class RadixTree<T> {
     }
 
     if (level >= 1) {
-      Path longestMatch =
-          Paths.get(root.getName()).resolve(p.subpath(0, level));
-      String ret = longestMatch.toString();
+      String ret = root.getName() + String.join(PATH_DELIMITER, components.subList(0, level));
       return path.endsWith("/") ?  ret + "/" : ret;
     } else {
       return root.getName();
     }
+  }
+
+  private static List<String> pathComponents(String path) {
+    List<String> components = new ArrayList<>();
+    if (path.isEmpty()) {
+      components.add("");
+      return components;
+    }
+    for (String component : path.split(PATH_DELIMITER)) {
+      if (!component.isEmpty()) {
+        components.add(component);
+      }
+    }
+    return components;
   }
 }

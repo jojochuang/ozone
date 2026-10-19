@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.om.response.s3.multipart;
 
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.DIRECTORY_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.MULTIPART_INFO_TABLE;
+import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.NFS_OBJECT_TABLE;
 import static org.apache.hadoop.ozone.om.codec.OMDBDefinition.OPEN_FILE_TABLE;
 
 import jakarta.annotation.Nonnull;
@@ -38,7 +39,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 /**
  * Response for S3 Initiate Multipart Upload request for prefix layout.
  */
-@CleanupTableInfo(cleanupTables = {DIRECTORY_TABLE, OPEN_FILE_TABLE,
+@CleanupTableInfo(cleanupTables = {NFS_OBJECT_TABLE, DIRECTORY_TABLE, OPEN_FILE_TABLE,
     MULTIPART_INFO_TABLE})
 public class S3InitiateMultipartUploadResponseWithFSO extends
         S3InitiateMultipartUploadResponse {
@@ -83,11 +84,7 @@ public class S3InitiateMultipartUploadResponseWithFSO extends
      */
     if (parentDirInfos != null) {
       for (OmDirectoryInfo parentDirInfo : parentDirInfos) {
-        final String parentKey = omMetadataManager.getOzonePathKey(
-                volumeId, bucketId, parentDirInfo.getParentObjectID(),
-                parentDirInfo.getName());
-        omMetadataManager.getDirectoryTable().putWithBatch(batchOperation,
-                parentKey, parentDirInfo);
+        OMFileRequest.addToDirectoryTable(omMetadataManager, batchOperation, parentDirInfo, volumeId, bucketId);
       }
 
       // namespace quota changes for parent directory

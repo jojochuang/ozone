@@ -103,6 +103,10 @@ public abstract class OMKeyAclRequestWithFSO extends OMKeyAclRequest {
               omKeyInfo.getParentObjectID(), omKeyInfo.getFileName());
       boolean isDirectory = keyStatus.isDirectory();
 
+      if (!isDirectory) {
+        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, omKeyInfo, getOmRequest().getLeaderTimeMillis());
+      }
+
       // Reverting back the full path to key name
       // Eg: a/b/c/d/e/file1 -> file1
       OmKeyInfo.Builder builder = omKeyInfo.toBuilder()

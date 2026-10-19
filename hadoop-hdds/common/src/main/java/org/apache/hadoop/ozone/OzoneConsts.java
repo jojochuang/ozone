@@ -449,6 +449,9 @@ public final class OzoneConsts {
 
   // Layout Version written into Meta Table ONLY during finalization.
   public static final String LAYOUT_VERSION_KEY = "#LAYOUTVERSION";
+
+  public static final String NFS_OBJECT_INDEX_READY_KEY = "#NFSOBJECTINDEXREADY";
+  public static final String NFS_OBJECT_INDEX_PROGRESS_KEY = "#NFSOBJECTINDEXPROGRESS";
   // Key written to Meta Table to indicate a component undergoing finalization.
   // Currently this is only used on SCM, but may be useful on OM if/when
   // finalizing one layout feature per Ratis request is implemented in

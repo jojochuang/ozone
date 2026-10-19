@@ -598,7 +598,7 @@ public class Client implements AutoCloseable {
                 InetAddress bindTo = bindToWildCardAddress ? null : localAddr;
                 LOG.debug("Binding {} to {}", principal,
                     (bindToWildCardAddress) ? "0.0.0.0" : localAddr);
-                this.socket.bind(new InetSocketAddress(localAddr, 0));
+                this.socket.bind(new InetSocketAddress(bindTo, 0));
               }
             }
           }

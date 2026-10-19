@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -37,6 +38,7 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -45,6 +47,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.DeleteK
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.security.acl.OzonePrefixPath;
+import org.apache.hadoop.util.Time;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -401,5 +404,31 @@ public class TestOMKeyDeleteRequestWithFSO extends TestOMKeyDeleteRequest {
     // We expect snapshotUsedNamespace to not go negative
     assertTrue(bucketInfoAfterPurge.getSnapshotUsedNamespace() >= 0,
         "SnapshotUsedNamespace went negative (" + bucketInfoAfterPurge.getSnapshotUsedNamespace() + ") due to bug.");
+  }
+
+  @Test
+  public void testDeleteRejectsActiveNfsFileLease() throws Exception {
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName, omMetadataManager,
+        BucketLayout.FILE_SYSTEM_OPTIMIZED);
+    String ozoneKey = addKeyToTable();
+    OmKeyInfo keyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(ozoneKey);
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    long now = Time.now();
+    String exportUuid = UUID.randomUUID().toString();
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId,
+        1, now + 60_000, "gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, keyInfo.getObjectID(),
+        "transfer", "nfs-user@EXAMPLE.COM", ByteString.copyFromUtf8("owner-token"), now, 10_000);
+    omMetadataManager.getNfsExportLeaseTable().put(omMetadataManager.getNfsExportLeaseKey(exportUuid), exportLease);
+    omMetadataManager.getNfsFileLeaseTable().put(
+        omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID()), fileLease);
+
+    OMRequest modifiedOmRequest = doPreExecute(createDeleteKeyRequest());
+    OMClientResponse response = getOmKeyDeleteRequest(modifiedOmRequest)
+        .validateAndUpdateCache(ozoneManager, 100L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT, response.getOMResponse().getStatus());
+    assertNotNull(omMetadataManager.getKeyTable(getBucketLayout()).get(ozoneKey));
   }
 }

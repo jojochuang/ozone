@@ -42,6 +42,7 @@ import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -57,11 +58,17 @@ import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneKey;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.VolumeArgs;
+import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.client.rpc.RpcClient;
+import org.apache.hadoop.ozone.nfs.NfsFileHandle;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.exceptions.OMNotLeaderException;
 import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFailoverProxyProvider;
 import org.apache.hadoop.ozone.om.ha.HadoopRpcOMFollowerReadFailoverProxyProvider;
 import org.apache.hadoop.ozone.om.ha.OMProxyInfo;
+import org.apache.hadoop.ozone.om.helpers.BucketLayout;
+import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
+import org.apache.hadoop.ozone.om.protocol.OzoneManagerProtocol;
 import org.apache.hadoop.ozone.om.protocolPB.GrpcOmTransport;
 import org.apache.hadoop.ozone.om.protocolPB.GrpcOmTransportFactory;
 import org.apache.hadoop.ozone.om.protocolPB.Hadoop3OmTransportFactory;
@@ -70,6 +77,7 @@ import org.apache.hadoop.ozone.om.protocolPB.OmTransportFactory;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolClientSideTranslatorPB;
 import org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolPB;
 import org.apache.hadoop.ozone.om.ratis.OzoneManagerRatisServer;
+import org.apache.hadoop.ozone.om.service.NfsObjectIndexBootstrapService;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.CreateVolumeRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.ListVolumeRequest;
@@ -78,6 +86,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRespo
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.VolumeInfo;
 import org.apache.hadoop.ozone.protocolPB.OzoneManagerProtocolServerSideTranslatorPB;
+import org.apache.ozone.test.GenericTestUtils;
 import org.apache.ozone.test.tag.Flaky;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -148,6 +157,73 @@ public class TestOzoneManagerHAFollowerReadWithAllRunning extends OzoneManagerHA
 
       long currentLocalLeaseSuccess = followerOM.getMetrics().getNumFollowerReadLocalLeaseSuccess();
       assertThat(currentLocalLeaseSuccess).isGreaterThan(previousLocalLeaseSuccess);
+    } finally {
+      IOUtils.closeQuietly(ozoneClient);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("followerReadTransportClasses")
+  void testNfsObjectLookupUsesLeaderRead(Class<? extends OmTransportFactory> omTransportClass) throws Exception {
+    ObjectStore objectStore = getObjectStore();
+    String volumeName = uniqueObjectName("nfs-follower-volume");
+    String bucketName = uniqueObjectName("nfs-follower-bucket");
+    String keyName = "file";
+    objectStore.createVolume(volumeName, VolumeArgs.newBuilder().setOwner("admin").setAdmin("admin").build());
+    objectStore.getVolume(volumeName).createBucket(bucketName,
+        BucketArgs.newBuilder().setBucketLayout(BucketLayout.FILE_SYSTEM_OPTIMIZED).build());
+    OzoneBucket bucket = objectStore.getVolume(volumeName).getBucket(bucketName);
+    byte[] data = "NFS leader-only lookup".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    try (OzoneOutputStream output = bucket.createKey(keyName, data.length)) {
+      output.write(data);
+    }
+
+    OzoneManager leaderOM = getCluster().getOMLeader();
+    org.apache.hadoop.ozone.om.OMMetadataManager metadata = leaderOM.getMetadataManager();
+    assertTrue(metadata.isNfsObjectIndexEnabled());
+    NfsObjectIndexBootstrapService bootstrap = new NfsObjectIndexBootstrapService(
+        20, TimeUnit.MILLISECONDS, 300, leaderOM);
+    try {
+      bootstrap.start();
+      GenericTestUtils.waitFor(() -> {
+        try {
+          return metadata.isNfsObjectIndexReady();
+        } catch (java.io.IOException ex) {
+          throw new RuntimeException(ex);
+        }
+      }, 100, 30000);
+    } finally {
+      bootstrap.shutdown();
+    }
+    long volumeId = metadata.getVolumeId(volumeName);
+    long bucketId = metadata.getBucketId(volumeName, bucketName);
+    long objectId = leaderOM.lookupFile(new OmKeyArgs.Builder().setVolumeName(volumeName)
+        .setBucketName(bucketName).setKeyName(keyName).build()).getObjectID();
+
+    OzoneConfiguration clientConf = new OzoneConfiguration(getConf());
+    clientConf.setBoolean(OZONE_CLIENT_FOLLOWER_READ_ENABLED_KEY, true);
+    clientConf.set(OZONE_CLIENT_FOLLOWER_READ_DEFAULT_CONSISTENCY_KEY, "LOCAL_LEASE");
+    clientConf.set(OZONE_OM_TRANSPORT_CLASS, omTransportClass.getName());
+    String leaderOMNodeId = leaderOM.getOMNodeId();
+    OzoneManager followerOM = getCluster().getOzoneManagersList().stream()
+        .filter(om -> !om.getOMNodeId().equals(leaderOMNodeId)).findFirst().orElse(null);
+    assertNotNull(followerOM);
+
+    OzoneClient ozoneClient = null;
+    try {
+      ozoneClient = OzoneClientFactory.getRpcClient(getOmServiceId(), clientConf);
+      ObjectStore nfsObjectStore = ozoneClient.getObjectStore();
+      changeFollowerReadInitialProxy(nfsObjectStore, omTransportClass, leaderOMNodeId, followerOM.getOMNodeId());
+      long previousFollowerLocalLease = followerOM.getMetrics().getNumFollowerReadLocalLeaseSuccess();
+      long previousLeaderLinearizableRead = leaderOM.getMetrics().getNumLinearizableRead();
+      OzoneManagerProtocol rpc = ((RpcClient) nfsObjectStore.getClientProxy()).getOzoneManagerClient();
+
+      assertEquals(objectId, rpc.lookupNfsObject(new OmKeyArgs.Builder().setVolumeName(volumeName)
+          .setBucketName(bucketName).setKeyName("").build(), volumeId, bucketId, objectId,
+          NfsFileHandle.Kind.FILE).getKeyInfo().getObjectID());
+
+      assertEquals(previousFollowerLocalLease, followerOM.getMetrics().getNumFollowerReadLocalLeaseSuccess());
+      assertThat(leaderOM.getMetrics().getNumLinearizableRead()).isGreaterThan(previousLeaderLinearizableRead);
     } finally {
       IOUtils.closeQuietly(ozoneClient);
     }
