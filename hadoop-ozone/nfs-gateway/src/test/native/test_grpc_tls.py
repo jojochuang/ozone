@@ -214,6 +214,7 @@ NFS_CORE_PARAM {
     Protocols = 4;
     Enable_UDP = false;
     Enable_RQUOTA = false;
+    Clustered = true;
     NFS_Port = 2049;
 }
 
@@ -223,6 +224,12 @@ NFS_KRB5 {
 
 NFSv4 {
     Minor_Versions = 1;
+    Server_Scope = "ozone-nfs";
+    Server_Owner = "ozone-nfs";
+    Graceless = false;
+    Lease_Lifetime = 60;
+    Grace_Period = 90;
+    Delegations = false;
     RecoveryBackend = fs_ng;
     RecoveryRoot = "/contract/recovery";
     RecoveryDir = "ozone-v4recov";
@@ -231,12 +238,13 @@ NFSv4 {
 EXPORT {
     Export_Id = 1;
     Path = "/";
-    Pseudo = "/ozone";
+    Pseudo = "/ozone/data";
     Access_Type = RW;
     Protocols = 4;
     Transports = TCP;
     SecType = sys;
     Squash = Root_Squash;
+    Attr_Expiration_Time = 0;
 
     FSAL {
         Name = OZONE;
@@ -259,7 +267,8 @@ EXPORT {
                 "--add-host", "host.docker.internal:host-gateway",
                 "--mount", "type=bind,source={},target=/contract".format(self.root),
                 OPTIONS.ganesha_image, "sh", "-c",
-                "rpcbind -w && exec ganesha.nfsd -F -L STDOUT -p /contract/ganesha.pid "
+                "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT "
+                "-p /contract/ganesha.pid "
                 "-f /contract/ganesha.conf"], stdout=ganesha_log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 30
@@ -280,6 +289,12 @@ EXPORT {
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=5)
+                subprocess.run([
+                    "docker", "run", "--rm",
+                    "--mount", "type=bind,source={},target=/contract".format(self.root),
+                    OPTIONS.ganesha_image, "chown", "-R",
+                    "{}:{}".format(os.getuid(), os.getgid()), "/contract/recovery"],
+                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.assertTrue(self.capabilities_marker.exists(), log_path.read_text()[-4000:])
 
 
