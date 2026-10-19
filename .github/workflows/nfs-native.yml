@@ -19,6 +19,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/nfs-native.yml'
+      - '.mvn/extensions.xml'
       - 'hadoop-hdds/common/**'
       - 'hadoop-ozone/client/**'
       - 'hadoop-ozone/common/**'
@@ -34,6 +35,7 @@ on:
   push:
     paths:
       - '.github/workflows/nfs-native.yml'
+      - '.mvn/extensions.xml'
       - 'hadoop-hdds/common/**'
       - 'hadoop-ozone/client/**'
       - 'hadoop-ozone/common/**'
