@@ -70,6 +70,7 @@ jobs:
 
       - name: Build Java gateway and contract fixture
         run: |
+          mvn --version
           mvn --batch-mode --settings dev-support/ci/maven-settings.xml \
             -Ddevelocity.enabled=false \
             -pl :ozone-nfs-gateway -am install -DskipTests -DskipShade -DskipRecon -DskipDocs
