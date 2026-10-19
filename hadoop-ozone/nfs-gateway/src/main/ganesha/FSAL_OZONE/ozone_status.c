@@ -37,6 +37,8 @@ fsal_status_t ozone_status(uint32_t status)
 		return fsalstat(ERR_FSAL_BADHANDLE, 0);
 	case 10003: /* NFS4ERR_BAD_COOKIE */
 		return fsalstat(ERR_FSAL_BADCOOKIE, 0);
+	case 10027: /* NFS4ERR_NOT_SAME */
+		return fsalstat(ERR_FSAL_NOT_SAME, 0);
 	case 10004: /* NFS4ERR_NOTSUPP */
 		return fsalstat(ERR_FSAL_NOTSUPP, 0);
 	case 20: /* NFS4ERR_NOTDIR */
@@ -59,9 +61,3 @@ fsal_status_t ozone_status(uint32_t status)
 		return fsalstat(ERR_FSAL_SERVERFAULT, 0);
 	}
 }
-@@
- 	case 10003: /* NFS4ERR_BAD_COOKIE */
- 		return fsalstat(ERR_FSAL_BADCOOKIE, 0);
-+	case 10027: /* NFS4ERR_NOT_SAME */
-+		return fsalstat(ERR_FSAL_NOT_SAME, 0);
- 	case 10004: /* NFS4ERR_NOTSUPP */

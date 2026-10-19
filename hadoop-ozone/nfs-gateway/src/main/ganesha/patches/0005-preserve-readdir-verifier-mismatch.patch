@@ -63,8 +63,3 @@ index 96e9f0a0..7a532604 100644
  
  	case ERR_FSAL_TOOSMALL:
  		nfserror = NFS4ERR_TOOSMALL;
-*** Update File: /Users/weichiu/sandbox/ozone5/hadoop-ozone/nfs-gateway/src/main/ganesha/Dockerfile
-@@
-     git -C /opt/ganesha apply /opt/ozone/hadoop-ozone/nfs-gateway/src/main/ganesha/patches/0002-add-ozone-fsal-build-target.patch && \
-     git -C /opt/ganesha apply /opt/ozone/hadoop-ozone/nfs-gateway/src/main/ganesha/patches/0004-include-assert-header-in-ntirpc.patch && \
-+    git -C /opt/ganesha apply /opt/ozone/hadoop-ozone/nfs-gateway/src/main/ganesha/patches/0005-preserve-readdir-verifier-mismatch.patch && \
