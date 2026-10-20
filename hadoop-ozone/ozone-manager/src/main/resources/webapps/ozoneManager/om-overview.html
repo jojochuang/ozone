@@ -22,6 +22,10 @@
         <td>Rpc port</td>
         <td>{{$ctrl.overview.jmx.RpcPort}}</td>
     </tr>
+    <tr ng-if="$ctrl.overview.jmx.NfsObjectIndexStatus">
+        <td>NFS object index status</td>
+        <td>{{$ctrl.overview.jmx.NfsObjectIndexStatus}}</td>
+    </tr>
     <tr>
         <td>OM Id</td>
         <td>{{$ctrl.role.Id}}</td>
