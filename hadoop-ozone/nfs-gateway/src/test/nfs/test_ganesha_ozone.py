@@ -21,6 +21,7 @@ import errno
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 from threading import Barrier
@@ -223,6 +224,27 @@ class GaneshaOzoneContract(unittest.TestCase):
         path.rmdir()
         self.assertFalse(path.exists())
         self.assertFalse(self.ozone_file_exists(relative_name))
+
+    def test_directory_mutation_during_paginated_readdir_restarts_scan(self):
+        relative_name = "ganesha-readdir-mutation-contract-" + uuid.uuid4().hex
+        directory = self.mount / relative_name
+        entry_count = 300
+        expected = {"entry-{:04d}".format(index) for index in range(entry_count)}
+
+        self.addCleanup(shutil.rmtree, str(directory), ignore_errors=True)
+        directory.mkdir()
+        for name in sorted(expected):
+            (directory / name).mkdir()
+
+        added_name = "entry-added-during-readdir"
+        with os.scandir(directory) as entries:
+            first_entry = next(entries, None)
+            self.assertIsNotNone(first_entry, "initial READDIR page must contain entries")
+            (directory / added_name).mkdir()
+            found = {entry.name for entry in entries}
+        found.add(first_entry.name)
+
+        self.assertEqual(expected | {added_name}, found)
 
     def test_truncating_existing_file_is_rejected_without_changing_data(self):
         relative_name = "ganesha-truncate-contract-" + uuid.uuid4().hex
