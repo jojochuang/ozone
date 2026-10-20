@@ -275,12 +275,12 @@ EXPORT {
                 while not self.capabilities_marker.exists():
                     if process.poll() is not None:
                         self.fail("Ganesha exited before its capability handshake:\n"
-                                  + log_path.read_text()[-4000:])
+                                  + log_path.read_text()[-20000:])
                     if time.monotonic() >= deadline:
-                        self.fail("Ganesha did not call the backend:\n" + log_path.read_text()[-4000:])
+                        self.fail("Ganesha did not call the backend:\n" + log_path.read_text()[-20000:])
                     time.sleep(0.1)
                 time.sleep(1)
-                self.assertIsNone(process.poll(), log_path.read_text()[-4000:])
+                self.assertIsNone(process.poll(), log_path.read_text()[-20000:])
             finally:
                 subprocess.run(["docker", "rm", "--force", container_name],
                                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -295,7 +295,7 @@ EXPORT {
                     OPTIONS.ganesha_image, "chown", "-R",
                     "{}:{}".format(os.getuid(), os.getgid()), "/contract/recovery"],
                     check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self.assertTrue(self.capabilities_marker.exists(), log_path.read_text()[-4000:])
+        self.assertTrue(self.capabilities_marker.exists(), log_path.read_text()[-20000:])
 
 
 if __name__ == "__main__":
