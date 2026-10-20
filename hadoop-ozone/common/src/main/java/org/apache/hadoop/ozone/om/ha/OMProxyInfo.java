@@ -349,7 +349,16 @@ public final class OMProxyInfo<T> extends ProxyInfo<T> {
         return false;
       }
       final OMProxyInfo<P> p = get(nodeId);
-      return p != null && address.equals(p.getAddressString());
+      if (p == null) {
+        return false;
+      }
+      if (address.equals(p.getAddressString())) {
+        return true;
+      }
+      int separator = address.lastIndexOf('/');
+      String suggestedIpAddress = address.substring(separator + 1);
+      InetAddress resolvedAddress = p.getAddress().getAddress();
+      return resolvedAddress != null && suggestedIpAddress.equals(resolvedAddress.getHostAddress());
     }
 
     @Override

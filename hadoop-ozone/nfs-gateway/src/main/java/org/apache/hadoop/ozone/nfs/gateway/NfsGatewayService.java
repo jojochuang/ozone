@@ -202,15 +202,21 @@ public final class NfsGatewayService extends NfsGatewayGrpc.NfsGatewayImplBase {
       response = WriteResponse.newBuilder().setResult(result(NfsStatus.OK)).setCount(request.getData().size())
           .setCommitted(WriteResponse.Stability.FILE_SYNC).build();
     } catch (StatusRuntimeException e) {
+      LOG.warn("NFS file write failed with gRPC status {}: {}", e.getStatus().getCode(),
+          e.getStatus().getDescription());
       observer.onError(e);
       return;
     } catch (OMException e) {
       NfsStatus status = e.getResult() == OMException.ResultCodes.FILE_NOT_FOUND ? NfsStatus.NOTSUPP
           : NfsStatus.fromOmException(e, NfsStatus.LookupContext.HANDLE);
+      LOG.warn("NFS file write failed with OM result {} ({}): {}", e.getResult(), status, e.getMessage());
       response = WriteResponse.newBuilder().setResult(result(status)).build();
     } catch (NfsExportLeaseManager.RangeLimitException e) {
+      LOG.warn("NFS file write exceeded staging range limits at offset {} with {} bytes",
+          request.getOffset(), request.getData().size());
       response = WriteResponse.newBuilder().setResult(result(NfsStatus.DELAY)).build();
     } catch (IOException e) {
+      LOG.warn("NFS file write failed", e);
       response = WriteResponse.newBuilder().setResult(result(NfsStatus.fromIOException(e))).build();
     } catch (IllegalArgumentException e) {
       try {
@@ -223,6 +229,7 @@ public final class NfsGatewayService extends NfsGatewayGrpc.NfsGatewayImplBase {
       observer.onError(Status.INTERNAL.withDescription("NFS backend write failed").asRuntimeException());
       return;
     } catch (RuntimeException e) {
+      LOG.error("NFS file write failed unexpectedly", e);
       observer.onError(Status.INTERNAL.withDescription("NFS backend write failed").asRuntimeException());
       return;
     }
@@ -267,9 +274,12 @@ public final class NfsGatewayService extends NfsGatewayGrpc.NfsGatewayImplBase {
       }
       response = CommitResponse.newBuilder().setResult(result(NfsStatus.OK)).build();
     } catch (StatusRuntimeException e) {
+      LOG.warn("NFS file commit failed with gRPC status {}: {}", e.getStatus().getCode(),
+          e.getStatus().getDescription());
       observer.onError(e);
       return;
     } catch (OMException e) {
+      LOG.warn("NFS file commit failed with OM result {}: {}", e.getResult(), e.getMessage());
       response = CommitResponse.newBuilder().setResult(result(NfsStatus.fromOmException(e,
           NfsStatus.LookupContext.HANDLE))).build();
     } catch (IllegalArgumentException e) {
@@ -278,6 +288,7 @@ public final class NfsGatewayService extends NfsGatewayGrpc.NfsGatewayImplBase {
       LOG.error("NFS file commit failed", e);
       response = CommitResponse.newBuilder().setResult(result(NfsStatus.fromIOException(e))).build();
     } catch (RuntimeException e) {
+      LOG.error("NFS file commit failed unexpectedly", e);
       observer.onError(Status.INTERNAL.withDescription("NFS backend commit failed").asRuntimeException());
       return;
     }

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -212,6 +213,18 @@ public class TestOMFailoverProxyProvider {
       }
       assertFalse(m.hasNext());
     }
+  }
+
+  @Test
+  public void testOMProxyMapMatchesRatisLeaderAddress() throws IOException {
+    String serviceID = "service0";
+    OMProxyInfo<Integer> proxy = OMProxyInfo.newInstance(null, serviceID,
+        "omNode-1", "127.0.0.1:9862");
+    OMProxyInfo.OrderedMap<Integer> proxies = new OMProxyInfo.OrderedMap<>(
+        Collections.singletonList(proxy));
+
+    String leaderAddress = InetAddress.getByAddress("omNode-1", new byte[]{127, 0, 0, 1}).toString();
+    assertTrue(proxies.contains("omNode-1", leaderAddress));
   }
 
   /**
