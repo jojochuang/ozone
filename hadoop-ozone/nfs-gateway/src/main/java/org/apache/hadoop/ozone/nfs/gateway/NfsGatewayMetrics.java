@@ -30,6 +30,7 @@ import io.grpc.Status;
 import java.io.Closeable;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.hadoop.metrics2.MetricsCollector;
@@ -46,12 +47,15 @@ final class NfsGatewayMetrics implements MetricsSource, ServerInterceptor, Close
       "Capabilities", "Getattr", "Lookup", "Readdir", "Read", "Create", "Write", "Commit", "Mkdir",
       "Remove", "Rename");
 
+  private final String sourceName;
   private final Map<String, OperationMetrics> operationMetrics = new ConcurrentHashMap<>();
 
   NfsGatewayMetrics() {
+    sourceName = DefaultMetricsSystem.inMiniClusterMode()
+        ? SOURCE_NAME + '-' + UUID.randomUUID() : SOURCE_NAME;
     OPERATIONS.forEach(name -> operationMetrics.put(name, new OperationMetrics()));
     MetricsSystem system = DefaultMetricsSystem.instance();
-    system.register(SOURCE_NAME, "NFS Gateway backend RPC metrics", this);
+    system.register(sourceName, "NFS Gateway backend RPC metrics", this);
   }
 
   @Override
@@ -95,13 +99,17 @@ final class NfsGatewayMetrics implements MetricsSource, ServerInterceptor, Close
 
   @Override
   public void getMetrics(MetricsCollector collector, boolean all) {
-    MetricsRecordBuilder record = collector.addRecord(SOURCE_NAME);
+    MetricsRecordBuilder record = collector.addRecord(sourceName);
     operationMetrics.forEach((name, metrics) -> metrics.snapshot(record, name));
   }
 
   @Override
   public void close() {
-    DefaultMetricsSystem.instance().unregisterSource(SOURCE_NAME);
+    DefaultMetricsSystem.instance().unregisterSource(sourceName);
+  }
+
+  String getSourceName() {
+    return sourceName;
   }
 
   private static final class OperationMetrics {

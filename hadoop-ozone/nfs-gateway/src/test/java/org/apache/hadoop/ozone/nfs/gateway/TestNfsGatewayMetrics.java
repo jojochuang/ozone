@@ -18,6 +18,9 @@
 package org.apache.hadoop.ozone.nfs.gateway;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.grpc.Attributes;
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.metrics2.AbstractMetric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.nfs.NfsStatus;
 import org.apache.hadoop.ozone.nfs.protocol.proto.NfsGatewayGrpc;
 import org.apache.hadoop.ozone.nfs.protocol.proto.NfsGatewayProtocolProtos.GetattrRequest;
@@ -61,6 +65,34 @@ class TestNfsGatewayMetrics {
       assertTrue(values.get("GetattrLatencyNsAvgTime") > 0);
     } finally {
       metrics.close();
+    }
+  }
+
+  @Test
+  void registersAndUnregistersDistinctSourcesInMiniClusterMode() {
+    boolean previousMiniClusterMode = DefaultMetricsSystem.inMiniClusterMode();
+    DefaultMetricsSystem.setMiniClusterMode(true);
+    NfsGatewayMetrics first = null;
+    NfsGatewayMetrics second = null;
+    try {
+      first = new NfsGatewayMetrics();
+      second = new NfsGatewayMetrics();
+      assertNotNull(DefaultMetricsSystem.instance().getSource(first.getSourceName()));
+      assertNotNull(DefaultMetricsSystem.instance().getSource(second.getSourceName()));
+      assertNotEquals(first.getSourceName(), second.getSourceName());
+
+      first.close();
+      second.close();
+      assertNull(DefaultMetricsSystem.instance().getSource(first.getSourceName()));
+      assertNull(DefaultMetricsSystem.instance().getSource(second.getSourceName()));
+    } finally {
+      if (first != null) {
+        first.close();
+      }
+      if (second != null) {
+        second.close();
+      }
+      DefaultMetricsSystem.setMiniClusterMode(previousMiniClusterMode);
     }
   }
 
