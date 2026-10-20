@@ -24,6 +24,7 @@ import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.LeveledResource.V
 
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import org.apache.hadoop.hdds.utils.db.Table;
@@ -41,6 +42,7 @@ import org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes;
 import org.apache.hadoop.ozone.om.execution.flowcontrol.ExecutionContext;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.OmVolumeArgs;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.request.OMClientRequest;
@@ -59,6 +61,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.request.validation.RequestProcessingPhase;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +74,14 @@ public class OMBucketDeleteRequest extends OMClientRequest {
 
   public OMBucketDeleteRequest(OMRequest omRequest) {
     super(omRequest);
+  }
+
+  @Override
+  public OMRequest preExecute(OzoneManager ozoneManager) throws IOException {
+    final OMRequest request = super.preExecute(ozoneManager);
+    DeleteBucketRequest deleteRequest = request.getDeleteBucketRequest();
+    return request.toBuilder().setDeleteBucketRequest(
+        deleteRequest.toBuilder().setLeaderTimeMillis(Time.now())).build();
   }
 
   @Override
@@ -128,6 +139,8 @@ public class OMBucketDeleteRequest extends OMClientRequest {
         LOG.debug("bucket: {} not found ", bucketName);
         throw new OMException("Bucket not found", BUCKET_NOT_FOUND);
       }
+
+      validateNfsExportLeaseInactive(omMetadataManager, omBucketInfo, deleteBucketRequest);
 
       //Check if bucket is empty
       if (!omMetadataManager.isBucketEmpty(volumeName, bucketName)) {
@@ -229,6 +242,42 @@ public class OMBucketDeleteRequest extends OMClientRequest {
       String snapshotBucketKey) throws IOException {
     return bucketContainsSnapshotInCache(omMetadataManager, snapshotBucketKey)
         || bucketContainsSnapshotInTable(omMetadataManager, snapshotBucketKey);
+  }
+
+  private void validateNfsExportLeaseInactive(OMMetadataManager metadataManager, OmBucketInfo bucket,
+      DeleteBucketRequest request) throws IOException {
+    if (!bucket.getBucketLayout().isFileSystemOptimized()) {
+      return;
+    }
+    long volumeId = metadataManager.getVolumeId(bucket.getVolumeName());
+    long bucketId = metadataManager.getBucketId(bucket.getVolumeName(), bucket.getBucketName());
+    long leaderTimeMillis = request.hasLeaderTimeMillis() ? request.getLeaderTimeMillis() : 0;
+    Map<String, OmNfsLeaseInfo> leases = new HashMap<>();
+    try (TableIterator<String, Table.KeyValue<String, OmNfsLeaseInfo>> iterator =
+        metadataManager.getNfsExportLeaseTable().iterator()) {
+      while (iterator.hasNext()) {
+        Table.KeyValue<String, OmNfsLeaseInfo> entry = iterator.next();
+        leases.put(entry.getKey(), entry.getValue());
+      }
+    }
+    Iterator<Map.Entry<CacheKey<String>, CacheValue<OmNfsLeaseInfo>>> cacheIterator =
+        metadataManager.getNfsExportLeaseTable().cacheIterator();
+    while (cacheIterator.hasNext()) {
+      Map.Entry<CacheKey<String>, CacheValue<OmNfsLeaseInfo>> entry = cacheIterator.next();
+      String key = entry.getKey().getCacheKey();
+      OmNfsLeaseInfo lease = entry.getValue().getCacheValue();
+      if (lease == null) {
+        leases.remove(key);
+      } else {
+        leases.put(key, lease);
+      }
+    }
+    for (OmNfsLeaseInfo lease : leases.values()) {
+      if (lease.getProtobuf().getVolumeID() == volumeId && lease.getProtobuf().getBucketID() == bucketId
+          && lease.getProtobuf().getExpiresAtMillis() > leaderTimeMillis) {
+        throw new OMException("Bucket has an active NFS export lease", ResultCodes.NFS_LEASE_CONFLICT);
+      }
+    }
   }
 
   private boolean bucketContainsSnapshotInTable(

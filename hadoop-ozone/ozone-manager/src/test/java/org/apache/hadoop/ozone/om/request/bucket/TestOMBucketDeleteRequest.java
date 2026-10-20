@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -56,7 +57,9 @@ public class TestOMBucketDeleteRequest extends BucketRequestTests {
         new OMBucketDeleteRequest(omRequest);
 
     // As user info gets added.
-    assertNotEquals(omRequest, omBucketDeleteRequest.preExecute(ozoneManager));
+    OMRequest preExecuted = omBucketDeleteRequest.preExecute(ozoneManager);
+    assertNotEquals(omRequest, preExecuted);
+    assertTrue(preExecuted.getDeleteBucketRequest().hasLeaderTimeMillis());
   }
 
   @Test
