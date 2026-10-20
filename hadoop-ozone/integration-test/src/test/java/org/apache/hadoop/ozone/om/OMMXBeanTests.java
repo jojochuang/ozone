@@ -75,6 +75,9 @@ public abstract class OMMXBeanTests implements NonHATests.TestCase {
 
     String ratisEvents = (String) mbs.getAttribute(bean, "RatisEvents");
     assertEquals(om.getRatisEvents(), ratisEvents);
+
+    String nfsObjectIndexStatus = (String) mbs.getAttribute(bean, "NfsObjectIndexStatus");
+    assertEquals(om.getNfsObjectIndexStatus(), nfsObjectIndexStatus);
   }
 
   private static List<List<String>> toRatisRolesList(Object ratisRoles) {

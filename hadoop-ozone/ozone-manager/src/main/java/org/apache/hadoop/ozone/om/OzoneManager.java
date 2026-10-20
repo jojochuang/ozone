@@ -47,6 +47,7 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_SCM_BLOCK_SIZE_DEFAU
 import static org.apache.hadoop.ozone.OzoneConsts.DB_TRANSIENT_MARKER;
 import static org.apache.hadoop.ozone.OzoneConsts.DEFAULT_OM_UPDATE_ID;
 import static org.apache.hadoop.ozone.OzoneConsts.LAYOUT_VERSION_KEY;
+import static org.apache.hadoop.ozone.OzoneConsts.NFS_OBJECT_INDEX_PROGRESS_KEY;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_DB_NAME;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_KEY_PREFIX;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_METRICS_FILE;
@@ -3702,6 +3703,42 @@ public final class OzoneManager extends ServiceRuntimeInfoImpl
   @Override
   public String getRpcPort() {
     return String.valueOf(omRpcAddress.getPort());
+  }
+
+  @Override
+  public String getNfsObjectIndexStatus() {
+    return getNfsObjectIndexStatus(getMetadataManager());
+  }
+
+  static String getNfsObjectIndexStatus(OMMetadataManager manager) {
+    if (manager == null) {
+      return "UNAVAILABLE";
+    }
+    if (!manager.isNfsObjectIndexEnabled()) {
+      return "NOT_FINALIZED";
+    }
+    try {
+      if (manager.isNfsObjectIndexReady()) {
+        return "READY";
+      }
+      String progress = manager.getMetaTable().getSkipCache(NFS_OBJECT_INDEX_PROGRESS_KEY);
+      if (progress == null) {
+        return "PENDING";
+      }
+      if (progress.length() < 2 || progress.charAt(1) != ':') {
+        return "UNKNOWN";
+      }
+      switch (progress.charAt(0)) {
+      case '1':
+        return "DIRECTORIES";
+      case '2':
+        return "FILES";
+      default:
+        return "UNKNOWN";
+      }
+    } catch (IOException ex) {
+      return "UNKNOWN";
+    }
   }
 
   private static List<List<String>> getRatisRolesException(String exceptionString) {

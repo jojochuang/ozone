@@ -138,6 +138,7 @@ import org.apache.hadoop.ozone.om.response.key.OMKeyDeleteResponseWithFSO;
 import org.apache.hadoop.ozone.om.response.key.OMKeyRenameResponseWithFSO;
 import org.apache.hadoop.ozone.om.response.key.OMKeysDeleteResponseWithFSO;
 import org.apache.hadoop.ozone.om.service.NfsObjectIndexBootstrapService;
+import org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature;
 import org.apache.hadoop.ozone.om.upgrade.OMLayoutVersionManager;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BootstrapNfsObjectIndexRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.BootstrapNfsObjectIndexRequest.Phase;
@@ -230,6 +231,26 @@ public class TestOmMetadataManager {
     assertEquals(version >= 15, omMetadataManager.isNfsStagingIntentsEnabled());
     assertNotNull(omMetadataManager.getNfsTransferRangeTable());
     omMetadataManager.stop();
+  }
+
+  @Test
+  public void testNfsObjectIndexStatus() throws Exception {
+    assertEquals("UNAVAILABLE", OzoneManager.getNfsObjectIndexStatus(null));
+    OMMetadataManager manager = spy(omMetadataManager);
+    assertEquals("NOT_FINALIZED", OzoneManager.getNfsObjectIndexStatus(manager));
+    doReturn(true).when(manager).isNfsObjectIndexEnabled();
+    assertEquals("PENDING", OzoneManager.getNfsObjectIndexStatus(manager));
+
+    manager.getMetaTable().put(OzoneConsts.NFS_OBJECT_INDEX_PROGRESS_KEY, "1:");
+    assertEquals("DIRECTORIES", OzoneManager.getNfsObjectIndexStatus(manager));
+    manager.getMetaTable().put(OzoneConsts.NFS_OBJECT_INDEX_PROGRESS_KEY, "2:");
+    assertEquals("FILES", OzoneManager.getNfsObjectIndexStatus(manager));
+    manager.getMetaTable().put(OzoneConsts.NFS_OBJECT_INDEX_PROGRESS_KEY, "bad");
+    assertEquals("UNKNOWN", OzoneManager.getNfsObjectIndexStatus(manager));
+
+    manager.getMetaTable().put(OzoneConsts.NFS_OBJECT_INDEX_READY_KEY,
+        Integer.toString(OMLayoutFeature.NFS_OBJECT_INDEX.layoutVersion()));
+    assertEquals("READY", OzoneManager.getNfsObjectIndexStatus(manager));
   }
 
   @Test

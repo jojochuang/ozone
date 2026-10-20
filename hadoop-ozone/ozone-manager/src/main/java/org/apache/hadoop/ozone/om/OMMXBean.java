@@ -43,4 +43,6 @@ public interface OMMXBean extends ServiceRuntimeInfo {
   String getHostname();
 
   String getRatisEvents();
+
+  String getNfsObjectIndexStatus();
 }
