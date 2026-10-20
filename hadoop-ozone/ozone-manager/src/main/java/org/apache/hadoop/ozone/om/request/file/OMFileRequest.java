@@ -159,7 +159,13 @@ public final class OMFileRequest {
   public static void validateNfsFileLeaseAbsent(OMMetadataManager manager, OmKeyInfo keyInfo) throws IOException {
     long volumeId = manager.getVolumeId(keyInfo.getVolumeName());
     long bucketId = manager.getBucketId(keyInfo.getVolumeName(), keyInfo.getBucketName());
-    String leaseKey = manager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID());
+    validateNfsFileLeaseAbsent(manager, volumeId, bucketId, keyInfo.getObjectID());
+  }
+
+  /** Reject a mutation that would invalidate a file with an unrecovered NFS writer lease. */
+  public static void validateNfsFileLeaseAbsent(OMMetadataManager manager, long volumeId, long bucketId,
+      long objectId) throws IOException {
+    String leaseKey = manager.getNfsFileLeaseKey(volumeId, bucketId, objectId);
     OmNfsLeaseInfo lease = manager.getNfsFileLeaseTable().get(leaseKey);
     if (lease != null) {
       throw new OMException("File has an unrecovered NFS writer lease", OMException.ResultCodes.NFS_LEASE_CONFLICT);

@@ -138,6 +138,7 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
     }
     PurgeApplyResult result = new PurgeApplyResult();
     try {
+      validateNfsLeases(preparedSubDirs, preparedSubFiles, omMetadataManager);
       // Phase 2 (under the bucket write lock): apply the prepared cache tombstones, hsync open-key cleanup and
       // aggregated per-bucket quota changes.
       applyPreparedEntries(preparedSubDirs, preparedSubFiles, preparedDirPurges, omMetadataManager,
@@ -171,6 +172,9 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
       if (LOG.isDebugEnabled()) {
         logDirectoryDeletionAuditSuccess(ozoneManager, fromSnapshotInfo, numSubDirMoved, result);
       }
+    } catch (OMException ex) {
+      AUDIT.logWriteFailure(ozoneManager.buildAuditMessageForFailure(OMSystemAction.DIRECTORY_DELETION, null, ex));
+      return new OMDirectoriesPurgeResponseWithFSO(createErrorOMResponse(omResponse, ex));
     } catch (IOException ex) {
       // Case of IOException for fromProtobuf will not happen
       // as this is created and send within OM
@@ -194,6 +198,18 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
     return new OMDirectoriesPurgeResponseWithFSO(
         omResponse.build(), purgeRequests,
         getBucketLayout(), result.volBucketInfoMap, fromSnapshotInfo, result.openKeyInfoMap);
+  }
+
+  /** Rechecks leases under the bucket write lock before the asynchronous purge mutates any cache entries. */
+  private void validateNfsLeases(List<PreparedEntry> preparedSubDirs, List<PreparedEntry> preparedSubFiles,
+      OmMetadataManagerImpl omMetadataManager) throws IOException {
+    for (PreparedEntry entry : preparedSubDirs) {
+      OMFileRequest.validateNfsDirectoryLeasesReleased(omMetadataManager, entry.volumeId, entry.bucketId,
+          entry.objectId);
+    }
+    for (PreparedEntry entry : preparedSubFiles) {
+      OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, entry.volumeId, entry.bucketId, entry.objectId);
+    }
   }
 
   /**
@@ -281,7 +297,8 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
     List<PreparedEntry> preparedSubDirs = new ArrayList<>();
     for (OzoneManagerProtocolProtos.KeyInfo key : path.getMarkDeletedSubDirsList()) {
       ProcessedKeyInfo processed = processDeleteKey(key, path, omMetadataManager);
-      preparedSubDirs.add(new PreparedEntry(processed, path.getBucketId(), 0L, null));
+      preparedSubDirs.add(new PreparedEntry(processed, path.getVolumeId(), path.getBucketId(), key.getObjectID(),
+          0L, null));
     }
     return preparedSubDirs;
   }
@@ -302,7 +319,8 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
       String dbOpenKey = hsyncClientId == null ? null
           : omMetadataManager.getOpenFileName(path.getVolumeId(), path.getBucketId(),
           processed.parentObjectID, processed.fileName, hsyncClientId);
-      preparedSubFiles.add(new PreparedEntry(processed, path.getBucketId(), replicatedSize, dbOpenKey));
+      preparedSubFiles.add(new PreparedEntry(processed, path.getVolumeId(), path.getBucketId(), key.getObjectID(),
+          replicatedSize, dbOpenKey));
     }
     return preparedSubFiles;
   }
@@ -486,13 +504,18 @@ public class OMDirectoriesPurgeRequestWithFSO extends OMKeyRequest {
    */
   private static final class PreparedEntry {
     private final ProcessedKeyInfo processed;
+    private final long volumeId;
     private final long bucketId;
+    private final long objectId;
     private final long replicatedSize;
     private final String dbOpenKey;
 
-    PreparedEntry(ProcessedKeyInfo processed, long bucketId, long replicatedSize, String dbOpenKey) {
+    PreparedEntry(ProcessedKeyInfo processed, long volumeId, long bucketId, long objectId, long replicatedSize,
+        String dbOpenKey) {
       this.processed = processed;
+      this.volumeId = volumeId;
       this.bucketId = bucketId;
+      this.objectId = objectId;
       this.replicatedSize = replicatedSize;
       this.dbOpenKey = dbOpenKey;
     }

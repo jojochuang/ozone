@@ -24,6 +24,7 @@ import static org.apache.hadoop.ozone.om.request.file.OMFileRequest.getOmKeyInfo
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.ByteString;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -69,6 +71,7 @@ import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.OmNfsObjectInfo;
 import org.apache.hadoop.ozone.om.helpers.SnapshotInfo;
 import org.apache.hadoop.ozone.om.lock.IOzoneManagerLock;
@@ -736,6 +739,78 @@ public class TestOMDirectoriesPurgeRequestAndResponse extends OMKeyRequestTests 
     // hsync leg: the corresponding open key is marked deleted after the batch commit.
     OmKeyInfo purgedOpenKey = omMetadataManager.getOpenKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED).get(dbOpenKey);
     assertEquals("true", purgedOpenKey.getMetadata().get(OzoneConsts.DELETED_HSYNC_KEY));
+  }
+
+  @Test
+  public void testDirectoryPurgeRejectsActiveNfsDescendantLease() throws Exception {
+    doReturn(true).when(omMetadataManager).isNfsObjectIndexEnabled();
+    doReturn(true).when(omMetadataManager).isNfsObjectIndexReady();
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName, omMetadataManager,
+        BucketLayout.FILE_SYSTEM_OPTIMIZED);
+    OmBucketInfo bucketInfo = omMetadataManager.getBucketTable().get(
+        omMetadataManager.getBucketKey(volumeName, bucketName));
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = bucketInfo.getObjectID();
+
+    OmDirectoryInfo directory = OmDirectoryInfo.newBuilder()
+        .setName("dir")
+        .setCreationTime(Time.now())
+        .setModificationTime(Time.now())
+        .setObjectID(1L)
+        .setParentObjectID(bucketId)
+        .setUpdateID(0L)
+        .build();
+    String directoryKey = OMRequestTestUtils.addDirKeyToDirTable(false, directory, volumeName, bucketName,
+        directory.getObjectID(), omMetadataManager);
+    OmKeyInfo file = OMRequestTestUtils.createOmKeyInfo(volumeName, bucketName, "file",
+            RatisReplicationConfig.getInstance(ONE))
+        .setObjectID(2L)
+        .setParentObjectID(directory.getObjectID())
+        .setUpdateID(100L)
+        .build();
+    String fileKey = OMRequestTestUtils.addFileToKeyTable(false, true, file.getKeyName(), file, 1234L,
+        file.getObjectID(), omMetadataManager);
+    omMetadataManager.getNfsObjectTable().put(
+        omMetadataManager.getNfsObjectKey(volumeId, bucketId, directory.getObjectID()),
+        new OmNfsObjectInfo(PersistedNfsObjectInfo.Kind.DIRECTORY, bucketId, directory.getName()));
+    omMetadataManager.getNfsObjectTable().put(
+        omMetadataManager.getNfsObjectKey(volumeId, bucketId, file.getObjectID()),
+        new OmNfsObjectInfo(PersistedNfsObjectInfo.Kind.FILE, directory.getObjectID(), file.getFileName()));
+
+    long now = Time.now();
+    String exportUuid = UUID.randomUUID().toString();
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId,
+        1, now + 60_000, "gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, file.getObjectID(),
+        "transfer", "nfs-user@EXAMPLE.COM", ByteString.copyFromUtf8("owner-token"), now, 10_000);
+    omMetadataManager.getNfsExportLeaseTable().put(omMetadataManager.getNfsExportLeaseKey(exportUuid), exportLease);
+    omMetadataManager.getNfsFileLeaseTable().put(
+        omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, file.getObjectID()), fileLease);
+
+    OmKeyInfo directoryKeyInfo = getOmKeyInfo(volumeName, bucketName, directory, directory.getName());
+    PurgePathRequest purgePath = wrapPurgeRequest(volumeId, bucketId, null, Collections.emptyList(),
+        Collections.singletonList(directoryKeyInfo));
+    BucketNameInfo bucketNameInfo = BucketNameInfo.newBuilder()
+        .setVolumeName(volumeName)
+        .setBucketName(bucketName)
+        .setVolumeId(volumeId)
+        .setBucketId(bucketId)
+        .build();
+    OMRequest request = createPurgeKeysRequest(null, Collections.singletonList(purgePath),
+        Collections.singletonList(bucketNameInfo));
+    OMDirectoriesPurgeRequestWithFSO purgeRequest =
+        new OMDirectoriesPurgeRequestWithFSO(preExecute(request));
+
+    OMDirectoriesPurgeResponseWithFSO response = (OMDirectoriesPurgeResponseWithFSO)
+        purgeRequest.validateAndUpdateCache(ozoneManager, 100L);
+
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT, response.getOMResponse().getStatus());
+    assertNotNull(omMetadataManager.getDirectoryTable().get(directoryKey));
+    assertNotNull(omMetadataManager.getFileTable().get(fileKey));
+    assertNotNull(omMetadataManager.getNfsObjectTable().get(
+        omMetadataManager.getNfsObjectKey(volumeId, bucketId, directory.getObjectID())));
+    assertNotNull(omMetadataManager.getNfsObjectTable().get(
+        omMetadataManager.getNfsObjectKey(volumeId, bucketId, file.getObjectID())));
   }
 
   private void performBatchOperationCommit(OMDirectoriesPurgeResponseWithFSO omClientResponse)
