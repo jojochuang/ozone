@@ -59,7 +59,7 @@ public class TestOMBucketDeleteRequest extends BucketRequestTests {
     // As user info gets added.
     OMRequest preExecuted = omBucketDeleteRequest.preExecute(ozoneManager);
     assertNotEquals(omRequest, preExecuted);
-    assertTrue(preExecuted.getDeleteBucketRequest().hasLeaderTimeMillis());
+    assertTrue(preExecuted.hasLeaderTimeMillis());
   }
 
   @Test

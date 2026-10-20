@@ -61,7 +61,6 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
 import org.apache.hadoop.ozone.request.validation.RequestProcessingPhase;
 import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,14 +73,6 @@ public class OMBucketDeleteRequest extends OMClientRequest {
 
   public OMBucketDeleteRequest(OMRequest omRequest) {
     super(omRequest);
-  }
-
-  @Override
-  public OMRequest preExecute(OzoneManager ozoneManager) throws IOException {
-    final OMRequest request = super.preExecute(ozoneManager);
-    DeleteBucketRequest deleteRequest = request.getDeleteBucketRequest();
-    return request.toBuilder().setDeleteBucketRequest(
-        deleteRequest.toBuilder().setLeaderTimeMillis(Time.now())).build();
   }
 
   @Override
@@ -140,7 +131,7 @@ public class OMBucketDeleteRequest extends OMClientRequest {
         throw new OMException("Bucket not found", BUCKET_NOT_FOUND);
       }
 
-      validateNfsExportLeaseInactive(omMetadataManager, omBucketInfo, deleteBucketRequest);
+      validateNfsExportLeaseInactive(omMetadataManager, omBucketInfo, getOmRequest().getLeaderTimeMillis());
 
       //Check if bucket is empty
       if (!omMetadataManager.isBucketEmpty(volumeName, bucketName)) {
@@ -245,13 +236,12 @@ public class OMBucketDeleteRequest extends OMClientRequest {
   }
 
   private void validateNfsExportLeaseInactive(OMMetadataManager metadataManager, OmBucketInfo bucket,
-      DeleteBucketRequest request) throws IOException {
+      long leaderTimeMillis) throws IOException {
     if (!bucket.getBucketLayout().isFileSystemOptimized()) {
       return;
     }
     long volumeId = metadataManager.getVolumeId(bucket.getVolumeName());
     long bucketId = metadataManager.getBucketId(bucket.getVolumeName(), bucket.getBucketName());
-    long leaderTimeMillis = request.hasLeaderTimeMillis() ? request.getLeaderTimeMillis() : 0;
     Map<String, OmNfsLeaseInfo> leases = new HashMap<>();
     try (TableIterator<String, Table.KeyValue<String, OmNfsLeaseInfo>> iterator =
         metadataManager.getNfsExportLeaseTable().iterator()) {

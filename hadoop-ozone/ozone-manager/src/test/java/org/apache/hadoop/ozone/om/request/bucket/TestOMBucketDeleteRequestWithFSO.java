@@ -77,8 +77,7 @@ public class TestOMBucketDeleteRequestWithFSO
 
     OMBucketDeleteRequest request = new OMBucketDeleteRequest(
         createDeleteBucketRequest(volumeName, bucketName).toBuilder()
-            .setDeleteBucketRequest(DeleteBucketRequest.newBuilder()
-                .setVolumeName(volumeName).setBucketName(bucketName).setLeaderTimeMillis(1000))
+            .setLeaderTimeMillis(1000)
             .build());
     assertEquals(Status.NFS_LEASE_CONFLICT,
         request.validateAndUpdateCache(ozoneManager, 2).getOMResponse().getStatus());

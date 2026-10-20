@@ -1113,7 +1113,6 @@ message SetBucketPropertyResponse {
 message DeleteBucketRequest {
     required string volumeName = 1;
     required string bucketName = 2;
-    optional uint64 leaderTimeMillis = 3;
 }
 
 message DeleteBucketResponse {
