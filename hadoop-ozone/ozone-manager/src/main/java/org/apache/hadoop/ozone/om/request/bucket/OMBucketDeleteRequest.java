@@ -131,14 +131,8 @@ public class OMBucketDeleteRequest extends OMClientRequest {
         throw new OMException("Bucket not found", BUCKET_NOT_FOUND);
       }
 
-      validateNfsExportLeaseInactive(omMetadataManager, omBucketInfo, getOmRequest().getLeaderTimeMillis());
-
-      //Check if bucket is empty
-      if (!omMetadataManager.isBucketEmpty(volumeName, bucketName)) {
-        LOG.debug("bucket: {} is not empty ", bucketName);
-        throw new OMException("Bucket is not empty",
-            OMException.ResultCodes.BUCKET_NOT_EMPTY);
-      }
+      validateBucketCanBeDeleted(omMetadataManager, omBucketInfo, volumeName, bucketName,
+          getOmRequest().getLeaderTimeMillis());
 
       // Check if bucket does not contain incomplete MPUs
       if (omMetadataManager.containsIncompleteMPUs(volumeName, bucketName)) {
@@ -267,6 +261,15 @@ public class OMBucketDeleteRequest extends OMClientRequest {
           && lease.getProtobuf().getExpiresAtMillis() > leaderTimeMillis) {
         throw new OMException("Bucket has an active NFS export lease", ResultCodes.NFS_LEASE_CONFLICT);
       }
+    }
+  }
+
+  private void validateBucketCanBeDeleted(OMMetadataManager metadataManager, OmBucketInfo bucket,
+      String volumeName, String bucketName, long leaderTimeMillis) throws IOException {
+    validateNfsExportLeaseInactive(metadataManager, bucket, leaderTimeMillis);
+    if (!metadataManager.isBucketEmpty(volumeName, bucketName)) {
+      LOG.debug("bucket: {} is not empty ", bucketName);
+      throw new OMException("Bucket is not empty", OMException.ResultCodes.BUCKET_NOT_EMPTY);
     }
   }
 

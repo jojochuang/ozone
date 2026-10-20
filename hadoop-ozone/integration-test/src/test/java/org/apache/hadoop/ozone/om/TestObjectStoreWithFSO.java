@@ -731,6 +731,7 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
       cluster.getOzoneManager().getVersionManager().finalized(OMLayoutFeature.NFS_STAGING_INTENTS);
     }
     assertNfsExportLeaseRpc(metadata, rpc, exportId, volumeName, bucketName);
+    assertNfsExportLeaseBlocksEmptyBucketDelete(metadata, rpc);
 
     assertNfsClientWrite(bucket, rpc, metadata, exportId, handle);
     // Transport authentication is outside this non-secure gateway-to-OM RPC contract.
@@ -1187,6 +1188,29 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     OmNfsLeaseInfo released = metadata.getNfsExportLeaseTable().get(metadata.getNfsExportLeaseKey(exportId.toString()));
     assertEquals(renewed.getGeneration() + 1, released.getProtobuf().getGeneration());
     assertTrue(released.getProtobuf().getExpiresAtMillis() < renewed.getExpiresAtMillis());
+  }
+
+  private void assertNfsExportLeaseBlocksEmptyBucketDelete(OMMetadataManager metadata, OzoneManagerProtocol rpc)
+      throws Exception {
+    String emptyBucket = "nfs-empty-" + UUID.randomUUID();
+    client.getObjectStore().getVolume(volumeName).createBucket(emptyBucket,
+        BucketArgs.newBuilder().setBucketLayout(BucketLayout.FILE_SYSTEM_OPTIMIZED).build());
+    UUID exportId = UUID.randomUUID();
+    NfsExportLeaseRequest acquire = NfsExportLeaseRequest.newBuilder().setOperation(Operation.ACQUIRE)
+        .setExportUUID(exportId.toString()).setVolumeName(volumeName).setBucketName(emptyBucket)
+        .setGatewayID("nfs-gateway-delete-it").setLeaseDurationMillis(30_000).build();
+    org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsExportLeaseResponse lease =
+        rpc.updateNfsExportLease(acquire);
+
+    OMException conflict = assertThrows(OMException.class, () -> rpc.deleteBucket(volumeName, emptyBucket));
+    assertEquals(NFS_LEASE_CONFLICT, conflict.getResult());
+    assertNotNull(metadata.getBucketTable().get(metadata.getBucketKey(volumeName, emptyBucket)));
+
+    rpc.updateNfsExportLease(acquire.toBuilder().setOperation(Operation.RELEASE)
+        .setGatewayGeneration(lease.getGatewayGeneration()).setGeneration(lease.getGeneration())
+        .clearLeaseDurationMillis().build());
+    rpc.deleteBucket(volumeName, emptyBucket);
+    assertNull(metadata.getBucketTable().get(metadata.getBucketKey(volumeName, emptyBucket)));
   }
 
   private void assertNfsDirectoryCursor(OzoneBucket bucket, OzoneManagerProtocol rpc, OmKeyArgs identityArgs,

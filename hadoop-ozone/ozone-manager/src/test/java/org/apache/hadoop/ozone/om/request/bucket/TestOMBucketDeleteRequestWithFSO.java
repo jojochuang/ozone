@@ -72,8 +72,13 @@ public class TestOMBucketDeleteRequestWithFSO
     long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
     String exportUuid = UUID.randomUUID().toString();
     String leaseKey = omMetadataManager.getNfsExportLeaseKey(exportUuid);
-    omMetadataManager.getNfsExportLeaseTable().addCacheEntry(leaseKey,
-        OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId, 1, 2000, "gateway", 1), 1);
+    OmNfsLeaseInfo lease = OmNfsLeaseInfo.createExportLease(
+        exportUuid, volumeId, bucketId, 1, 2000, "gateway", 1);
+    omMetadataManager.getNfsExportLeaseTable().put(leaseKey, lease);
+    String cachedExportUuid = UUID.randomUUID().toString();
+    omMetadataManager.getNfsExportLeaseTable().addCacheEntry(
+        omMetadataManager.getNfsExportLeaseKey(cachedExportUuid), OmNfsLeaseInfo.createExportLease(
+            cachedExportUuid, volumeId, bucketId, 1, 2000, "gateway-2", 1), 1);
 
     OMBucketDeleteRequest request = new OMBucketDeleteRequest(
         createDeleteBucketRequest(volumeName, bucketName).toBuilder()
@@ -82,6 +87,16 @@ public class TestOMBucketDeleteRequestWithFSO
     assertEquals(Status.NFS_LEASE_CONFLICT,
         request.validateAndUpdateCache(ozoneManager, 2).getOMResponse().getStatus());
     assertNotNull(omMetadataManager.getBucketTable().get(
+        omMetadataManager.getBucketKey(volumeName, bucketName)));
+
+    omMetadataManager.getNfsExportLeaseTable().put(leaseKey,
+        OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId, 1, 1000, "gateway", 1));
+    omMetadataManager.getNfsExportLeaseTable().addCacheEntry(
+        omMetadataManager.getNfsExportLeaseKey(cachedExportUuid), OmNfsLeaseInfo.createExportLease(
+            cachedExportUuid, volumeId, bucketId, 1, 1000, "gateway-2", 1), 2);
+    assertEquals(Status.OK,
+        request.validateAndUpdateCache(ozoneManager, 3).getOMResponse().getStatus());
+    assertNull(omMetadataManager.getBucketTable().get(
         omMetadataManager.getBucketKey(volumeName, bucketName)));
   }
 
