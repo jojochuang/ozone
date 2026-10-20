@@ -31,6 +31,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,6 +49,7 @@ import org.apache.hadoop.ozone.om.OMMetrics;
 import org.apache.hadoop.ozone.om.OzoneManager;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
@@ -56,6 +58,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMReque
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OpenKey;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OpenKeyBucket;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -99,6 +102,35 @@ public class TestOMOpenKeysDeleteRequest extends OMKeyRequestTests {
         makeOpenKeys(volumeName, bucketName, 5);
     deleteOpenKeysFromCache(openKeys);
     assertNotInOpenKeyTable(openKeys);
+  }
+
+  @Test
+  public void testDeleteExpiredNfsOpenKeyRetainsItForRecovery() throws Exception {
+    bucketLayout = BucketLayout.FILE_SYSTEM_OPTIMIZED;
+    volumeName = UUID.randomUUID().toString();
+    bucketName = UUID.randomUUID().toString();
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
+        omMetadataManager, getBucketLayout());
+
+    Pair<Long, OmKeyInfo> openKey = makeOpenKeys(volumeName, bucketName, 1).get(0);
+    OmKeyInfo keyInfo = openKey.getRight().toBuilder().setObjectID(100L).build();
+    List<Pair<Long, OmKeyInfo>> openKeys = List.of(Pair.of(openKey.getLeft(), keyInfo));
+    addToOpenKeyTableDB(openKeys);
+
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    long now = System.currentTimeMillis();
+    String exportUuid = UUID.randomUUID().toString();
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId,
+        1, now + 60_000, "gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, keyInfo.getObjectID(),
+        "transfer", "nfs-user@EXAMPLE.COM", ByteString.copyFromUtf8("owner-token"), now - 20_000, 10_000);
+    omMetadataManager.getNfsFileLeaseTable().put(
+        omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID()), fileLease);
+
+    deleteOpenKeysFromCache(openKeys);
+
+    assertInOpenKeyTable(openKeys);
   }
 
   /**

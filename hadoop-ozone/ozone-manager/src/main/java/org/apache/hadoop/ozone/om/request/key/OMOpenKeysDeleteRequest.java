@@ -195,6 +195,16 @@ public class OMOpenKeysDeleteRequest extends OMKeyRequest {
             continue;
           }
 
+          if (getBucketLayout().isFileSystemOptimized()) {
+            long volumeId = omMetadataManager.getVolumeId(omKeyInfo.getVolumeName());
+            long keyBucketId = omMetadataManager.getBucketId(omKeyInfo.getVolumeName(), omKeyInfo.getBucketName());
+            if (omMetadataManager.getNfsFileLeaseTable().get(
+                omMetadataManager.getNfsFileLeaseKey(volumeId, keyBucketId, omKeyInfo.getObjectID())) != null) {
+              LOG.debug("Open key {} is retained for NFS lease recovery.", fullKeyName);
+              continue;
+            }
+          }
+
           // Set the UpdateID to current transactionLogIndex
           omKeyInfo = omKeyInfo.toBuilder()
               .setUpdateID(trxnLogIndex)

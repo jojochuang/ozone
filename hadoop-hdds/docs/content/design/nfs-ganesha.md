@@ -247,7 +247,7 @@ The initial FSO request-path inventory identifies these enforcement points; each
 | Rename and deletion | `OMKeyRenameRequestWithFSO`, `OMKeyDeleteRequestWithFSO`, `OmKeysDeleteRequestWithFSO`, `OMDirectoriesPurgeRequestWithFSO` | Reject mutation of an actively written file and directory operations that would move or remove a leased descendant. |
 | Bucket removal | `OMBucketDeleteRequest` | Reject deletion of an empty FSO bucket while an export lease is active, using leader time stamped before Ratis replication. |
 | Metadata mutation | `OMKeySetTimesRequestWithFSO`, `S3PutObjectTaggingRequestWithFSO`, `S3DeleteObjectTaggingRequestWithFSO` | Serialize or reject metadata changes during a transfer so commit cannot overwrite a concurrent update. |
-| Expired open-key cleanup | `OMOpenKeysDeleteRequest`, `OMRecoverLeaseRequest` | Cleanup must not auto-commit or discard an acknowledged stable transfer; check and fence the OM lease before recovery or deletion. |
+| Expired open-key cleanup | `OMOpenKeysDeleteRequest`, `OMRecoverLeaseRequest` | Generic recovery rejects any extant NFS file lease, and cleanup retains its open key until NFS recovery commits or removes it; this preserves acknowledged stable ranges after lease expiry. |
 
 The request dispatch review confirms that `BucketLayoutAwareOMKeyRequestFactory` selects the FSO handlers for file/key, allocation/commit, delete, rename, multipart, setTimes, and tagging operations; `OzoneManagerRatisUtils` selects the FSO key ACL handlers, and bucket deletion dispatches directly to `OMBucketDeleteRequest`. The active-export check now covers administrative deletion of an empty FSO bucket. Focused unit coverage and a MiniOzoneCluster RPC regression both pass.
 
