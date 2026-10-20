@@ -84,6 +84,8 @@ The separate process avoids embedding a JVM in Ganesha. The local channel authen
 
 The standalone Java gateway registers bounded per-operation Metrics2 counters for backend RPC count, NFS status errors, gRPC failures, and average latency. These describe calls between FSAL_OZONE and the Java gateway; they are not NFS client RPC counts or a substitute for live end-to-end performance measurements.
 
+OM exposes the FSO object-index bootstrap phase through the `NfsObjectIndexStatus` attribute on its `OzoneManagerInfo` MBean. Operators can distinguish `NOT_FINALIZED`, `PENDING`, `DIRECTORIES`, `FILES`, and `READY`; unavailable or malformed state reports `UNAVAILABLE` or `UNKNOWN`. The attribute intentionally omits the persisted database cursor. A `READY` status confirms the index bootstrap marker only; writable NFS exports still require every writable-export layout feature to be finalized.
+
 Ganesha is an external runtime component. Its license and FSAL distribution arrangement need Apache review; do not copy Ganesha implementation into Apache-licensed source or add it as a mandatory Ozone build dependency. The native integration prototype targets upstream Ganesha V5.7 with its pinned ntirpc submodule. Linux compilation and mounted-client contracts must pass before this becomes the supported runtime baseline.
 
 # Approved FSAL-to-Java transport
