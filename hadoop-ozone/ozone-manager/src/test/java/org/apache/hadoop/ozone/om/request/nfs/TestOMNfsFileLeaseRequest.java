@@ -63,14 +63,13 @@ class TestOMNfsFileLeaseRequest {
   private java.io.File folder;
   private OMMetadataManager metadataManager;
   private OzoneManager ozoneManager;
-  private OzoneConfiguration configuration;
   private long volumeId;
   private long bucketId;
   private OmNfsLeaseInfo exportLease;
 
   @BeforeEach
   void setup() throws Exception {
-    configuration = new OzoneConfiguration();
+    OzoneConfiguration configuration = new OzoneConfiguration();
     configuration.set(OMConfigKeys.OZONE_OM_NFS_RECOVERY_RETENTION, "1s");
     configuration.set(OZONE_OM_DB_DIRS, folder.getAbsolutePath());
     metadataManager = spy(new OmMetadataManagerImpl(configuration, null));

@@ -74,6 +74,8 @@ import org.slf4j.LoggerFactory;
  */
 public final class OMFileRequest {
 
+  private static final Logger LOG = LoggerFactory.getLogger(OMFileRequest.class);
+
   static List<String> getKeyPathComponents(String keyName) {
     if (keyName.indexOf('\0') >= 0) {
       throw new InvalidPathException(keyName, "NUL character in path");
@@ -234,9 +236,6 @@ public final class OMFileRequest {
     }
     return false;
   }
-
-  private static final Logger LOG =
-      LoggerFactory.getLogger(OMFileRequest.class);
 
   private OMFileRequest() {
   }

@@ -19,6 +19,8 @@ package org.apache.hadoop.ozone.om.request.key;
 
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.ByteString;
 import jakarta.annotation.Nonnull;
@@ -209,12 +211,12 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
 
     assertEquals(org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK,
         response.getOMResponse().getStatus());
-    assertEquals(true, omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
+    assertTrue(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
     try (BatchOperation batch = omMetadataManager.getStore().initBatchOperation()) {
       response.checkAndUpdateDB(omMetadataManager, batch);
       omMetadataManager.getStore().commitBatchOperation(batch);
     }
-    assertEquals(true, omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
+    assertTrue(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
   }
 
   @Test
@@ -248,7 +250,7 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
 
     assertEquals(org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.OK,
         response.getOMResponse().getStatus());
-    assertEquals(true, omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
+    assertTrue(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
   }
 
   @Test
@@ -288,6 +290,6 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
 
     assertEquals(org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT,
         response.getOMResponse().getStatus());
-    assertEquals(false, omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
+    assertFalse(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
   }
 }

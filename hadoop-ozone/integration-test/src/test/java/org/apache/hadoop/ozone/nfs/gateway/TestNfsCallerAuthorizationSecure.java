@@ -528,11 +528,6 @@ class TestNfsCallerAuthorizationSecure extends KerberosTests {
   }
 
   private static ByteString stageGatewayRecoveryWrite(NfsGatewayGrpc.NfsGatewayBlockingStub stub,
-      RequestContext context, ByteString bucketHandle) {
-    return stageGatewayRecoveryWrite(stub, context, bucketHandle, "secure-nfs-recovery");
-  }
-
-  private static ByteString stageGatewayRecoveryWrite(NfsGatewayGrpc.NfsGatewayBlockingStub stub,
       RequestContext context, ByteString bucketHandle, String name) {
     byte[] data = "gateway replacement recovers staged data".getBytes(StandardCharsets.UTF_8);
     CreateResponse create = stub.create(CreateRequest.newBuilder().setContext(context).setParentHandle(bucketHandle)
