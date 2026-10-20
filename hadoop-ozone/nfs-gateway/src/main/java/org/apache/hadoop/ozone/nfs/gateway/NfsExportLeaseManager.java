@@ -84,6 +84,9 @@ final class NfsExportLeaseManager implements Closeable {
         NfsExportLeaseResponse response = acquireExportLease(entry.getValue(), entry.getKey());
         acquired.put(entry.getKey(), state(response));
       }
+      if (acquired.values().stream().anyMatch(state -> System.nanoTime() >= state.expiresAtNanos)) {
+        throw new IOException("NFS export lease expired before the gateway finished starting");
+      }
       leases.putAll(acquired);
       long renewalPeriodMillis = Math.max(500, leaseDurationMillis / 3);
       exportLeaseRenewer.scheduleAtFixedRate(this::renewExportLeases, renewalPeriodMillis, renewalPeriodMillis,
@@ -259,6 +262,9 @@ final class NfsExportLeaseManager implements Closeable {
           leaseDurationMillis, export.gatewayGeneration, export.generation);
       export = state(renewed);
       leases.put(exportUuid, export);
+      if (!isActive(exportUuid)) {
+        throw new IOException("NFS export lease renewal returned an expired lease");
+      }
     }
     return export;
   }
@@ -564,10 +570,14 @@ final class NfsExportLeaseManager implements Closeable {
     try {
       long fileLeaseDurationMillis = Math.max(1, leaseDurationMillis / 2);
       export = renewExportLeaseIfNeeded(key.exportUuid, export, fileLeaseDurationMillis);
-      readers.get(key.exportUuid).updateFileLease(
+      NfsFileLeaseResponse response = readers.get(key.exportUuid).updateFileLease(
           NfsFileLeaseRequest.Operation.RENEW, gatewayId, export.gatewayGeneration, current.objectId,
           current.transferId, current.generation, current.ownerToken, fileLeaseDurationMillis);
-      current.expiresAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(fileLeaseDurationMillis);
+      long remainingMillis = response.getExpiresAtMillis() - System.currentTimeMillis();
+      if (remainingMillis <= 0) {
+        throw new IOException("NFS file lease renewal returned an expired lease");
+      }
+      current.expiresAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(remainingMillis);
     } catch (IOException | RuntimeException ex) {
       fileLeases.remove(key, current);
       LOG.error("Lost NFS file lease for gateway {} and transfer {}", gatewayId, current.transferId, ex);
@@ -575,7 +585,8 @@ final class NfsExportLeaseManager implements Closeable {
   }
 
   private LeaseState state(NfsExportLeaseResponse response) {
-    long expiresAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(leaseDurationMillis);
+    long remainingMillis = response.getExpiresAtMillis() - System.currentTimeMillis();
+    long expiresAtNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(0, remainingMillis));
     return new LeaseState(response.getGatewayGeneration(), response.getGeneration(), expiresAtNanos);
   }
 
