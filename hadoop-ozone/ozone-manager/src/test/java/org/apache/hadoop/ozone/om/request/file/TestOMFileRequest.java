@@ -26,11 +26,14 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
+import java.util.Collections;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.ozone.om.OMMetadataManager;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsObjectInfo;
+import org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos.PersistedNfsObjectInfo;
 import org.apache.hadoop.util.Time;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +69,37 @@ class TestOMFileRequest {
     assertThrows(OMException.class, () -> OMFileRequest.validateNfsFileLeaseAbsent(metadataManager, keyInfo));
     when(leaseTable.get("lease")).thenReturn(null);
     assertDoesNotThrow(() -> OMFileRequest.validateNfsFileLeaseAbsent(metadataManager, keyInfo));
+  }
+
+  @Test
+  void expiredDescendantLeaseBlocksDirectoryMutation() throws Exception {
+    long leaderTimeMillis = Time.now() - 60_000;
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease("export", 1, 2, 1,
+        leaderTimeMillis + 60_000, "gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, 3, "transfer", "owner",
+        ByteString.copyFromUtf8("token"), leaderTimeMillis, 30_000);
+    OMMetadataManager metadataManager = mock(OMMetadataManager.class);
+    Table<String, OmNfsLeaseInfo> leaseTable = mock(Table.class);
+    Table.KeyValueIterator<String, OmNfsLeaseInfo> leaseIterator = mock(Table.KeyValueIterator.class);
+    Table.KeyValue<String, OmNfsLeaseInfo> leaseEntry = mock(Table.KeyValue.class);
+    Table<String, OmNfsObjectInfo> objectTable = mock(Table.class);
+    when(metadataManager.isNfsObjectIndexEnabled()).thenReturn(true);
+    when(metadataManager.isNfsObjectIndexReady()).thenReturn(true);
+    when(metadataManager.getNfsFileLeaseTable()).thenReturn(leaseTable);
+    when(metadataManager.getNfsObjectTable()).thenReturn(objectTable);
+    when(metadataManager.getNfsObjectKey(1, 2, 0)).thenReturn("1/2/0");
+    when(metadataManager.getNfsObjectKey(1, 2, 3)).thenReturn("1/2/3");
+    when(objectTable.get("1/2/3")).thenReturn(
+        new OmNfsObjectInfo(PersistedNfsObjectInfo.Kind.FILE, 2, "leased"));
+    when(leaseTable.iterator("1/2/")).thenReturn(leaseIterator);
+    when(leaseTable.cacheIterator()).thenReturn(Collections.emptyIterator());
+    when(leaseIterator.hasNext()).thenReturn(true, false);
+    when(leaseIterator.next()).thenReturn(leaseEntry);
+    when(leaseEntry.getKey()).thenReturn("1/2/3");
+    when(leaseEntry.getValue()).thenReturn(fileLease);
+
+    assertTrue(fileLease.getProtobuf().getExpiresAtMillis() < Time.now());
+    assertThrows(OMException.class,
+        () -> OMFileRequest.validateNfsDirectoryLeasesReleased(metadataManager, 1, 2, 2));
   }
 }
