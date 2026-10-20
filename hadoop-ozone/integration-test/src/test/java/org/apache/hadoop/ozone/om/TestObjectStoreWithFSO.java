@@ -26,6 +26,7 @@ import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.FILE
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_ALREADY_EXISTS;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NFS_LEASE_CONFLICT;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NOT_SUPPORTED_OPERATION;
 import static org.apache.ozone.test.OzoneTestBase.uniqueObjectName;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -694,6 +695,15 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     assertEquals(OMException.ResultCodes.OM_NOT_INITIALIZED, assertThrows(OMException.class,
         () -> rpc.lookupNfsObject(identityArgs, handle.getVolumeId(), handle.getBucketId(), handle.getObjectId(),
             NfsFileHandle.Kind.FILE)).getResult());
+
+    cluster.getOzoneManager().getVersionManager().finalized(OMLayoutFeature.NFS_WRITER_LEASES);
+    cluster.getOzoneManager().getVersionManager().finalized(OMLayoutFeature.NFS_DURABLE_WRITE_RANGES);
+    cluster.getOzoneManager().getVersionManager().finalized(OMLayoutFeature.NFS_STAGING_INTENTS);
+    NfsExportLeaseRequest unreadyExport = NfsExportLeaseRequest.newBuilder().setOperation(Operation.ACQUIRE)
+        .setExportUUID(exportId.toString()).setVolumeName(volumeName).setBucketName(bucketName)
+        .setGatewayID("nfs-gateway-it").setLeaseDurationMillis(30_000).build();
+    assertEquals(NOT_SUPPORTED_OPERATION, assertThrows(OMException.class,
+        () -> rpc.updateNfsExportLease(unreadyExport)).getResult());
 
     NfsObjectIndexBootstrapService bootstrap = new NfsObjectIndexBootstrapService(
         20, TimeUnit.MILLISECONDS, 300, cluster.getOzoneManager());
