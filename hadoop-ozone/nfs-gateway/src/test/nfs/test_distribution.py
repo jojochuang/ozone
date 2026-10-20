@@ -51,8 +51,11 @@ def main():
     if len(gateway_jars) != 1:
         raise AssertionError(f"Expected one NFS gateway jar, found {len(gateway_jars)}")
     gateway_jar = gateway_jars[0]
-    if gateway_jar.name not in classpath.read_text(encoding="utf-8"):
+    classpath_text = classpath.read_text(encoding="utf-8")
+    if gateway_jar.name not in classpath_text:
         raise AssertionError(f"NFS gateway jar is missing from {CLASSPATH_FILE}")
+    if "commons-configuration2" not in classpath_text:
+        raise AssertionError(f"Hadoop runtime dependency is missing from {CLASSPATH_FILE}")
 
     with zipfile.ZipFile(gateway_jar) as archive:
         if GATEWAY_CLASS not in archive.namelist():

@@ -45,6 +45,7 @@ struct ozone_fsal_handle {
 	struct ozone_nfs_handle identity;
 	uint8_t wire_handle[OZONE_NFS_HANDLE_LENGTH];
 	atomic_uint references;
+	atomic_uint_fast64_t readdir_verifier;
 	struct ozone_nfs_attributes attributes;
 };
 

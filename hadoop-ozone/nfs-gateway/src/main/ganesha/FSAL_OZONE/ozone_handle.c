@@ -109,6 +109,7 @@ static struct ozone_fsal_handle *ozone_new_handle(struct ozone_fsal_export *expo
 	handle->export = export;
 	memcpy(handle->wire_handle, attributes->handle, sizeof(handle->wire_handle));
 	atomic_init(&handle->references, 1);
+	atomic_init(&handle->readdir_verifier, attributes->change_id);
 	fsal_obj_handle_init(&handle->obj_handle, &export->export,
 			     attributes->directory ? DIRECTORY : REGULAR_FILE);
 	handle->obj_handle.obj_ops = &ozone_handle_ops;
@@ -591,6 +592,7 @@ static fsal_status_t ozone_readdir(struct fsal_obj_handle *dir_hdl,
 	size_t cookie_size = 0, verifier_size = 0;
 	const char *principal;
 	size_t principal_size, count = 0, i;
+	uint64_t verifier_value;
 	uint32_t protection, status = 0, backend_eof = 0;
 	int transport;
 
@@ -605,9 +607,10 @@ static fsal_status_t ozone_readdir(struct fsal_obj_handle *dir_hdl,
 		cookie_input = cookie;
 		cookie_size = sizeof(cookie);
 		/* Match OM's verifier to the directory change attribute Ganesha returns. */
+		verifier_value = atomic_load_explicit(&directory->readdir_verifier, memory_order_relaxed);
 		for (i = 0; i < sizeof(verifier); i++)
 			verifier[sizeof(verifier) - 1 - i] =
-				(uint8_t)(directory->attributes.change_id >> (i * 8));
+				(uint8_t)(verifier_value >> (i * 8));
 		verifier_input = verifier;
 		verifier_size = sizeof(verifier);
 	}
@@ -622,6 +625,10 @@ static fsal_status_t ozone_readdir(struct fsal_obj_handle *dir_hdl,
 		return fsalstat(ERR_FSAL_DELAY, 0);
 	if (status != 0)
 		return ozone_status(status);
+	verifier_value = 0;
+	for (i = 0; i < sizeof(response_verifier); i++)
+		verifier_value = (verifier_value << 8) | response_verifier[i];
+	atomic_store_explicit(&directory->readdir_verifier, verifier_value, memory_order_relaxed);
 	for (i = 0; i < count; i++) {
 		struct ozone_fsal_handle *object;
 		struct fsal_attrlist attrs;

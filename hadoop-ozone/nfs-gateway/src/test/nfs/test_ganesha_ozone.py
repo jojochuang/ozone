@@ -225,29 +225,39 @@ class GaneshaOzoneContract(unittest.TestCase):
         self.assertFalse(path.exists())
         self.assertFalse(self.ozone_file_exists(relative_name))
 
-    def test_directory_mutation_during_paginated_readdir_restarts_scan(self):
+    def test_directory_mutation_during_paginated_readdir_allows_scan_restart(self):
         relative_name = "ganesha-readdir-mutation-contract-" + uuid.uuid4().hex
         directory = self.mount / relative_name
-        entry_count = 300
-        entry_prefix = "entry-" + "x" * 180
+        entry_count = 600
+        entry_prefix = "entry-" + "x" * 240
         expected = {"{}{:04d}".format(entry_prefix, index) for index in range(entry_count)}
 
         self.addCleanup(shutil.rmtree, str(directory), ignore_errors=True)
         directory.mkdir()
-        # Keep the directory larger than a typical getdents buffer so the scan
-        # needs another READDIR continuation after the first returned entry.
-        for name in sorted(expected):
-            (directory / name).mkdir()
+        # Exceed the two-page read-ahead observed with the Linux NFS client so
+        # enumeration needs another READDIR after the directory is changed.
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            list(executor.map(lambda name: (directory / name).mkdir(), sorted(expected)))
 
         added_name = "entry-added-during-readdir"
         with os.scandir(directory) as entries:
             first_entry = next(entries, None)
             self.assertIsNotNone(first_entry, "initial READDIR page must contain entries")
             (directory / added_name).mkdir()
-            found = {entry.name for entry in entries}
-        found.add(first_entry.name)
+            found_before_restart = {entry.name for entry in entries}
+        found_before_restart.add(first_entry.name)
+        self.assertTrue(found_before_restart)
 
-        self.assertEqual(expected | {added_name}, found)
+        # The old cookie/verifier is invalid after mutation. Restart from the
+        # beginning, as an NFS client must, and verify the complete namespace.
+        with os.scandir(directory) as entries:
+            found_after_restart = {entry.name for entry in entries}
+        unexpected = found_after_restart - expected - {added_name}
+        missing = (expected | {added_name}) - found_after_restart
+        self.assertFalse(bool(missing or unexpected), "READDIR restart mismatch: expected {} entries, found {}; "
+                         "missing={}, unexpected={}".format(
+                             len(expected) + 1, len(found_after_restart), sorted(missing)[:5],
+                             sorted(unexpected)[:5]))
 
     def test_truncating_existing_file_is_rejected_without_changing_data(self):
         relative_name = "ganesha-truncate-contract-" + uuid.uuid4().hex
