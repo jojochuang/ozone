@@ -323,10 +323,12 @@ int main(int argc, char **argv) {
       return result_ok ? 0 : 1;
     }
     if (mode == "wrong-export") export_uuid[15] ^= 1;
+    char error_message[512] = {};
     status = ozone_grpc_capabilities(client, export_uuid, mode == "unsupported-version" ? 2 : 1,
-        &nfs_status, &operations);
+        &nfs_status, &operations, error_message, sizeof(error_message));
     ozone_grpc_client_destroy(client);
-    std::cout << "transport=" << status << " nfs=" << nfs_status << " operations=" << operations << std::endl;
+    std::cout << "transport=" << status << " nfs=" << nfs_status << " operations=" << operations
+              << " error=" << error_message << std::endl;
     const bool supported = status == 0 && nfs_status == 0 && mode != "wrong-export" &&
         mode != "unsupported-version";
     const uint64_t expected_operations = supported ? ((UINT64_C(1) << 1) | (UINT64_C(1) << 2) |

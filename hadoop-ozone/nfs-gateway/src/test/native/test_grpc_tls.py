@@ -18,10 +18,72 @@
 import argparse
 import os
 from pathlib import Path
+import platform
+import socket
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
+
+
+class _TcpProxy:
+    """Expose the loopback-only Java fixture to a bridge-networked Docker container."""
+
+    def __init__(self, listen_address, target_address):
+        self.listener = socket.socket()
+        self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.listener.bind(listen_address)
+        self.listener.listen()
+        self.target_address = target_address
+        self.thread = threading.Thread(target=self._accept, daemon=True)
+
+    @property
+    def port(self):
+        return self.listener.getsockname()[1]
+
+    def start(self):
+        self.thread.start()
+
+    def close(self):
+        self.listener.close()
+        self.thread.join(timeout=2)
+
+    def _accept(self):
+        while True:
+            try:
+                client, _ = self.listener.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._relay, args=(client,), daemon=True).start()
+
+    def _relay(self, client):
+        try:
+            backend = socket.create_connection(self.target_address, timeout=5)
+        except OSError:
+            client.close()
+            return
+
+        def forward(source, destination):
+            try:
+                while True:
+                    data = source.recv(65536)
+                    if not data:
+                        break
+                    destination.sendall(data)
+            except OSError:
+                pass
+            try:
+                destination.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass
+
+        reverse = threading.Thread(target=forward, args=(client, backend), daemon=True)
+        reverse.start()
+        forward(backend, client)
+        reverse.join(timeout=2)
+        client.close()
+        backend.close()
 
 
 class GrpcTlsContract(unittest.TestCase):
@@ -46,9 +108,8 @@ class GrpcTlsContract(unittest.TestCase):
                 "org.apache.hadoop.ozone.nfs.gateway.NfsTlsContractServer",
                 str(cls.root / "server.crt"), str(cls.root / "server.key"), str(cls.root / "ca.crt"),
                 str(cls.root / "allowed.crt"), str(cls.root / "port"), str(cls.root / "stop")]
-            if OPTIONS.ganesha_image:
-                cls.capabilities_marker = cls.root / "ganesha-capabilities"
-                server_command.append(str(cls.capabilities_marker))
+            cls.capabilities_marker = cls.root / "ganesha-capabilities"
+            server_command.extend([str(cls.capabilities_marker), "2" if OPTIONS.ganesha_image else "1"])
             cls.server = subprocess.Popen(server_command, stdout=cls.log, stderr=subprocess.STDOUT)
             deadline = time.monotonic() + 30
             while not (cls.root / "port").exists():
@@ -209,6 +270,14 @@ class GrpcTlsContract(unittest.TestCase):
             self.skipTest("Ganesha runtime image was not supplied")
         self.capabilities_marker.unlink(missing_ok=True)
         (self.root / "recovery").mkdir()
+        endpoint_host = "host.docker.internal" if platform.system() == "Darwin" else "localhost"
+        docker_network = "bridge" if platform.system() == "Darwin" else "host"
+        proxy = None
+        endpoint_port = self.port
+        if platform.system() == "Darwin":
+            proxy = _TcpProxy(("0.0.0.0", 0), ("127.0.0.1", self.port))
+            proxy.start()
+            endpoint_port = proxy.port
         (self.root / "ganesha.conf").write_text('''
 NFS_CORE_PARAM {
     Protocols = 4;
@@ -248,7 +317,7 @@ EXPORT {
 
     FSAL {
         Name = OZONE;
-        Endpoint = "localhost:%d";
+        Endpoint = "%s:%d";
         Export_UUID = "00112233-4455-6677-8899-aabbccddeeff";
         Volume_ID = 1;
         Bucket_ID = 2;
@@ -258,13 +327,13 @@ EXPORT {
         Timeout_Millis = 5000;
     }
 }
-''' % self.port)
+''' % (endpoint_host, endpoint_port))
         container_name = "ozone-nfs-ganesha-contract-{}".format(os.getpid())
         log_path = self.root / "ganesha.log"
         with open(log_path, "w") as ganesha_log:
             process = subprocess.Popen([
                 "docker", "run", "--rm", "--name", container_name,
-                "--network", "host",
+                "--network", docker_network,
                 "--mount", "type=bind,source={},target=/contract".format(self.root),
                 OPTIONS.ganesha_image, "sh", "-c",
                 "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT "
@@ -295,6 +364,8 @@ EXPORT {
                     OPTIONS.ganesha_image, "chown", "-R",
                     "{}:{}".format(os.getuid(), os.getgid()), "/contract/recovery"],
                     check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if proxy is not None:
+                    proxy.close()
         self.assertTrue(self.capabilities_marker.exists(), log_path.read_text()[-20000:])
 
 

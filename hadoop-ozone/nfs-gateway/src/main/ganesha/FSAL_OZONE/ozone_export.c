@@ -243,6 +243,7 @@ fsal_status_t ozone_fsal_create_export(struct fsal_module *fsal_hdl,
 	char *trusted_ca = NULL, *client_certificate = NULL, *client_key = NULL;
 	uint64_t operations = 0;
 	uint32_t nfs_status = 0;
+	char error_message[512] = {0};
 	int result;
 	fsal_status_t status;
 
@@ -281,10 +282,12 @@ fsal_status_t ozone_fsal_create_export(struct fsal_module *fsal_hdl,
 		goto fail;
 	}
 	result = ozone_grpc_capabilities(export->client, export->export_uuid, 1,
-					&nfs_status, &operations);
+					&nfs_status, &operations, error_message,
+					sizeof(error_message));
 	if (result != 0) {
 		LogCrit(COMPONENT_FSAL,
-			"OZONE capability request failed with gRPC status %d", result);
+			"OZONE capability request failed with gRPC status %d: %s",
+			result, error_message);
 		status = fsalstat(ERR_FSAL_DELAY, result);
 		goto fail;
 	}

@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.nfs.gateway;
 
 import com.google.protobuf.ByteString;
 import io.grpc.BindableService;
+import io.grpc.ForwardingServerCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.ozone.nfs.NfsChildrenPage;
 import org.apache.hadoop.ozone.nfs.NfsFileHandle;
@@ -52,8 +54,9 @@ public final class NfsTlsContractServer {
 
   @SuppressWarnings("checkstyle:MethodLength")
   public static void main(String[] args) throws Exception {
-    if (args.length != 6 && args.length != 7) {
-      throw new IllegalArgumentException("Expected server cert/key, CA, allowed client cert, port file, and stop file");
+    if (args.length != 8) {
+      throw new IllegalArgumentException("Expected server cert/key, CA, client cert, port/stop files, "
+          + "capabilities marker, and startup failure count");
     }
     X509Certificate allowed;
     try (InputStream input = Files.newInputStream(java.nio.file.Paths.get(args[3]))) {
@@ -246,30 +249,46 @@ public final class NfsTlsContractServer {
     NfsGatewayService service = new NfsGatewayService(Map.of(ByteString.copyFrom(uuidBytes(export)), reader),
         leaseManager);
     BindableService bindableService = service;
-    if (args.length == 7) {
-      java.nio.file.Path capabilitiesMarker = java.nio.file.Paths.get(args[6]);
-      ServerInterceptor markerInterceptor = new ServerInterceptor() {
-        @Override
-        public <RequestT, ResponseT> ServerCall.Listener<RequestT> interceptCall(
-            ServerCall<RequestT, ResponseT> call, Metadata headers,
-            ServerCallHandler<RequestT, ResponseT> next) {
-          if (call.getMethodDescriptor().getFullMethodName().endsWith("/Capabilities")) {
-            try {
-              Files.write(capabilitiesMarker, new byte[] {1});
-            } catch (java.io.IOException ex) {
-              throw new IllegalStateException("Unable to write capabilities marker", ex);
-            }
+    java.nio.file.Path capabilitiesMarker = java.nio.file.Paths.get(args[6]);
+    AtomicInteger startupFailures = new AtomicInteger(Integer.parseInt(args[7]));
+    ServerInterceptor markerInterceptor = new ServerInterceptor() {
+      @Override
+      public <RequestT, ResponseT> ServerCall.Listener<RequestT> interceptCall(
+          ServerCall<RequestT, ResponseT> call, Metadata headers,
+          ServerCallHandler<RequestT, ResponseT> next) {
+        boolean capabilities = call.getMethodDescriptor().getFullMethodName().endsWith("/Capabilities");
+        if (capabilities) {
+          if (startupFailures.getAndUpdate(value -> Math.max(0, value - 1)) > 0) {
+            call.close(Status.UNAVAILABLE.withDescription("Connection refused by test backend"),
+                new Metadata());
+            return new ServerCall.Listener<RequestT>() {
+            };
           }
-          return next.startCall(call, headers);
         }
-      };
-      bindableService = new BindableService() {
-        @Override
-        public ServerServiceDefinition bindService() {
-          return ServerInterceptors.intercept(service, markerInterceptor);
-        }
-      };
-    }
+        ServerCall<RequestT, ResponseT> monitoredCall = capabilities
+            ? new ForwardingServerCall.SimpleForwardingServerCall<RequestT, ResponseT>(call) {
+              @Override
+              public void close(Status status, Metadata trailers) {
+                if (status.isOk()) {
+                  try {
+                    Files.write(capabilitiesMarker, new byte[] {1});
+                  } catch (java.io.IOException ex) {
+                    throw new IllegalStateException("Unable to write capabilities marker", ex);
+                  }
+                }
+                super.close(status, trailers);
+              }
+            }
+            : call;
+        return next.startCall(monitoredCall, headers);
+      }
+    };
+    bindableService = new BindableService() {
+      @Override
+      public ServerServiceDefinition bindService() {
+        return ServerInterceptors.intercept(service, markerInterceptor);
+      }
+    };
     try (NfsGatewayServer server = new NfsGatewayServer(new InetSocketAddress("127.0.0.1", 0),
         new File(args[0]), new File(args[1]), new File(args[2]),
         Map.of(NfsTlsPeerInterceptor.fingerprint(allowed), Set.of(export)), bindableService)) {

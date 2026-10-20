@@ -18,10 +18,14 @@
 #include "ozone_grpc.h"
 #include "NfsGatewayProtocol.grpc.pb.h"
 #include <grpcpp/grpcpp.h>
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <memory>
 #include <new>
+#include <string>
+#include <thread>
 
 struct ozone_grpc_client {
   std::unique_ptr<ozone::nfs::v1::NfsGateway::Stub> stub;
@@ -40,6 +44,23 @@ static void set_context(ozone::nfs::v1::RequestContext *context, const uint8_t e
   context->mutable_caller()->set_kerberos_principal(principal, principal_size);
   context->mutable_caller()->set_protection(
       static_cast<ozone::nfs::v1::Caller_Protection>(protection));
+}
+
+static void copy_error_message(const std::string &message, char *error_message,
+    size_t error_message_capacity) {
+  if (!error_message || error_message_capacity == 0) return;
+  const size_t length = std::min(message.size(), error_message_capacity - 1);
+  std::memcpy(error_message, message.data(), length);
+  error_message[length] = '\0';
+}
+
+static bool retryable_capability_error(const grpc::Status &status) {
+  if (status.error_code() == grpc::StatusCode::DEADLINE_EXCEEDED) return true;
+  if (status.error_code() != grpc::StatusCode::UNAVAILABLE) return false;
+  std::string message = status.error_message();
+  std::transform(message.begin(), message.end(), message.begin(),
+      [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+  return message.find("connection refused") != std::string::npos;
 }
 
 static bool copy_attributes(const ozone::nfs::v1::Attributes &source,
@@ -99,10 +120,13 @@ extern "C" void ozone_grpc_client_destroy(struct ozone_grpc_client *client) {
 
 extern "C" int ozone_grpc_capabilities(struct ozone_grpc_client *client,
     const uint8_t export_uuid[16], uint32_t version,
-    uint32_t *nfs_status, uint64_t *operations) {
+    uint32_t *nfs_status, uint64_t *operations, char *error_message,
+    size_t error_message_capacity) {
   if (nfs_status) *nfs_status = 5;
   if (operations) *operations = 0;
+  copy_error_message("", error_message, error_message_capacity);
   if (!client || !export_uuid || !nfs_status || !operations || !version) {
+    copy_error_message("Invalid capabilities request", error_message, error_message_capacity);
     return grpc::StatusCode::INVALID_ARGUMENT;
   }
   try {
@@ -110,23 +134,48 @@ extern "C" int ozone_grpc_capabilities(struct ozone_grpc_client *client,
     request.set_version(version);
     request.set_export_uuid(export_uuid, 16);
     ozone::nfs::v1::CapabilityResponse response;
-    grpc::ClientContext context;
-    context.set_deadline(std::chrono::system_clock::now() +
-        std::chrono::milliseconds(client->timeout_millis));
-    grpc::Status status = client->stub->Capabilities(&context, request, &response);
-    if (!status.ok()) return status.error_code();
+    const auto retry_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    grpc::Status status(grpc::StatusCode::DEADLINE_EXCEEDED, "Capabilities request timed out");
+    do {
+      grpc::ClientContext context;
+      const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+          retry_deadline - std::chrono::steady_clock::now());
+      if (remaining.count() <= 0) {
+        break;
+      }
+      context.set_deadline(std::chrono::system_clock::now() +
+          std::min(std::chrono::milliseconds(client->timeout_millis), remaining));
+      status = client->stub->Capabilities(&context, request, &response);
+      if (status.ok() || !retryable_capability_error(status)) {
+        break;
+      }
+      const auto now = std::chrono::steady_clock::now();
+      if (now < retry_deadline) {
+        std::this_thread::sleep_for(std::min(std::chrono::milliseconds(100),
+            std::chrono::duration_cast<std::chrono::milliseconds>(retry_deadline - now)));
+      }
+    } while (std::chrono::steady_clock::now() < retry_deadline);
+    if (!status.ok()) {
+      copy_error_message(status.error_message(), error_message, error_message_capacity);
+      return status.error_code();
+    }
     if (!response.IsInitialized() || response.version() != version) {
+      copy_error_message("Invalid capabilities response", error_message, error_message_capacity);
       return grpc::StatusCode::FAILED_PRECONDITION;
     }
     uint64_t supported = 0;
     for (int operation : response.operations()) {
-      if (operation < 1 || operation > 10) return grpc::StatusCode::FAILED_PRECONDITION;
+      if (operation < 1 || operation > 10) {
+        copy_error_message("Invalid capabilities operation", error_message, error_message_capacity);
+        return grpc::StatusCode::FAILED_PRECONDITION;
+      }
       supported |= UINT64_C(1) << operation;
     }
     *nfs_status = response.result().nfs_status();
     *operations = *nfs_status == 0 ? supported : 0;
     return grpc::StatusCode::OK;
   } catch (...) {
+    copy_error_message("Unexpected capabilities exception", error_message, error_message_capacity);
     return grpc::StatusCode::INTERNAL;
   }
 }

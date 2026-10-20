@@ -64,7 +64,8 @@ void ozone_grpc_client_destroy(struct ozone_grpc_client *client);
 /* Return a gRPC transport status separately from the explicit NFS result. */
 int ozone_grpc_capabilities(struct ozone_grpc_client *client,
     const uint8_t export_uuid[16], uint32_t version,
-    uint32_t *nfs_status, uint64_t *operations);
+    uint32_t *nfs_status, uint64_t *operations, char *error_message,
+    size_t error_message_capacity);
 
 int ozone_grpc_getattr(struct ozone_grpc_client *client, const uint8_t export_uuid[16],
     const char *kerberos_principal, size_t kerberos_principal_size, uint32_t protection,
