@@ -31,9 +31,14 @@ import io.grpc.ServerCallHandler;
 import io.grpc.Status;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.configuration2.SubsetConfiguration;
 import org.apache.hadoop.metrics2.AbstractMetric;
 import org.apache.hadoop.metrics2.MetricsRecord;
+import org.apache.hadoop.metrics2.MetricsSink;
+import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.impl.MetricsCollectorImpl;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.nfs.NfsStatus;
@@ -92,6 +97,42 @@ class TestNfsGatewayMetrics {
       if (second != null) {
         second.close();
       }
+      DefaultMetricsSystem.setMiniClusterMode(previousMiniClusterMode);
+    }
+  }
+
+  @Test
+  void publishesOperationMetricsThroughMetricsSystem() {
+    boolean previousMiniClusterMode = DefaultMetricsSystem.inMiniClusterMode();
+    DefaultMetricsSystem.setMiniClusterMode(false);
+    MetricsSystem system = DefaultMetricsSystem.initialize("NfsGatewayMetricsTest");
+    ConcurrentMap<String, Number> values = new ConcurrentHashMap<>();
+    system.register("nfsTestSink", "NFS metrics test sink", new MetricsSink() {
+      @Override
+      public void init(SubsetConfiguration configuration) {
+      }
+
+      @Override
+      public void putMetrics(MetricsRecord record) {
+        for (AbstractMetric metric : record.metrics()) {
+          values.put(metric.name(), (Number) metric.value());
+        }
+      }
+
+      @Override
+      public void flush() {
+      }
+    });
+    NfsGatewayMetrics metrics = new NfsGatewayMetrics();
+    try {
+      record(metrics, NfsStatus.ACCESS.getCode(), Status.OK);
+      system.publishMetricsNow();
+
+      assertEquals(1L, values.get("NumGetattrOps").longValue());
+      assertEquals(1L, values.get("NumGetattrNfsStatusErrors").longValue());
+    } finally {
+      metrics.close();
+      DefaultMetricsSystem.shutdown();
       DefaultMetricsSystem.setMiniClusterMode(previousMiniClusterMode);
     }
   }
