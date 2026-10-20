@@ -229,10 +229,13 @@ class GaneshaOzoneContract(unittest.TestCase):
         relative_name = "ganesha-readdir-mutation-contract-" + uuid.uuid4().hex
         directory = self.mount / relative_name
         entry_count = 300
-        expected = {"entry-{:04d}".format(index) for index in range(entry_count)}
+        entry_prefix = "entry-" + "x" * 180
+        expected = {"{}{:04d}".format(entry_prefix, index) for index in range(entry_count)}
 
         self.addCleanup(shutil.rmtree, str(directory), ignore_errors=True)
         directory.mkdir()
+        # Keep the directory larger than a typical getdents buffer so the scan
+        # needs another READDIR continuation after the first returned entry.
         for name in sorted(expected):
             (directory / name).mkdir()
 
