@@ -248,7 +248,7 @@ EXPORT {
 
     FSAL {
         Name = OZONE;
-        Endpoint = "host.docker.internal:%d";
+        Endpoint = "localhost:%d";
         Export_UUID = "00112233-4455-6677-8899-aabbccddeeff";
         Volume_ID = 1;
         Bucket_ID = 2;
@@ -264,7 +264,7 @@ EXPORT {
         with open(log_path, "w") as ganesha_log:
             process = subprocess.Popen([
                 "docker", "run", "--rm", "--name", container_name,
-                "--add-host", "host.docker.internal:host-gateway",
+                "--network", "host",
                 "--mount", "type=bind,source={},target=/contract".format(self.root),
                 OPTIONS.ganesha_image, "sh", "-c",
                 "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT "
