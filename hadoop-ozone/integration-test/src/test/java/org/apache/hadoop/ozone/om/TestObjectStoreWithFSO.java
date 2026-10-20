@@ -56,6 +56,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1134,6 +1135,16 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
         metadata.getNfsFileLeaseKey(volumeId, bucketId, objectId));
     assertNotNull(activeLease);
     assertTrue(activeLease.getProtobuf().getExpiresAtMillis() > System.currentTimeMillis());
+    Instant modificationTime = bucket.getKey(key).getModificationTime();
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> bucket.setTimes(key, 1000, 2000)).getResult());
+    assertEquals(modificationTime, bucket.getKey(key).getModificationTime());
+    Map<String, String> tags = Collections.singletonMap("nfs-owner", "active");
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> bucket.putObjectTagging(key, tags)).getResult());
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> bucket.deleteObjectTagging(key)).getResult());
+    assertTrue(bucket.getKey(key).getTags().isEmpty());
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> bucket.completeMultipartUpload(key, pendingUpload.getUploadID(), Collections.singletonMap(1, partETag)))
         .getResult());
