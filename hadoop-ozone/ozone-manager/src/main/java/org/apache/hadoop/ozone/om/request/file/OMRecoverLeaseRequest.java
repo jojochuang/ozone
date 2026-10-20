@@ -24,6 +24,7 @@ import static org.apache.hadoop.ozone.OzoneConfigKeys.OZONE_OM_LEASE_SOFT_LIMIT_
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_ALREADY_CLOSED;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_UNDER_LEASE_SOFT_LIMIT_PERIOD;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NFS_LEASE_CONFLICT;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.LeveledResource.BUCKET_LOCK;
 import static org.apache.hadoop.ozone.om.upgrade.OMLayoutFeature.HBASE_SUPPORT;
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type.RecoverLease;
@@ -50,6 +51,7 @@ import org.apache.hadoop.ozone.om.helpers.OmFSOFile;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.request.key.OMKeyRequest;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.response.OMClientResponse;
@@ -201,6 +203,14 @@ public class OMRecoverLeaseRequest extends OMKeyRequest {
     OmKeyInfo keyInfo = getKey(dbFileKey);
     if (keyInfo == null) {
       throw new OMException("Key:" + keyName + " not found in keyTable.", KEY_NOT_FOUND);
+    }
+
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    String nfsFileLeaseKey = omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID());
+    OmNfsLeaseInfo nfsFileLease = omMetadataManager.getNfsFileLeaseTable().get(nfsFileLeaseKey);
+    if (nfsFileLease != null) {
+      throw new OMException("NFS file lease must be recovered through the NFS lease protocol", NFS_LEASE_CONFLICT);
     }
 
     final String writerId = keyInfo.getMetadata().get(OzoneConsts.HSYNC_CLIENT_ID);

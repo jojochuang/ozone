@@ -19,9 +19,11 @@ package org.apache.hadoop.ozone.om.request.file;
 
 import static org.apache.hadoop.ozone.om.protocolPB.OzoneManagerProtocolClientSideTranslatorPB.setReplicationConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.google.protobuf.ByteString;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfoGroup;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFSUtils;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
 import org.apache.hadoop.ozone.om.request.key.OMAllocateBlockRequestWithFSO;
@@ -95,6 +98,31 @@ public class TestOMRecoverLeaseRequest extends OMKeyRequestTests {
     assertEquals(OzoneManagerProtocolProtos.Status.OK, omResponse.getStatus());
 
     verifyTables(true, false);
+  }
+
+  @Test
+  public void testRecoverLeaseRejectsNfsWriterLease() throws Exception {
+    populateNamespace(true, true, true, true);
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    String keyTableKey = omMetadataManager.getOzonePathKey(volumeId, bucketId, parentId, "f");
+    OmKeyInfo keyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(keyTableKey);
+    String exportUUID = UUID.randomUUID().toString();
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease(
+        exportUUID, volumeId, bucketId, 1, 61_000, "nfs-gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, keyInfo.getObjectID(),
+        "transfer-1", "nfs-user", ByteString.copyFrom(new byte[16]), 1_000, 30_000);
+    omMetadataManager.getNfsExportLeaseTable().put(
+        omMetadataManager.getNfsExportLeaseKey(exportUUID), exportLease);
+    omMetadataManager.getNfsFileLeaseTable().put(
+        omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID()), fileLease);
+
+    OMClientResponse response = validateAndUpdateCache();
+
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT, response.getOMResponse().getStatus());
+    String openKey = omMetadataManager.getOpenFileName(volumeId, bucketId, parentId, "f", clientID);
+    assertFalse(omMetadataManager.getOpenKeyTable(getBucketLayout()).get(openKey).getMetadata()
+        .containsKey(OzoneConsts.LEASE_RECOVERY));
   }
 
   /**
