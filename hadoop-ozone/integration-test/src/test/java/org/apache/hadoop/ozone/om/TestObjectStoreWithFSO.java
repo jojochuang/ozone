@@ -1227,7 +1227,7 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
         .map(status -> status.getKeyInfo().getFileName()).collect(Collectors.toList()));
     assertTrue(thirdPage.isEof());
     createTestKey(bucket, cursorRoot + "/f", "f");
-    assertEquals(OMException.ResultCodes.INVALID_REQUEST, assertThrows(OMException.class,
+    assertEquals(OMException.ResultCodes.NFS_DIRECTORY_CHANGED, assertThrows(OMException.class,
         () -> rpc.lookupNfsChildren(identityArgs, volumeId, bucketId, directoryId, NfsFileHandle.Kind.DIRECTORY,
             null, 2, cursorObjectId, firstPage.getVerifier())).getResult());
   }
