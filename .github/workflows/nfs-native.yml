@@ -97,6 +97,16 @@ jobs:
           -Dmaven-surefire-plugin.argLineAccessArgs="--add-opens=java.base/java.lang=ALL-UNNAMED"
           verify -DskipShade -DskipRecon -DskipDocs
 
+      - name: Run NFS FSO identity and readiness contract
+        run: >-
+          mvn --batch-mode --settings dev-support/ci/maven-settings.xml
+          -Ddevelocity.enabled=false
+          -pl :ozone-integration-test -am
+          -Dtest='NonHATests$ObjectStoreWithFSO#testNfsFileIdentityContract'
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dmaven-surefire-plugin.argLineAccessArgs="--add-opens=java.base/java.lang=ALL-UNNAMED"
+          verify -DskipShade -DskipRecon -DskipDocs
+
       - name: Copy Java contract dependencies
         run: >-
           mvn --batch-mode --settings dev-support/ci/maven-settings.xml
