@@ -1117,11 +1117,8 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     try (InputStream input = bucket.readKey(key)) {
       assertArrayEquals(expectedData, IOUtils.toByteArray(input), "A rejected overwrite must preserve NFS data");
     }
-    byte[] multipartData = "multipart overwrite".getBytes(StandardCharsets.UTF_8);
-    OmMultipartInfo upload = bucket.initiateMultipartUpload(key, RatisReplicationConfig.getInstance(ONE.toProto()));
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
-        () -> bucket.createMultipartKey(key, multipartData.length, 1, upload.getUploadID())).getResult());
-    bucket.abortMultipartUpload(key, upload.getUploadID());
+        () -> bucket.initiateMultipartUpload(key, RatisReplicationConfig.getInstance(ONE.toProto()))).getResult());
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> bucket.renameKey(key, "nfs/client-write-renamed")).getResult());
     OmDirectoryInfo nfsDirectory = getDirInfo("nfs");
