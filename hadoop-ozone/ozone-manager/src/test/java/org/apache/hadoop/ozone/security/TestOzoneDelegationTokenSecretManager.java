@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.security;
 
 import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMTokenProto.Type.S3AUTHINFO;
+import static org.apache.hadoop.ozone.security.OzoneSecretStore.CANCELED_TOKEN_EXPIRY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,10 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -47,6 +50,13 @@ import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.security.SecurityConfig;
 import org.apache.hadoop.hdds.security.symmetric.ManagedSecretKey;
@@ -54,6 +64,7 @@ import org.apache.hadoop.hdds.security.symmetric.SecretKeyClient;
 import org.apache.hadoop.hdds.security.x509.certificate.utils.CertificateCodec;
 import org.apache.hadoop.hdds.server.ServerUtils;
 import org.apache.hadoop.hdds.utils.db.BatchOperation;
+import org.apache.hadoop.hdds.utils.db.DBCheckpoint;
 import org.apache.hadoop.hdds.utils.db.Table;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.ozone.OzoneConsts;
@@ -96,6 +107,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.slf4j.event.Level;
 
 /**
@@ -438,9 +452,120 @@ public class TestOzoneDelegationTokenSecretManager {
     assertThat(cancel.getOMResponse().getStatus()).isEqualTo(Status.OK);
     assertThat(renew.getOMResponse().getStatus()).isEqualTo(Status.TOKEN_ERROR_OTHER);
     Table<OzoneTokenIdentifier, Long> table = om.getMetadataManager().getDelegationTokenTable();
-    assertThat(table.get(id)).isNull();
-    assertThat(table.getSkipCache(id)).isNull();
+    assertThat(table.get(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
+    assertThat(table.getSkipCache(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
     assertThrows(SecretManager.InvalidToken.class, () -> secretManager.retrievePassword(id));
+  }
+
+  /**
+   * Reopen RocksDB after a committed cancel, then apply the renewal that the leader validated before the cancel.
+   */
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testRenewAppliedAfterCancelAndRestartDoesNotRestoreToken(boolean useCheckpoint) throws Exception {
+    Token<OzoneTokenIdentifier> token = createTokenForApply();
+    OzoneTokenIdentifier id = OzoneTokenIdentifier.readProtoBuf(token.getIdentifier());
+    long newExpiryTime = secretManager.renewToken(token, TEST_USER.toString());
+    Token<OzoneTokenIdentifier> activeToken = secretManager.createToken(TEST_USER, TEST_USER, TEST_USER);
+    OzoneTokenIdentifier activeId = OzoneTokenIdentifier.readProtoBuf(activeToken.getIdentifier());
+    long activeExpiry = secretManager.updateToken(activeToken, activeId, TOKEN_MAX_LIFETIME / 2);
+    om.getMetadataManager().getDelegationTokenTable().put(activeId, activeExpiry);
+    commitToDB(applyCancel(token, 1));
+    secretManager.stop();
+    OMMetadataManager metadataManager = om.getMetadataManager();
+    OzoneConfiguration restartConf = new OzoneConfiguration(conf);
+    if (useCheckpoint) {
+      DBCheckpoint checkpoint = metadataManager.getStore().getCheckpoint(true);
+      try {
+        metadataManager.stop();
+        File recoveryDir = folder.resolve("checkpoint-recovery").toFile();
+        ServerUtils.setOzoneMetaDirPath(restartConf, recoveryDir.toString());
+        FileUtils.copyDirectory(checkpoint.getCheckpointLocation().toFile(),
+            new File(recoveryDir, OzoneConsts.OM_DB_NAME));
+      } finally {
+        checkpoint.cleanupCheckpoint();
+      }
+    } else {
+      metadataManager.stop();
+    }
+    metadataManager = new OmMetadataManagerImpl(restartConf, om);
+    when(om.getMetadataManager()).thenReturn(metadataManager);
+    secretManager = createSecretManager(conf, TOKEN_MAX_LIFETIME, TOKEN_MAX_LIFETIME / 2, TOKEN_REMOVER_SCAN_INTERVAL);
+    secretManager.start(certificateClient);
+    mockRequestDependencies();
+
+    Table<OzoneTokenIdentifier, Long> table = metadataManager.getDelegationTokenTable();
+    assertThat(secretManager.retrievePassword(activeId)).isEqualTo(activeToken.getPassword());
+    assertThrows(SecretManager.InvalidToken.class, () -> secretManager.retrievePassword(id));
+    assertThrows(SecretManager.InvalidToken.class, () -> secretManager.renewToken(token, TEST_USER.toString()));
+    OMClientResponse renew = applyRenew(token, newExpiryTime, 2);
+    commitToDB(renew);
+
+    assertThat(renew.getOMResponse().getStatus()).isEqualTo(Status.TOKEN_ERROR_OTHER);
+    assertThat(table.get(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
+    assertThat(table.getSkipCache(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
+    assertThrows(SecretManager.InvalidToken.class, () -> secretManager.retrievePassword(id));
+  }
+
+  @Test
+  public void testCancelWaitsForInProgressExpiryDeletion() throws Exception {
+    OMMetadataManager metadataManager = spy(om.getMetadataManager());
+    Table<OzoneTokenIdentifier, Long> table = spy(metadataManager.getDelegationTokenTable());
+    when(metadataManager.getDelegationTokenTable()).thenReturn(table);
+    when(om.getMetadataManager()).thenReturn(metadataManager);
+    Token<OzoneTokenIdentifier> token = createTokenForApply();
+    OzoneTokenIdentifier id = OzoneTokenIdentifier.readProtoBuf(token.getIdentifier());
+    secretManager.stop();
+    secretManager.updateRenewToken(token, id, Time.now() - 1);
+    CountDownLatch deletionStarted = new CountDownLatch(1);
+    CountDownLatch finishDeletion = new CountDownLatch(1);
+    doAnswer(invocation -> {
+      deletionStarted.countDown();
+      assertTrue(finishDeletion.await(10, TimeUnit.SECONDS));
+      return invocation.callRealMethod();
+    }).when(table).delete(id);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      Future<?> scan = executor.submit(secretManager::removeExpiredToken);
+      assertTrue(deletionStarted.await(10, TimeUnit.SECONDS));
+      CountDownLatch cancelStarted = new CountDownLatch(1);
+      Future<OMClientResponse> cancel = executor.submit(() -> {
+        cancelStarted.countDown();
+        return applyCancel(token, 1);
+      });
+      assertTrue(cancelStarted.await(10, TimeUnit.SECONDS));
+      assertThrows(TimeoutException.class, () -> cancel.get(200, TimeUnit.MILLISECONDS));
+      finishDeletion.countDown();
+      scan.get(10, TimeUnit.SECONDS);
+      OMClientResponse response = cancel.get(10, TimeUnit.SECONDS);
+      assertThat(response.getOMResponse().getStatus()).isEqualTo(Status.OK);
+      commitToDB(response);
+      secretManager.removeExpiredToken();
+      assertThat(om.getMetadataManager().getDelegationTokenTable().getSkipCache(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
+    } finally {
+      finishDeletion.countDown();
+      executor.shutdownNow();
+    }
+  }
+
+  @Test
+  public void testExpiredTokenScanKeepsCancellationMarker() throws Exception {
+    Token<OzoneTokenIdentifier> token = createTokenForApply();
+    OzoneTokenIdentifier id = OzoneTokenIdentifier.readProtoBuf(token.getIdentifier());
+    long newExpiryTime = secretManager.renewToken(token, TEST_USER.toString());
+    commitToDB(applyCancel(token, 1));
+    secretManager.stop();
+
+    // Even a scan after maxDate must not let another OM accept a delayed renewal of this canceled token.
+    try (MockedStatic<Time> time = mockStatic(Time.class)) {
+      time.when(Time::now).thenReturn(id.getMaxDate() + 1);
+      secretManager.removeExpiredToken();
+    }
+
+    OMClientResponse renew = applyRenew(token, newExpiryTime, 2);
+    commitToDB(renew);
+    assertThat(renew.getOMResponse().getStatus()).isEqualTo(Status.TOKEN_ERROR_OTHER);
+    assertThat(om.getMetadataManager().getDelegationTokenTable().getSkipCache(id)).isEqualTo(CANCELED_TOKEN_EXPIRY);
   }
 
   /**

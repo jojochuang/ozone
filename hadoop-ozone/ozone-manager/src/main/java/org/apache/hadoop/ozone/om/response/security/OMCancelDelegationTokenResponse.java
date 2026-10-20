@@ -17,6 +17,8 @@
 
 package org.apache.hadoop.ozone.om.response.security;
 
+import static org.apache.hadoop.ozone.security.OzoneSecretStore.CANCELED_TOKEN_EXPIRY;
+
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
@@ -46,7 +48,7 @@ public class OMCancelDelegationTokenResponse extends OMClientResponse {
       BatchOperation batchOperation) throws IOException {
     Table table = omMetadataManager.getDelegationTokenTable();
     if (getOMResponse().getStatus() == OzoneManagerProtocolProtos.Status.OK) {
-      table.deleteWithBatch(batchOperation, ozoneTokenIdentifier);
+      table.putWithBatch(batchOperation, ozoneTokenIdentifier, CANCELED_TOKEN_EXPIRY);
     }
   }
 }

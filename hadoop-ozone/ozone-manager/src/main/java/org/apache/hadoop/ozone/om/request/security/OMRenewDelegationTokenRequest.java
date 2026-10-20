@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.om.request.security;
 
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.buildTokenAuditMap;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.TOKEN_ERROR_OTHER;
+import static org.apache.hadoop.ozone.security.OzoneSecretStore.CANCELED_TOKEN_EXPIRY;
 
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
@@ -159,10 +160,10 @@ public class OMRenewDelegationTokenRequest extends OMClientRequest {
               ozoneTokenIdentifier.getRenewer().toString());
 
       // The token was validated in preExecute, but a cancel or another renew may have been applied since then.
-      if (ozoneManager.getDelegationTokenMgr().isCanceled(ozoneTokenIdentifier)) {
+      Long storedRenewTime = omMetadataManager.getDelegationTokenTable().get(ozoneTokenIdentifier);
+      if (storedRenewTime != null && storedRenewTime == CANCELED_TOKEN_EXPIRY) {
         throw new OMException("Delegation token has been canceled: " + ozoneTokenIdentifier, TOKEN_ERROR_OTHER);
       }
-      Long storedRenewTime = omMetadataManager.getDelegationTokenTable().get(ozoneTokenIdentifier);
       if (storedRenewTime != null) {
         renewTime = Math.min(ozoneTokenIdentifier.getMaxDate(), Math.max(renewTime, storedRenewTime));
       }

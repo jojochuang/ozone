@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.om.request.security;
 
 import static org.apache.hadoop.ozone.om.OzoneManagerUtils.buildTokenAuditMap;
+import static org.apache.hadoop.ozone.security.OzoneSecretStore.CANCELED_TOKEN_EXPIRY;
 
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
@@ -108,7 +109,7 @@ public class OMCancelDelegationTokenRequest extends OMClientRequest {
       // Update Cache.
       omMetadataManager.getDelegationTokenTable().addCacheEntry(
           new CacheKey<>(ozoneTokenIdentifier),
-          CacheValue.get(transactionLogIndex));
+          CacheValue.get(transactionLogIndex, CANCELED_TOKEN_EXPIRY));
 
       omClientResponse =
           new OMCancelDelegationTokenResponse(ozoneTokenIdentifier,

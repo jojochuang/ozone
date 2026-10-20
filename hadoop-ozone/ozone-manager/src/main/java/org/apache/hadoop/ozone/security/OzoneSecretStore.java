@@ -32,6 +32,13 @@ import org.slf4j.LoggerFactory;
  */
 public class OzoneSecretStore {
 
+  /**
+   * A canceled token remains in dTokenTable so that delayed renewals are rejected after restart or checkpoint install.
+   * Keep these rows until a replicated cleanup rule can also reject renewals applied after their removal.
+   * Older OMs may delete the marker as an expired token; all OMs must support it for this protection to hold.
+   */
+  public static final long CANCELED_TOKEN_EXPIRY = -1L;
+
   private static final Logger LOG = LoggerFactory
       .getLogger(OzoneSecretStore.class);
   private OMMetadataManager omMetadataManager;
@@ -95,6 +102,9 @@ public class OzoneSecretStore {
       iterator.seekToFirst();
       while (iterator.hasNext()) {
         KeyValue<OzoneTokenIdentifier, Long> kv = iterator.next();
+        if (kv.getValue() == CANCELED_TOKEN_EXPIRY) {
+          continue;
+        }
         state.tokenState.put(kv.getKey(), kv.getValue());
         loadedToken++;
       }
