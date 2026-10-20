@@ -42,7 +42,9 @@ This proposal supplements the historical [NFS proposal](nfs.md), which selected 
 | Availability | One active gateway per export with restart and fenced replacement. Automatic failover is deferred. |
 | Compatibility | Files remain usable through supported OzoneFS and S3 operations. No silent weaker behavior on old OM versions. |
 
-The gateway keeps serving under its locally unexpired lease and retries renewal after transient OM errors. A
+The gateway derives each local monotonic lease deadline from OM's absolute `expiresAtMillis` response; it never
+assumes that a renewal grants a full configured duration after network latency. An already-expired response fails
+closed, including during startup. The gateway keeps serving under its locally unexpired lease and retries renewal after transient OM errors. A
 confirmed export-lease renewal conflict means another owner may have taken over: the gateway drops its local lease
 state, fails closed, and never reacquires ownership in place. An OM leadership interruption that outlasts the lease
 can therefore leave the export returning DELAY until an operator restarts or replaces the gateway. A live
