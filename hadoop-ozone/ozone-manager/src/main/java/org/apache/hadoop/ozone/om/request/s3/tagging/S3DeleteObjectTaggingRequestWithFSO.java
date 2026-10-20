@@ -108,7 +108,7 @@ public class S3DeleteObjectTaggingRequestWithFSO extends S3DeleteObjectTaggingRe
       }
 
       OmKeyInfo omKeyInfo = keyStatus.getKeyInfo();
-      OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, omKeyInfo, getOmRequest().getLeaderTimeMillis());
+      OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, omKeyInfo);
       // Reverting back the full path to key name
       // Eg: a/b/c/d/e/file1 -> file1
       omKeyInfo.setKeyName(OzoneFSUtils.getFileName(keyName));

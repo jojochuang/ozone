@@ -141,8 +141,7 @@ public class OMFileCreateRequestWithFSO extends OMFileCreateRequest {
                 pathInfoFSO.getLeafNodeName());
         dbFileInfo = OMFileRequest.getOmKeyInfoFromFileTable(false,
                 omMetadataManager, dbFileKey, keyName);
-        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, dbFileInfo,
-            getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, dbFileInfo);
       }
 
       // check if the file or directory already existed in OM

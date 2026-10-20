@@ -277,8 +277,7 @@ public class S3MultipartUploadCompleteRequest extends OMKeyRequest {
       // Only 412 PreconditionFailed is possible; 409 Conflict cannot occur.
       OmKeyInfo existingKeyInfo = omMetadataManager.getKeyTable(getBucketLayout()).get(dbOzoneKey);
       if (existingKeyInfo != null) {
-        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, existingKeyInfo,
-            getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, existingKeyInfo);
       }
       validateAtomicRewrite(existingKeyInfo, keyArgs);
       validateIfMatchETag(keyArgs, existingKeyInfo);

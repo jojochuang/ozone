@@ -120,13 +120,12 @@ public class OMKeyDeleteRequestWithFSO extends OMKeyDeleteRequest {
 
       OmKeyInfo omKeyInfo = keyStatus.getKeyInfo();
       if (keyStatus.isFile()) {
-        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, omKeyInfo,
-            getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, omKeyInfo);
       } else {
         long volumeId = omMetadataManager.getVolumeId(volumeName);
         long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
-        OMFileRequest.validateNfsDirectoryLeasesInactive(omMetadataManager, volumeId, bucketId,
-            omKeyInfo.getObjectID(), getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsDirectoryLeasesReleased(omMetadataManager, volumeId, bucketId,
+            omKeyInfo.getObjectID());
       }
       validateIfMatchETag(keyArgs, omKeyInfo);
       // New key format for the fileTable & dirTable.

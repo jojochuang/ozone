@@ -143,13 +143,12 @@ public class OMKeyRenameRequestWithFSO extends OMKeyRenameRequest {
       // source existed
       fromKeyValue = fromKeyFileStatus.getKeyInfo();
       if (fromKeyFileStatus.isFile()) {
-        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, fromKeyValue,
-            getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, fromKeyValue);
       } else {
         long volumeId = omMetadataManager.getVolumeId(volumeName);
         long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
-        OMFileRequest.validateNfsDirectoryLeasesInactive(omMetadataManager, volumeId, bucketId,
-            fromKeyValue.getObjectID(), getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsDirectoryLeasesReleased(omMetadataManager, volumeId, bucketId,
+            fromKeyValue.getObjectID());
       }
       boolean isRenameDirectory = fromKeyFileStatus.isDirectory();
 
@@ -166,8 +165,7 @@ public class OMKeyRenameRequestWithFSO extends OMKeyRenameRequest {
         // Destination exists and following are different cases:
         OmKeyInfo toKeyValue = toKeyFileStatus.getKeyInfo();
         if (toKeyFileStatus.isFile()) {
-          OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, toKeyValue,
-              getOmRequest().getLeaderTimeMillis());
+          OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, toKeyValue);
         }
 
         if (fromKeyValue.getKeyName().equals(toKeyValue.getKeyName())) {

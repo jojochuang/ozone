@@ -92,7 +92,7 @@ public class OMKeySetTimesRequestWithFSO extends OMKeySetTimesRequest {
       }
       omKeyInfo = keyStatus.getKeyInfo();
       if (keyStatus.isFile()) {
-        OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, omKeyInfo, getOmRequest().getLeaderTimeMillis());
+        OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, omKeyInfo);
       }
       // setting Key name back to Ozone Key before updating cache value.
       omKeyInfo.setKeyName(OzoneFSUtils.getFileName(key));

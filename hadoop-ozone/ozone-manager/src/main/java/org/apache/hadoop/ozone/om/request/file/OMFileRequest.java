@@ -155,22 +155,20 @@ public final class OMFileRequest {
     return path;
   }
 
-  /** Reject a mutation that would invalidate a file with a live NFS writer. */
-  public static void validateNfsFileLeaseInactive(OMMetadataManager manager, OmKeyInfo keyInfo,
-      long leaderTimeMillis)
-      throws IOException {
+  /** Reject a mutation that would invalidate a file with an unrecovered NFS writer lease. */
+  public static void validateNfsFileLeaseAbsent(OMMetadataManager manager, OmKeyInfo keyInfo) throws IOException {
     long volumeId = manager.getVolumeId(keyInfo.getVolumeName());
     long bucketId = manager.getBucketId(keyInfo.getVolumeName(), keyInfo.getBucketName());
     String leaseKey = manager.getNfsFileLeaseKey(volumeId, bucketId, keyInfo.getObjectID());
     OmNfsLeaseInfo lease = manager.getNfsFileLeaseTable().get(leaseKey);
-    if (lease != null && lease.getProtobuf().getExpiresAtMillis() > leaderTimeMillis) {
-      throw new OMException("File has an active NFS writer lease", OMException.ResultCodes.NFS_LEASE_CONFLICT);
+    if (lease != null) {
+      throw new OMException("File has an unrecovered NFS writer lease", OMException.ResultCodes.NFS_LEASE_CONFLICT);
     }
   }
 
-  /** Reject a directory mutation while any descendant file has a live NFS writer lease. */
-  public static void validateNfsDirectoryLeasesInactive(OMMetadataManager manager, long volumeId, long bucketId,
-      long directoryObjectId, long leaderTimeMillis) throws IOException {
+  /** Reject a directory mutation while any descendant file has an unrecovered NFS writer lease. */
+  public static void validateNfsDirectoryLeasesReleased(OMMetadataManager manager, long volumeId, long bucketId,
+      long directoryObjectId) throws IOException {
     if (!manager.isNfsObjectIndexEnabled() || !manager.isNfsObjectIndexReady()) {
       return;
     }
@@ -204,9 +202,8 @@ public final class OMFileRequest {
     }
     for (OmNfsLeaseInfo lease : leases.values()) {
       if (lease.getProtobuf().getKind() == PersistedNfsLeaseInfo.Kind.FILE
-          && lease.getProtobuf().getExpiresAtMillis() > leaderTimeMillis
           && isNfsDescendant(manager, volumeId, bucketId, lease.getProtobuf().getObjectID(), directoryObjectId)) {
-        throw new OMException("Directory contains a file with an active NFS writer lease",
+        throw new OMException("Directory contains a file with an unrecovered NFS writer lease",
             OMException.ResultCodes.NFS_LEASE_CONFLICT);
       }
     }

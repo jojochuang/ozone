@@ -111,7 +111,7 @@ public class OmKeysDeleteRequestWithFSO extends OMKeysDeleteRequest {
               omKeyInfo.getVolumeName());
       final long bucketId = omMetadataManager.getBucketId(
               omKeyInfo.getVolumeName(), omKeyInfo.getBucketName());
-      OMFileRequest.validateNfsFileLeaseInactive(omMetadataManager, omKeyInfo, getOmRequest().getLeaderTimeMillis());
+      OMFileRequest.validateNfsFileLeaseAbsent(omMetadataManager, omKeyInfo);
       final long parentId = omKeyInfo.getParentObjectID();
       final String fileName = omKeyInfo.getFileName();
       final String dbKey = omMetadataManager.getOzonePathKey(
@@ -154,8 +154,8 @@ public class OmKeysDeleteRequestWithFSO extends OMKeysDeleteRequest {
               dirInfo.getVolumeName());
       final long bucketId = omMetadataManager.getBucketId(
           dirInfo.getVolumeName(), dirInfo.getBucketName());
-      OMFileRequest.validateNfsDirectoryLeasesInactive(omMetadataManager, volumeId, bucketId,
-          dirInfo.getObjectID(), getOmRequest().getLeaderTimeMillis());
+      OMFileRequest.validateNfsDirectoryLeasesReleased(omMetadataManager, volumeId, bucketId,
+          dirInfo.getObjectID());
       final long parentId = dirInfo.getParentObjectID();
       final String dirName = dirInfo.getFileName();
 

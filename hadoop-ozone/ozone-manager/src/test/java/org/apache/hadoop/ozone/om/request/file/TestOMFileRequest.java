@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.om.request.file;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,7 +43,7 @@ class TestOMFileRequest {
   }
 
   @Test
-  void nfsFileLeaseConflictUsesReplicatedLeaderTime() throws Exception {
+  void nfsFileLeaseConflictContinuesUntilRecoveryReleasesExpiredLease() throws Exception {
     long leaderTimeMillis = Time.now() - 60_000;
     long objectId = 3;
     OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease("export", 1, 2, 1,
@@ -61,10 +62,9 @@ class TestOMFileRequest {
     when(metadataManager.getNfsFileLeaseTable()).thenReturn(leaseTable);
     when(leaseTable.get("lease")).thenReturn(fileLease);
 
-    assertThrows(OMException.class,
-        () -> OMFileRequest.validateNfsFileLeaseInactive(metadataManager, keyInfo, leaderTimeMillis));
-    assertThrows(OMException.class, () -> OMFileRequest.validateNfsFileLeaseInactive(metadataManager, keyInfo, 0));
-    assertDoesNotThrow(() -> OMFileRequest.validateNfsFileLeaseInactive(metadataManager, keyInfo,
-        leaderTimeMillis + 30_000));
+    assertTrue(fileLease.getProtobuf().getExpiresAtMillis() < Time.now());
+    assertThrows(OMException.class, () -> OMFileRequest.validateNfsFileLeaseAbsent(metadataManager, keyInfo));
+    when(leaseTable.get("lease")).thenReturn(null);
+    assertDoesNotThrow(() -> OMFileRequest.validateNfsFileLeaseAbsent(metadataManager, keyInfo));
   }
 }
