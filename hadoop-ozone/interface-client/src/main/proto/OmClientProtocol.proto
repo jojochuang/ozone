@@ -1718,6 +1718,7 @@ message AllocateBlockRequest {
     // AllocateBlockRequest with keyLocation set. If this is set, no need to
     // call scm again in OM Ratis applyTransaction just append it to DB.
     optional KeyLocation keyLocation = 4;
+    optional NfsFileCommitRequest nfsFileCommitRequest = 5;
 }
 
 message AllocateBlockResponse {

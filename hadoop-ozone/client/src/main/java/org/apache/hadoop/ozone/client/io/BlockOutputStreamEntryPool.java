@@ -304,8 +304,9 @@ public class BlockOutputStreamEntryPool implements KeyMetadataAware {
     if (!excludeList.isEmpty()) {
       LOG.debug("Allocating block with {}", excludeList);
     }
-    OmKeyLocationInfo subKeyInfo =
-        omClient.allocateBlock(buildKeyArgs(), openID, excludeList);
+    OmKeyLocationInfo subKeyInfo = nfsFileCommitRequest == null
+        ? omClient.allocateBlock(buildKeyArgs(), openID, excludeList)
+        : omClient.allocateBlock(buildKeyArgs(), openID, excludeList, nfsFileCommitRequest);
     addKeyLocationInfo(subKeyInfo, forRetry);
   }
 

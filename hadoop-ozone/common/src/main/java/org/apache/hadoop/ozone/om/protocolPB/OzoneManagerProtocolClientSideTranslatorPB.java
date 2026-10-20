@@ -844,6 +844,12 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
   @Override
   public OmKeyLocationInfo allocateBlock(OmKeyArgs args, long clientId,
       ExcludeList excludeList) throws IOException {
+    return allocateBlock(args, clientId, excludeList, null);
+  }
+
+  @Override
+  public OmKeyLocationInfo allocateBlock(OmKeyArgs args, long clientId,
+      ExcludeList excludeList, NfsFileCommitRequest nfsFileCommitRequest) throws IOException {
     AllocateBlockRequest.Builder req = AllocateBlockRequest.newBuilder();
     KeyArgs.Builder keyArgs = KeyArgs.newBuilder()
         .setVolumeName(args.getVolumeName())
@@ -866,6 +872,9 @@ public final class OzoneManagerProtocolClientSideTranslatorPB
     req.setKeyArgs(keyArgs);
     req.setClientID(clientId);
     req.setExcludeList(excludeList.getProtoBuf());
+    if (nfsFileCommitRequest != null) {
+      req.setNfsFileCommitRequest(nfsFileCommitRequest);
+    }
 
 
     OMRequest omRequest = createOMRequest(Type.AllocateBlock)

@@ -19,6 +19,7 @@ package org.apache.hadoop.ozone.om.request.key;
 
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_NOT_FOUND;
 import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.KEY_UNDER_LEASE_RECOVERY;
+import static org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.NFS_LEASE_CONFLICT;
 import static org.apache.hadoop.ozone.om.lock.OzoneManagerLock.LeveledResource.BUCKET_LOCK;
 
 import jakarta.annotation.Nonnull;
@@ -44,6 +45,7 @@ import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyLocationInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.helpers.QuotaUtil;
 import org.apache.hadoop.ozone.om.request.util.OmResponseUtil;
 import org.apache.hadoop.ozone.om.request.validation.RequestFeatureValidator;
@@ -56,6 +58,7 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.AllocateBlockRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.AllocateBlockResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.KeyArgs;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFileCommitRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Type;
@@ -127,6 +130,10 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
     if (allocateBlockRequest.hasExcludeList()) {
       newAllocatedBlockRequest.setExcludeList(
           allocateBlockRequest.getExcludeList());
+    }
+    if (allocateBlockRequest.hasNfsFileCommitRequest()) {
+      newAllocatedBlockRequest.setNfsFileCommitRequest(
+          allocateBlockRequest.getNfsFileCommitRequest());
     }
 
     // Add allocated block info.
@@ -212,6 +219,8 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
           .acquireWriteLock(BUCKET_LOCK, volumeName, bucketName));
       acquiredLock = getOmLockDetails().isLockAcquired();
       omBucketInfo = getBucketInfo(omMetadataManager, volumeName, bucketName);
+      validateNfsFileLease(omMetadataManager, omBucketInfo, openKeyInfo,
+          allocateBlockRequest);
       // check bucket and volume quota
       long preAllocatedKeySize = newLocationList.size()
           * ozoneManager.getScmBlockSize();
@@ -267,6 +276,35 @@ public class OMAllocateBlockRequest extends OMKeyRequest {
         exception, getOmRequest().getUserInfo()));
 
     return omClientResponse;
+  }
+
+  private void validateNfsFileLease(OMMetadataManager metadataManager, OmBucketInfo bucketInfo,
+      OmKeyInfo openKeyInfo, AllocateBlockRequest request) throws IOException {
+    long volumeId = metadataManager.getVolumeId(openKeyInfo.getVolumeName());
+    String leaseKey = metadataManager.getNfsFileLeaseKey(volumeId, bucketInfo.getObjectID(),
+        openKeyInfo.getObjectID());
+    OmNfsLeaseInfo fileLease = metadataManager.getNfsFileLeaseTable().get(leaseKey);
+    NfsFileCommitRequest owner = request.hasNfsFileCommitRequest()
+        ? request.getNfsFileCommitRequest() : null;
+    if (fileLease == null) {
+      if (owner != null) {
+        throw new OMException("NFS file lease is no longer active", NFS_LEASE_CONFLICT);
+      }
+      return;
+    }
+    if (owner == null) {
+      throw new OMException("NFS file lease prevents block allocation by another writer",
+          NFS_LEASE_CONFLICT);
+    }
+    String exportLeaseKey = metadataManager.getNfsExportLeaseKey(owner.getExportUUID());
+    OmNfsLeaseInfo exportLease = metadataManager.getNfsExportLeaseTable().get(exportLeaseKey);
+    try {
+      fileLease.validateFileCommit(exportLease, owner.getExportUUID(), owner.getGatewayID(),
+          owner.getGatewayGeneration(), owner.getTransferID(), owner.getFileGeneration(),
+          owner.getOwnerToken(), getOmRequest().getLeaderTimeMillis());
+    } catch (IllegalStateException | IllegalArgumentException e) {
+      throw new OMException("NFS file lease owner is stale", NFS_LEASE_CONFLICT);
+    }
   }
 
   protected OmKeyInfo getOpenKeyInfo(OMMetadataManager omMetadataManager,

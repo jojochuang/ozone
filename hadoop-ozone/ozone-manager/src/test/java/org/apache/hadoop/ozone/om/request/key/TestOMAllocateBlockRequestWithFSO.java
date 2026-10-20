@@ -18,9 +18,11 @@
 package org.apache.hadoop.ozone.om.request.key;
 
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.google.protobuf.ByteString;
 import jakarta.annotation.Nonnull;
 import org.apache.hadoop.hdds.client.RatisReplicationConfig;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -28,9 +30,15 @@ import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.om.helpers.BucketLayout;
 import org.apache.hadoop.ozone.om.helpers.OmDirectoryInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
 import org.apache.hadoop.ozone.om.request.OMRequestTestUtils;
+import org.apache.hadoop.ozone.om.response.OMClientResponse;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFileCommitRequest;
+import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.Time;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests OMAllocateBlockRequest class prefix layout.
@@ -91,6 +99,55 @@ public class TestOMAllocateBlockRequestWithFSO
   @Override
   public BucketLayout getBucketLayout() {
     return BucketLayout.FILE_SYSTEM_OPTIMIZED;
+  }
+
+  @Test
+  public void testNfsFileLeaseFencesBlockAllocation() throws Exception {
+    OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
+        omMetadataManager, getBucketLayout());
+    addKeyToOpenKeyTable(volumeName, bucketName);
+    OmKeyInfo openKey = verifyPathInOpenKeyTable(keyName, clientID, true);
+    long volumeId = omMetadataManager.getVolumeId(volumeName);
+    long bucketId = omMetadataManager.getBucketId(volumeName, bucketName);
+    String exportUuid = java.util.UUID.randomUUID().toString();
+    long now = Time.now();
+    ByteString ownerToken = ByteString.copyFromUtf8("owner-token");
+    OmNfsLeaseInfo exportLease = OmNfsLeaseInfo.createExportLease(exportUuid, volumeId, bucketId,
+        1, now + 60_000, "gateway", 1);
+    OmNfsLeaseInfo fileLease = OmNfsLeaseInfo.acquireFileLease(null, exportLease, openKey.getObjectID(),
+        "transfer", "nfs-user@EXAMPLE.COM", ownerToken, now, 10_000);
+    omMetadataManager.getNfsFileLeaseTable().put(
+        omMetadataManager.getNfsFileLeaseKey(volumeId, bucketId, openKey.getObjectID()), fileLease);
+    omMetadataManager.getNfsExportLeaseTable().put(
+        omMetadataManager.getNfsExportLeaseKey(exportUuid), exportLease);
+
+    OMRequest withoutOwner = doPreExecute(createAllocateBlockRequest());
+    OMClientResponse rejected = getOmAllocateBlockRequest(withoutOwner)
+        .validateAndUpdateCache(ozoneManager, 100L);
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT,
+        rejected.getOMResponse().getStatus());
+
+    NfsFileCommitRequest owner = NfsFileCommitRequest.newBuilder().setExportUUID(exportUuid)
+        .setGatewayID("gateway").setGatewayGeneration(1).setTransferID("transfer")
+        .setFileGeneration(1).setOwnerToken(ownerToken).build();
+    OMRequest request = createAllocateBlockRequest();
+    request = request.toBuilder().setAllocateBlockRequest(
+        request.getAllocateBlockRequest().toBuilder().setNfsFileCommitRequest(owner)).build();
+    NfsFileCommitRequest staleOwner = owner.toBuilder().setFileGeneration(2).build();
+    OMRequest staleRequest = createAllocateBlockRequest();
+    staleRequest = staleRequest.toBuilder().setAllocateBlockRequest(
+        staleRequest.getAllocateBlockRequest().toBuilder().setNfsFileCommitRequest(staleOwner)).build();
+    OMRequest withStaleOwner = doPreExecute(staleRequest);
+    OMClientResponse staleRejected = getOmAllocateBlockRequest(withStaleOwner)
+        .validateAndUpdateCache(ozoneManager, 101L);
+    assertEquals(OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT,
+        staleRejected.getOMResponse().getStatus());
+
+    OMRequest withOwner = doPreExecute(request);
+    assertEquals(owner, withOwner.getAllocateBlockRequest().getNfsFileCommitRequest());
+    OMClientResponse accepted = getOmAllocateBlockRequest(withOwner)
+        .validateAndUpdateCache(ozoneManager, 102L);
+    assertEquals(OzoneManagerProtocolProtos.Status.OK, accepted.getOMResponse().getStatus());
   }
 
   @Override

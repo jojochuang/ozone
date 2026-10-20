@@ -365,6 +365,11 @@ public interface OzoneManagerProtocol
         "this to be implemented, as write requests use a new approach.");
   }
 
+  default OmKeyLocationInfo allocateBlock(OmKeyArgs args, long clientID,
+      ExcludeList excludeList, NfsFileCommitRequest nfsFileCommitRequest) throws IOException {
+    return allocateBlock(args, clientID, excludeList);
+  }
+
   /**
    * Look up for the container of an existing key.
    *
