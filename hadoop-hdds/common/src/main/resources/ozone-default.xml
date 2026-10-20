@@ -38,6 +38,18 @@
     <description>TCP port used by the standalone NFS gateway backend.</description>
   </property>
   <property>
+    <name>ozone.nfs.gateway.id</name>
+    <value></value>
+    <tag>OZONE,SECURITY</tag>
+    <description>Stable, unique identity used by the standalone NFS gateway for export leases.</description>
+  </property>
+  <property>
+    <name>ozone.nfs.gateway.export.lease.duration</name>
+    <value>30s</value>
+    <tag>OZONE,SECURITY</tag>
+    <description>Duration of the standalone NFS gateway export lease.</description>
+  </property>
+  <property>
     <name>ozone.nfs.gateway.server.certificate.file</name>
     <value></value>
     <tag>OZONE,SECURITY</tag>

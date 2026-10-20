@@ -89,10 +89,18 @@ class TestNfsGatewayKerberosRenewal {
 
   private Date tgtEndTime(UserGroupInformation user) throws Exception {
     return user.doAs((PrivilegedExceptionAction<Date>) () -> {
-      Subject subject = Subject.getSubject(AccessController.getContext());
+      Subject subject = currentSubject();
       Set<KerberosTicket> tickets = subject.getPrivateCredentials(KerberosTicket.class);
       return tickets.stream().filter(ticket -> ticket.getServer().getName().startsWith("krbtgt/"))
           .findFirst().orElseThrow(() -> new IllegalStateException("UGI has no TGT")).getEndTime();
     });
+  }
+
+  private Subject currentSubject() throws Exception {
+    try {
+      return (Subject) Subject.class.getMethod("current").invoke(null);
+    } catch (NoSuchMethodException e) {
+      return Subject.getSubject(AccessController.getContext());
+    }
   }
 }

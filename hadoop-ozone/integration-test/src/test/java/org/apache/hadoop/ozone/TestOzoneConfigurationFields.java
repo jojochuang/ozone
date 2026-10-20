@@ -32,6 +32,7 @@ import org.apache.hadoop.hdds.recon.ReconConfigKeys;
 import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.server.http.HttpServer2;
 import org.apache.hadoop.ozone.container.common.statemachine.DatanodeConfiguration;
+import org.apache.hadoop.ozone.nfs.gateway.NfsGatewayConfigKeys;
 import org.apache.hadoop.ozone.om.OMConfigKeys;
 import org.apache.hadoop.ozone.recon.ReconServerConfigKeys;
 import org.apache.hadoop.ozone.s3.S3GatewayConfigKeys;
@@ -60,7 +61,8 @@ public class TestOzoneConfigurationFields extends ConfigurationFieldsTests {
             ReconConfigKeys.class, ReconServerConfigKeys.class,
             S3GatewayConfigKeys.class,
             S3SecretConfigKeys.class,
-            S3STSConfigKeys.class
+            S3STSConfigKeys.class,
+            NfsGatewayConfigKeys.class
         };
     errorIfMissingConfigProps = true;
     errorIfMissingXmlProps = true;
@@ -191,4 +193,3 @@ public class TestOzoneConfigurationFields extends ConfigurationFieldsTests {
     ));
   }
 }
-
