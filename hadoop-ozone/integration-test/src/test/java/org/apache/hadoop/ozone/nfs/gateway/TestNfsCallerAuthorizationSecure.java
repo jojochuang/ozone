@@ -360,6 +360,11 @@ class TestNfsCallerAuthorizationSecure extends KerberosTests {
               .setCookie(firstPage.getEntries(0).getCookie()).setVerifier(firstPage.getVerifier()).build());
           assertEquals(NfsStatus.NOT_SAME.getCode(), stalePage.getResult().getNfsStatus());
           assertEquals(0, stalePage.getEntriesCount());
+          ReaddirResponse restartedPage = stub.readdir(ReaddirRequest.newBuilder().setContext(readerContext)
+              .setDirectoryHandle(bucketHandle).setMaxEntries(16).build());
+          assertEquals(NfsStatus.OK.getCode(), restartedPage.getResult().getNfsStatus());
+          assertTrue(restartedPage.getEntriesList().stream()
+              .anyMatch(entry -> "nfs-cookie-mutation".equals(entry.getName())));
           assertSecureGatewayWrite(stub, context, readerContext, exportId, volumeId, bucketId, metadata, bucket);
         } finally {
           channel.shutdownNow();
