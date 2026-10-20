@@ -40,6 +40,8 @@ class GaneshaPatchContract(unittest.TestCase):
             patch_dir / "0001-expose-rpcsec-gss-client-context.patch",
             patch_dir / "0003-capture-rpcsec-gss-context-per-nfs4-compound.patch",
             patch_dir / "0002-add-ozone-fsal-build-target.patch",
+            patch_dir / "0004-include-assert-header-in-ntirpc.patch",
+            patch_dir / "0005-preserve-readdir-verifier-mismatch.patch",
         ]
         archive = subprocess.run(
             ["git", "-C", str(OPTIONS.ganesha_source), "archive", "HEAD"],
@@ -49,12 +51,13 @@ class GaneshaPatchContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             with tarfile.open(fileobj=BytesIO(archive)) as source:
                 source.extractall(temporary_directory)
-            ntirpc_file = Path(temporary_directory) / "src/libntirpc/src/svc_auth_gss.c"
-            ntirpc_file.parent.mkdir(parents=True, exist_ok=True)
-            ntirpc_auth = subprocess.check_output(
-                ["git", "-C", str(ntirpc_source), "show", "HEAD:src/svc_auth_gss.c"]
-            )
-            ntirpc_file.write_bytes(ntirpc_auth)
+            ntirpc_auth_file = Path(temporary_directory) / "src/libntirpc/src/svc_auth_gss.c"
+            for relative_path in ("src/svc_auth_gss.c", "src/work_pool.c"):
+                ntirpc_file = Path(temporary_directory) / "src/libntirpc" / relative_path
+                ntirpc_file.parent.mkdir(parents=True, exist_ok=True)
+                ntirpc_file.write_bytes(subprocess.check_output(
+                    ["git", "-C", str(ntirpc_source), "show", "HEAD:" + relative_path]
+                ))
             for patch in patches:
                 subprocess.run(
                     ["git", "-C", temporary_directory, "apply", "--check", str(patch)],
@@ -64,13 +67,15 @@ class GaneshaPatchContract(unittest.TestCase):
                     ["git", "-C", temporary_directory, "apply", str(patch)],
                     check=True,
                 )
-            patched_auth = ntirpc_file.read_text()
+            patched_auth = ntirpc_auth_file.read_text()
             self.assertIn("gss_OID mech, name_type;", patched_auth)
             self.assertIn(
                 "gss_display_name(&min_stat, gd->client_name, &gd->cname,\n"
                 "\t\t\t\t     &name_type);",
                 patched_auth,
             )
+            patched_readdir = (Path(temporary_directory) / "src/Protocols/NFS/nfs4_op_readdir.c").read_text()
+            self.assertIn("res_READDIR4->status = NFS4ERR_NOT_SAME;", patched_readdir)
 
 
 if __name__ == "__main__":
