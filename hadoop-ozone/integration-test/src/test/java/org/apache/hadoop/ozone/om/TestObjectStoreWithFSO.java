@@ -1117,6 +1117,8 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     assertNotNull(activeLease);
     assertTrue(activeLease.getProtobuf().getExpiresAtMillis() > System.currentTimeMillis());
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> rpc.recoverLease(volumeName, bucketName, key, true)).getResult());
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> fileSystem.rename(new Path("/nfs"), new Path("/nfs-renamed"))).getResult());
     assertFalse(fileSystem.delete(new Path("/nfs"), true));
     assertTrue(fileSystem.exists(new Path("/nfs")), "Recursive delete must preserve an ancestor with a leased file");
