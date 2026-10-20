@@ -80,6 +80,8 @@ Ganesha owns the NFS protocol, sessions, replay cache, OPEN state, and protocol 
 
 The separate process avoids embedding a JVM in Ganesha. The local channel authenticates the FSAL with mutual TLS and protects asserted user identities; it cannot be an unauthenticated privileged-user proxy. The approved prototype uses a versioned protobuf/gRPC contract and existing Ozone protobuf/gRPC dependencies on the Java side. The optional native dependencies and wire definition are implemented, but throughput and packaging measurements remain required before selecting a supported runtime baseline. JNI remains an alternative if the process boundary cannot meet the transfer target.
 
+The standalone Java gateway registers bounded per-operation Metrics2 counters for backend RPC count, NFS status errors, gRPC failures, and average latency. These describe calls between FSAL_OZONE and the Java gateway; they are not NFS client RPC counts or a substitute for live end-to-end performance measurements.
+
 Ganesha is an external runtime component. Its license and FSAL distribution arrangement need Apache review; do not copy Ganesha implementation into Apache-licensed source or add it as a mandatory Ozone build dependency. The native integration prototype targets upstream Ganesha V5.7 with its pinned ntirpc submodule. Linux compilation and mounted-client contracts must pass before this becomes the supported runtime baseline.
 
 # Approved FSAL-to-Java transport
