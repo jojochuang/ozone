@@ -226,7 +226,7 @@ public class TestOmMetadataManager {
     omMetadataManager = new OmMetadataManagerImpl(ozoneConfiguration, om);
     assertEquals(version >= 12, omMetadataManager.isNfsObjectIndexEnabled());
     assertEquals(version >= 13, omMetadataManager.isNfsWriterLeaseEnabled());
-    assertEquals(version >= 15, omMetadataManager.isNfsDurableWriteRangesEnabled());
+    assertEquals(version >= 14, omMetadataManager.isNfsDurableWriteRangesEnabled());
     assertEquals(version >= 15, omMetadataManager.isNfsStagingIntentsEnabled());
     assertNotNull(omMetadataManager.getNfsTransferRangeTable());
     omMetadataManager.stop();

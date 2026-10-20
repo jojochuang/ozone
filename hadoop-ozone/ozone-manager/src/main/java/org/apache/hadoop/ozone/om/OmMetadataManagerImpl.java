@@ -465,7 +465,7 @@ public class OmMetadataManagerImpl implements OMMetadataManager,
   @Override
   public boolean isNfsDurableWriteRangesEnabled() {
     return ozoneManager != null && ozoneManager.getVersionManager() != null
-        && ozoneManager.getVersionManager().isAllowed(OMLayoutFeature.NFS_STAGING_INTENTS);
+        && ozoneManager.getVersionManager().isAllowed(OMLayoutFeature.NFS_DURABLE_WRITE_RANGES);
   }
 
   @Override
