@@ -85,8 +85,10 @@ public class OMNfsExportLeaseRequest extends OMClientRequest {
     OMClientResponse clientResponse;
     try {
       validateRequest(request);
-      if (!metadataManager.isNfsWriterLeaseEnabled() || !metadataManager.isNfsObjectIndexReady()) {
-        throw new OMException("NFS writer lease feature is not ready", NOT_SUPPORTED_OPERATION);
+      if (!metadataManager.isNfsWriterLeaseEnabled() || !metadataManager.isNfsDurableWriteRangesEnabled()
+          || !metadataManager.isNfsStagingIntentsEnabled() || !metadataManager.isNfsObjectIndexReady()) {
+        throw new OMException("NFS writable exports require finalized durable write ranges and staging intents "
+            + "and a ready object index", NOT_SUPPORTED_OPERATION);
       }
       locked = metadataManager.getLock().acquireWriteLock(
           BUCKET_LOCK, request.getVolumeName(), request.getBucketName()).isLockAcquired();

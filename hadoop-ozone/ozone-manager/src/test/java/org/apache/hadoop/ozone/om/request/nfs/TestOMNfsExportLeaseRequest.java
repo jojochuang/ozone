@@ -62,6 +62,8 @@ class TestOMNfsExportLeaseRequest {
     configuration.set(OZONE_OM_DB_DIRS, folder.getAbsolutePath());
     metadataManager = spy(new OmMetadataManagerImpl(configuration, null));
     doReturn(true).when(metadataManager).isNfsWriterLeaseEnabled();
+    doReturn(true).when(metadataManager).isNfsDurableWriteRangesEnabled();
+    doReturn(true).when(metadataManager).isNfsStagingIntentsEnabled();
     doReturn(true).when(metadataManager).isNfsObjectIndexReady();
     OMRequestTestUtils.addVolumeToDB(VOLUME, metadataManager);
     OMRequestTestUtils.addBucketToDB(VOLUME, BUCKET, metadataManager, BucketLayout.FILE_SYSTEM_OPTIMIZED);
@@ -134,6 +136,24 @@ class TestOMNfsExportLeaseRequest {
   @Test
   void rejectsRequestBeforeWriterLeaseFeatureIsFinalized() throws Exception {
     doReturn(false).when(metadataManager).isNfsWriterLeaseEnabled();
+    OMClientResponse response = apply(request(NfsExportLeaseRequest.Operation.ACQUIRE, "gateway-a", 0, 0,
+        1000, 1000), 1);
+    assertEquals(Status.NOT_SUPPORTED_OPERATION, response.getOMResponse().getStatus());
+    assertNull(metadataManager.getNfsExportLeaseTable().get(EXPORT_UUID));
+  }
+
+  @Test
+  void rejectsRequestBeforeDurableWriteRangesAreFinalized() throws Exception {
+    doReturn(false).when(metadataManager).isNfsDurableWriteRangesEnabled();
+    OMClientResponse response = apply(request(NfsExportLeaseRequest.Operation.ACQUIRE, "gateway-a", 0, 0,
+        1000, 1000), 1);
+    assertEquals(Status.NOT_SUPPORTED_OPERATION, response.getOMResponse().getStatus());
+    assertNull(metadataManager.getNfsExportLeaseTable().get(EXPORT_UUID));
+  }
+
+  @Test
+  void rejectsRequestBeforeStagingIntentsAreFinalized() throws Exception {
+    doReturn(false).when(metadataManager).isNfsStagingIntentsEnabled();
     OMClientResponse response = apply(request(NfsExportLeaseRequest.Operation.ACQUIRE, "gateway-a", 0, 0,
         1000, 1000), 1);
     assertEquals(Status.NOT_SUPPORTED_OPERATION, response.getOMResponse().getStatus());
