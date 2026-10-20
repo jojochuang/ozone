@@ -182,7 +182,8 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
         .collect(java.util.stream.Collectors.toList());
     OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
         omMetadataManager, getBucketLayout());
-    addKeyToOpenKeyTable(allocatedLocationList);
+    String openKeyName = addKeyToOpenKeyTable(allocatedLocationList);
+    String ozoneKeyName = getOzonePathKey();
 
     long now = Time.now();
     long volumeId = getVolumeID();
@@ -226,9 +227,18 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
     assertTrue(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
     try (BatchOperation batch = omMetadataManager.getStore().initBatchOperation()) {
       response.checkAndUpdateDB(omMetadataManager, batch);
+    }
+    assertFalse(omMetadataManager.getNfsFileLeaseTable().getSkipCache(fileLeaseKey)
+        .getProtobuf().getContentPublished());
+    assertNotNull(omMetadataManager.getOpenKeyTable(getBucketLayout()).getSkipCache(openKeyName));
+    assertNull(omMetadataManager.getKeyTable(getBucketLayout()).getSkipCache(ozoneKeyName));
+    try (BatchOperation batch = omMetadataManager.getStore().initBatchOperation()) {
+      response.checkAndUpdateDB(omMetadataManager, batch);
       omMetadataManager.getStore().commitBatchOperation(batch);
     }
     assertTrue(omMetadataManager.getNfsFileLeaseTable().get(fileLeaseKey).getProtobuf().getContentPublished());
+    assertNull(omMetadataManager.getOpenKeyTable(getBucketLayout()).getSkipCache(openKeyName));
+    assertNotNull(omMetadataManager.getKeyTable(getBucketLayout()).getSkipCache(ozoneKeyName));
   }
 
   @Test
