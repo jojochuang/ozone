@@ -107,6 +107,14 @@ jobs:
           -Dmaven-surefire-plugin.argLineAccessArgs="--add-opens=java.base/java.lang=ALL-UNNAMED"
           verify -DskipShade -DskipRecon -DskipDocs
 
+      - name: Build distribution and verify NFS gateway packaging
+        run: |
+          mvn --batch-mode --settings dev-support/ci/maven-settings.xml \
+            -Ddevelocity.enabled=false -pl :ozone-dist -am -Pdist \
+            -DskipTests -DskipShade -DskipRecon -DskipDocs package
+          python3 hadoop-ozone/nfs-gateway/src/test/nfs/test_distribution.py \
+            hadoop-ozone/dist/target/ozone-*-SNAPSHOT
+
       - name: Copy Java contract dependencies
         run: >-
           mvn --batch-mode --settings dev-support/ci/maven-settings.xml
