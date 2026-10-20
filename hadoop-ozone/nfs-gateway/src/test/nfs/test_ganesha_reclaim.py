@@ -124,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument("--restart-timeout-seconds", type=int, default=90)
     parser.add_argument(
         "--serving-host-id-command",
-        help="Optional command that prints the stable identity of the host serving this NFS endpoint")
+        help="Command that prints the serving host identity; requires recovery-root and server identity probes")
     parser.add_argument(
         "--recovery-root-identity-command",
         help="Command that prints the stable identity of the Ganesha RecoveryRoot storage")
@@ -139,6 +139,8 @@ if __name__ == "__main__":
             arguments.serving_host_id_command)
         if not GaneshaReclaimContract.serving_host_id_command:
             parser.error("--serving-host-id-command must not be empty")
+        if arguments.recovery_root_identity_command is None:
+            parser.error("--serving-host-id-command requires --recovery-root-identity-command")
     if arguments.recovery_root_identity_command is not None:
         if arguments.serving_host_id_command is None:
             parser.error("--recovery-root-identity-command requires --serving-host-id-command")

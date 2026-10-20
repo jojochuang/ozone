@@ -27,6 +27,23 @@ import test_ganesha_reclaim
 
 
 class GaneshaReclaimRunnerTest(unittest.TestCase):
+    def test_serving_host_probe_requires_recovery_root_identity_probe(self):
+        script = Path(test_ganesha_reclaim.__file__)
+        result = subprocess.run(
+            [sys.executable, str(script),
+             "--mount", "/mnt/test",
+             "--restart-command", "promote-standby",
+             "--serving-host-id-command", "serving-host-id"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10)
+
+        self.assertEqual(2, result.returncode)
+        self.assertIn(
+            "--serving-host-id-command requires --recovery-root-identity-command",
+            result.stderr)
+
     def test_shared_recovery_root_requires_server_identity_probe(self):
         script = Path(test_ganesha_reclaim.__file__)
         result = subprocess.run(
