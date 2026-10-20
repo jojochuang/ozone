@@ -102,7 +102,7 @@ jobs:
           mvn --batch-mode --settings dev-support/ci/maven-settings.xml
           -Ddevelocity.enabled=false
           -pl :ozone-integration-test -am
-          -Dtest='NonHATests$ObjectStoreWithFSO#testNfsFileIdentityContract'
+          -Dtest=TestOzoneIntegrationNonHA -Dgroups=nfs
           -Dsurefire.failIfNoSpecifiedTests=false
           -Dmaven-surefire-plugin.argLineAccessArgs="--add-opens=java.base/java.lang=ALL-UNNAMED"
           verify -DskipShade -DskipRecon -DskipDocs
