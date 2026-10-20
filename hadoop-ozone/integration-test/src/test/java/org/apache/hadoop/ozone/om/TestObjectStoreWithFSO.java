@@ -921,6 +921,17 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
 
   private void assertNfsClientWrite(OzoneBucket bucket, OzoneManagerProtocol rpc, OMMetadataManager metadata,
       UUID exportId, NfsFileHandle existingHandle) throws Exception {
+    String key = "nfs/client-write";
+    byte[] multipartData = "multipart upload started before the NFS lease".getBytes(StandardCharsets.UTF_8);
+    OmMultipartInfo pendingUpload =
+        bucket.initiateMultipartUpload(key, RatisReplicationConfig.getInstance(ONE.toProto()));
+    OzoneOutputStream part = bucket.createMultipartKey(key, multipartData.length, 1, pendingUpload.getUploadID());
+    try (part) {
+      part.write(multipartData);
+      part.getMetadata().put(OzoneConsts.ETAG, MD5Hash.digest(multipartData).toString());
+    }
+    String partETag = part.getCommitUploadPartInfo().getETag();
+
     NfsExportLeaseRequest acquire = NfsExportLeaseRequest.newBuilder().setOperation(Operation.ACQUIRE)
         .setExportUUID(exportId.toString()).setVolumeName(volumeName).setBucketName(bucketName)
         .setGatewayID("nfs-write-it").setLeaseDurationMillis(30_000).build();
@@ -930,7 +941,6 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     NfsFileCreateRequest createRequest = NfsFileCreateRequest.newBuilder().setExportUUID(exportId.toString())
         .setGatewayID("nfs-write-it").setGatewayGeneration(exportLease.getGatewayGeneration())
         .setTransferID(transferId).setLeaseDurationMillis(10_000).build();
-    String key = "nfs/client-write";
     byte[] data = "NFS write through the OM lease".getBytes(StandardCharsets.UTF_8);
     int split = data.length / 2;
     NfsWriteBuffer writeBuffer = new NfsWriteBuffer(1024, 4);
@@ -965,7 +975,11 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
         > fileLease.getProtobuf().getExpiresAtMillis());
     byte[] expectedData = assertNfsStagedRangePublication(bucket, rpc, metadata, exportId, fileLease,
         writtenHandle, key);
-    assertNfsDirectoryMutationsBlocked(bucket, rpc, metadata, fs, key, expectedData, renewFileLease);
+    assertNfsDirectoryMutationsBlocked(bucket, metadata, fs, key, writtenHandle.getObjectId(), pendingUpload, partETag);
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> rpc.recoverLease(volumeName, bucketName, key, true)).getResult());
+    rpc.updateNfsFileLease(renewFileLease.toBuilder().setOperation(NfsFileLeaseRequest.Operation.RELEASE)
+        .clearLeaseDurationMillis().build());
   }
 
   private byte[] assertNfsStagedRangePublication(OzoneBucket bucket, OzoneManagerProtocol rpc,
@@ -1087,9 +1101,13 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     assertNull(metadata.getNfsTransferRangeTable().get(rangeKey));
   }
 
-  private void assertNfsDirectoryMutationsBlocked(OzoneBucket bucket, OzoneManagerProtocol rpc,
-      OMMetadataManager metadata, FileSystem fileSystem, String key, byte[] expectedData,
-      NfsFileLeaseRequest fileLease) throws Exception {
+  private void assertNfsDirectoryMutationsBlocked(OzoneBucket bucket, OMMetadataManager metadata,
+      FileSystem fileSystem, String key, long objectId, OmMultipartInfo pendingUpload,
+      String partETag) throws Exception {
+    byte[] expectedData;
+    try (InputStream input = bucket.readKey(key)) {
+      expectedData = IOUtils.toByteArray(input);
+    }
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class, () -> {
       try (OzoneOutputStream output = bucket.createKey(key, expectedData.length, RATIS, ONE, new HashMap<>())) {
         output.write("overwrite".getBytes(StandardCharsets.UTF_8));
@@ -1109,21 +1127,25 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     long volumeId = metadata.getVolumeId(volumeName);
     long bucketId = metadata.getBucketId(volumeName, bucketName);
     OmNfsObjectInfo leasedFile = metadata.getNfsObjectTable().get(
-        metadata.getNfsObjectKey(volumeId, bucketId, fileLease.getObjectID()));
+        metadata.getNfsObjectKey(volumeId, bucketId, objectId));
     assertNotNull(leasedFile);
     assertEquals(nfsDirectory.getObjectID(), leasedFile.getParentObjectID());
     OmNfsLeaseInfo activeLease = metadata.getNfsFileLeaseTable().get(
-        metadata.getNfsFileLeaseKey(volumeId, bucketId, fileLease.getObjectID()));
+        metadata.getNfsFileLeaseKey(volumeId, bucketId, objectId));
     assertNotNull(activeLease);
     assertTrue(activeLease.getProtobuf().getExpiresAtMillis() > System.currentTimeMillis());
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
-        () -> rpc.recoverLease(volumeName, bucketName, key, true)).getResult());
+        () -> bucket.completeMultipartUpload(key, pendingUpload.getUploadID(), Collections.singletonMap(1, partETag)))
+        .getResult());
+    try (InputStream input = bucket.readKey(key)) {
+      assertArrayEquals(expectedData, IOUtils.toByteArray(input),
+          "A rejected multipart completion must preserve NFS-published data");
+    }
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> fileSystem.rename(new Path("/nfs"), new Path("/nfs-renamed"))).getResult());
     assertFalse(fileSystem.delete(new Path("/nfs"), true));
     assertTrue(fileSystem.exists(new Path("/nfs")), "Recursive delete must preserve an ancestor with a leased file");
-    rpc.updateNfsFileLease(fileLease.toBuilder().setOperation(NfsFileLeaseRequest.Operation.RELEASE)
-        .clearLeaseDurationMillis().build());
+    bucket.abortMultipartUpload(key, pendingUpload.getUploadID());
   }
 
   private void assertNfsRangePublication(OzoneBucket bucket, UUID exportId, String key, OmNfsLeaseInfo fileLease,
