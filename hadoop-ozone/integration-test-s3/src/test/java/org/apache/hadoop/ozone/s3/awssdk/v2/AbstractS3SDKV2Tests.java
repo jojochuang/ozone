@@ -328,7 +328,7 @@ public abstract class AbstractS3SDKV2Tests extends OzoneTestBase implements NonH
     OzoneManager om = cluster.getOzoneManager();
     OMMetadataManager metadata = om.getMetadataManager();
     NfsObjectIndexBootstrapService bootstrap = new NfsObjectIndexBootstrapService(
-        20, TimeUnit.MILLISECONDS, om);
+        20, TimeUnit.MILLISECONDS, 300, om);
     bootstrap.start();
     try {
       GenericTestUtils.waitFor(() -> {
