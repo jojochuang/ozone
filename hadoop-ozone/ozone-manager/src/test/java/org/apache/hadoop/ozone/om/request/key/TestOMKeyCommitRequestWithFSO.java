@@ -20,6 +20,8 @@ package org.apache.hadoop.ozone.om.request.key;
 import static org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor.ONE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.ByteString;
@@ -141,7 +143,8 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
         .collect(java.util.stream.Collectors.toList());
     OMRequestTestUtils.addVolumeAndBucketToDB(volumeName, bucketName,
         omMetadataManager, omKeyCommitRequest.getBucketLayout());
-    addKeyToOpenKeyTable(allocatedLocationList);
+    String openKeyName = addKeyToOpenKeyTable(allocatedLocationList);
+    String ozoneKeyName = getOzonePathKey();
 
     long now = Time.now();
     long volumeId = getVolumeID();
@@ -160,6 +163,15 @@ public class TestOMKeyCommitRequestWithFSO extends TestOMKeyCommitRequest {
 
     assertEquals(org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.Status.NFS_LEASE_CONFLICT,
         response.getOMResponse().getStatus());
+    assertNotNull(omMetadataManager.getOpenKeyTable(getBucketLayout()).get(openKeyName));
+    assertNull(omMetadataManager.getKeyTable(getBucketLayout()).get(ozoneKeyName));
+    try (BatchOperation batch = omMetadataManager.getStore().initBatchOperation()) {
+      response.checkAndUpdateDB(omMetadataManager, batch);
+      omMetadataManager.getStore().commitBatchOperation(batch);
+    }
+    assertNotNull(omMetadataManager.getOpenKeyTable(getBucketLayout()).getSkipCache(openKeyName));
+    assertNull(omMetadataManager.getKeyTable(getBucketLayout()).getSkipCache(ozoneKeyName));
+    assertEquals(fileLease, omMetadataManager.getNfsFileLeaseTable().getSkipCache(fileLeaseKey));
   }
 
   @Test
