@@ -1200,6 +1200,8 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     createTestKey(bucket, cursorRoot + "/a", "a");
     createTestKey(bucket, cursorRoot + "/b", "b");
     createTestKey(bucket, cursorRoot + "/c", "c");
+    createTestKey(bucket, cursorRoot + "/d", "d");
+    createTestKey(bucket, cursorRoot + "/e", "e");
     createTestKey(bucket, cursorRoot + "/unicode-directory/" + unicodeName, "unicode");
     long directoryId = getDirInfo(cursorRoot).getObjectID();
     long unicodeDirectoryId = getDirInfo(cursorRoot + "/unicode-directory").getObjectID();
@@ -1215,10 +1217,16 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     long cursorObjectId = firstPage.getChildren().get(1).getKeyInfo().getObjectID();
     NfsChildrenPage secondPage = rpc.lookupNfsChildren(identityArgs, volumeId, bucketId, directoryId,
         NfsFileHandle.Kind.DIRECTORY, null, 2, cursorObjectId, firstPage.getVerifier());
-    assertEquals(Arrays.asList("c", "unicode-directory"), secondPage.getChildren().stream()
+    assertEquals(Arrays.asList("c", "d"), secondPage.getChildren().stream()
         .map(status -> status.getKeyInfo().getFileName()).collect(Collectors.toList()));
-    assertTrue(secondPage.isEof());
-    createTestKey(bucket, cursorRoot + "/d", "d");
+    assertFalse(secondPage.isEof());
+    long secondCursorObjectId = secondPage.getChildren().get(1).getKeyInfo().getObjectID();
+    NfsChildrenPage thirdPage = rpc.lookupNfsChildren(identityArgs, volumeId, bucketId, directoryId,
+        NfsFileHandle.Kind.DIRECTORY, null, 2, secondCursorObjectId, secondPage.getVerifier());
+    assertEquals(Arrays.asList("e", "unicode-directory"), thirdPage.getChildren().stream()
+        .map(status -> status.getKeyInfo().getFileName()).collect(Collectors.toList()));
+    assertTrue(thirdPage.isEof());
+    createTestKey(bucket, cursorRoot + "/f", "f");
     assertEquals(OMException.ResultCodes.INVALID_REQUEST, assertThrows(OMException.class,
         () -> rpc.lookupNfsChildren(identityArgs, volumeId, bucketId, directoryId, NfsFileHandle.Kind.DIRECTORY,
             null, 2, cursorObjectId, firstPage.getVerifier())).getResult());

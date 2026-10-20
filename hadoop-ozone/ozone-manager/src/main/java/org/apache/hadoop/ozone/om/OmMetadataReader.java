@@ -316,8 +316,9 @@ public class OmMetadataReader implements IOmMetadataReader, Auditor {
           }
           String startKey = startAfterName == null ? null : parentPath.isEmpty() ? startAfterName
               : OzoneFSUtils.appendFileNameToKeyPath(parentPath, startAfterName);
+          long listLimit = maxEntries + (startAfterName == null ? 1L : 2L);
           List<OzoneFileStatus> listed = keyManager.listStatus(parentArgs.toBuilder().setHeadOp(false).build(),
-              false, startKey, maxEntries + 1L, getClientAddress(), false, false);
+              false, startKey, listLimit, getClientAddress(), false, false);
           List<OzoneFileStatus> children = listed.stream()
               .filter(status -> startAfterName == null
                   || status.getKeyInfo().getFileName().compareTo(startAfterName) > 0)

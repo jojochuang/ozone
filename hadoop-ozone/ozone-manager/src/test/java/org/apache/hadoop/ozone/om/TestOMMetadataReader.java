@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -44,9 +45,11 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.utils.db.Table;
@@ -63,6 +66,7 @@ import org.apache.hadoop.ozone.om.helpers.OmBucketInfo;
 import org.apache.hadoop.ozone.om.helpers.OmKeyArgs;
 import org.apache.hadoop.ozone.om.helpers.OmKeyInfo;
 import org.apache.hadoop.ozone.om.helpers.OmNfsLeaseInfo;
+import org.apache.hadoop.ozone.om.helpers.OmNfsObjectInfo;
 import org.apache.hadoop.ozone.om.helpers.OzoneFileStatus;
 import org.apache.hadoop.ozone.om.lock.IOzoneManagerLock;
 import org.apache.hadoop.ozone.om.protocolPB.grpc.GrpcClientConstants;
@@ -74,6 +78,7 @@ import org.apache.hadoop.ozone.security.acl.IAccessAuthorizer;
 import org.apache.hadoop.ozone.security.acl.OzoneObj;
 import org.apache.hadoop.ozone.security.acl.OzoneObjInfo;
 import org.apache.hadoop.ozone.security.acl.RequestContext;
+import org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos.PersistedNfsObjectInfo;
 import org.apache.hadoop.ozone.util.ConcurrentMutableRate;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.jupiter.api.AfterEach;
@@ -325,6 +330,57 @@ public class TestOMMetadataReader {
       OMException changed = assertThrows(OMException.class, () -> reader.lookupNfsChildren(args, 1, 2, 2,
           NfsFileHandle.Kind.BUCKET, null, 16, 9L, 4L));
       assertEquals(OMException.ResultCodes.NFS_DIRECTORY_CHANGED, changed.getResult());
+    }
+  }
+
+  @Test
+  public void testNfsChildrenIncludesRowsAfterInclusiveCursor() throws Exception {
+    UserGroupInformation caller = UserGroupInformation.createProxyUser("alice",
+        UserGroupInformation.createRemoteUser("nfs-gateway"));
+    IAccessAuthorizer authorizer = mock(IAccessAuthorizer.class);
+    when(authorizer.checkAccess(any(OzoneObj.class), any(RequestContext.class))).thenReturn(true);
+    KeyManager keyManager = mock(KeyManager.class);
+    OMMetadataManager manager = mock(OMMetadataManager.class);
+    Table<String, OmBucketInfo> bucketTable = mock(Table.class);
+    Table<String, OmNfsObjectInfo> nfsObjectTable = mock(Table.class);
+    OmBucketInfo bucket = new OmBucketInfo.Builder().setVolumeName(VOLUME_NAME).setBucketName(BUCKET_NAME)
+        .setOwner("bucket-owner").setUpdateID(5).build();
+    OmNfsObjectInfo cursor = new OmNfsObjectInfo(PersistedNfsObjectInfo.Kind.FILE, 2, "b");
+    when(manager.getLock()).thenReturn(mock(IOzoneManagerLock.class));
+    when(manager.getBucketTable()).thenReturn(bucketTable);
+    when(manager.getBucketKey(VOLUME_NAME, BUCKET_NAME)).thenReturn("bucket-key");
+    when(bucketTable.get("bucket-key")).thenReturn(bucket);
+    when(manager.getNfsObjectTable()).thenReturn(nfsObjectTable);
+    when(manager.getNfsObjectKey(1, 2, 11)).thenReturn("cursor-key");
+    when(nfsObjectTable.get("cursor-key")).thenReturn(cursor);
+    when(keyManager.getMetadataManager()).thenReturn(manager);
+    OmKeyInfo directory = new OmKeyInfo.Builder().setVolumeName(VOLUME_NAME).setBucketName(BUCKET_NAME)
+        .setKeyName("dir").setObjectID(2).setUpdateID(7).build();
+    when(keyManager.getFileStatus(any(), anyString())).thenReturn(new OzoneFileStatus(directory, 1024, true));
+    List<OzoneFileStatus> listed = new ArrayList<>();
+    for (String name : Arrays.asList("b", "c", "d", "e")) {
+      OmKeyInfo child = new OmKeyInfo.Builder().setVolumeName(VOLUME_NAME).setBucketName(BUCKET_NAME)
+          .setKeyName("dir/" + name).setObjectID(10 + listed.size()).setParentObjectID(2).build();
+      listed.add(new OzoneFileStatus(child, 1024, false));
+    }
+    when(keyManager.listStatus(any(), eq(false), eq("dir/b"), eq(4L), nullable(String.class), eq(false), eq(false)))
+        .thenReturn(listed);
+    OmMetadataReader reader = createMetadataReader(authorizer, keyManager);
+    OmKeyArgs args = new OmKeyArgs.Builder().setVolumeName(VOLUME_NAME).setBucketName(BUCKET_NAME)
+        .setKeyName("").build();
+
+    try (MockedStatic<OMFileRequest> paths = mockStatic(OMFileRequest.class);
+         MockedStatic<Server> server = mockStatic(Server.class)) {
+      server.when(Server::getRemoteUser).thenReturn(caller);
+      paths.when(() -> OMFileRequest.getNfsObjectPath(manager, VOLUME_NAME, BUCKET_NAME, 1, 2, 2,
+          NfsFileHandle.Kind.DIRECTORY)).thenReturn("dir");
+
+      NfsChildrenPage page = reader.lookupNfsChildren(args, 1, 2, 2, NfsFileHandle.Kind.DIRECTORY,
+          null, 2, 11L, 7L);
+
+      assertEquals(Arrays.asList("c", "d"), page.getChildren().stream()
+          .map(status -> status.getKeyInfo().getFileName()).collect(Collectors.toList()));
+      assertFalse(page.isEof());
     }
   }
 
