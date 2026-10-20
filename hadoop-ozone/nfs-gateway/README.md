@@ -155,11 +155,14 @@ timeout -k 5 180 python3 hadoop-ozone/nfs-gateway/src/test/nfs/test_ganesha_recl
 # example, the shared filesystem source and UUID) from the active host.
 # Configure the same Ganesha node ID, server scope, owner, and export identity on
 # the standby; start its gateway with a new ID and wait for the OM lease takeover.
+# The server identity command reports those stable NFSv4 identity fields and the
+# NFS address, while the serving-host command must report a different host.
 timeout -k 5 300 python3 hadoop-ozone/nfs-gateway/src/test/nfs/test_ganesha_reclaim.py \
   --mount /mnt/ozone \
   --restart-command 'ssh nfs-control /usr/local/sbin/promote-ganesha-standby' \
   --serving-host-id-command 'ssh nfs-control /usr/local/sbin/active-ganesha-machine-id' \
   --recovery-root-identity-command 'ssh nfs-control /usr/local/sbin/active-ganesha-recovery-root-id' \
+  --server-identity-command 'ssh nfs-control /usr/local/sbin/active-ganesha-server-identity' \
   --restart-timeout-seconds 240
 # Run only in a disposable Linux client; kinit replaces its default ticket cache.
 kinit -kt /etc/security/keytabs/testuser.keytab -l 1m testuser/om@EXAMPLE.COM

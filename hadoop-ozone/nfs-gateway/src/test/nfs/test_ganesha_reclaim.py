@@ -45,16 +45,21 @@ class GaneshaReclaimContract(unittest.TestCase):
     restart_timeout_seconds = 90
     serving_host_id_command = None
     recovery_root_identity_command = None
+    server_identity_command = None
 
     def test_open_state_survives_server_restart(self):
         serving_host_id = None
         recovery_root_identity = None
+        server_identity = None
         if self.serving_host_id_command is not None:
             serving_host_id = read_host_identity(
                 self.serving_host_id_command, self.restart_timeout_seconds)
         if self.recovery_root_identity_command is not None:
             recovery_root_identity = read_host_identity(
                 self.recovery_root_identity_command, self.restart_timeout_seconds)
+        if self.server_identity_command is not None:
+            server_identity = read_host_identity(
+                self.server_identity_command, self.restart_timeout_seconds)
 
         path = self.mount / ("reclaim-contract-" + uuid.uuid4().hex)
         initial = b"stable data before Ganesha restart"
@@ -91,6 +96,13 @@ class GaneshaReclaimContract(unittest.TestCase):
                     recovery_root_identity,
                     replacement_recovery_root_identity,
                     "RecoveryRoot identity changed after failover")
+            if server_identity is not None:
+                replacement_server_identity = read_host_identity(
+                    self.server_identity_command, self.restart_timeout_seconds)
+                self.assertEqual(
+                    server_identity,
+                    replacement_server_identity,
+                    "NFSv4 server identity changed after failover")
 
             stream.seek(0)
             self.assertEqual(initial, stream.read())
@@ -116,8 +128,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--recovery-root-identity-command",
         help="Command that prints the stable identity of the Ganesha RecoveryRoot storage")
+    parser.add_argument(
+        "--server-identity-command",
+        help="Command that prints the stable NFSv4 server, node, and export identity")
     arguments = parser.parse_args()
-    GaneshaReclaimContract.mount = require_nfs41_krb5p_mount(arguments.mount)
     GaneshaReclaimContract.restart_command = shlex.split(arguments.restart_command)
     GaneshaReclaimContract.restart_timeout_seconds = arguments.restart_timeout_seconds
     if arguments.serving_host_id_command is not None:
@@ -132,6 +146,15 @@ if __name__ == "__main__":
             arguments.recovery_root_identity_command)
         if not GaneshaReclaimContract.recovery_root_identity_command:
             parser.error("--recovery-root-identity-command must not be empty")
+    if arguments.server_identity_command is not None:
+        GaneshaReclaimContract.server_identity_command = shlex.split(
+            arguments.server_identity_command)
+        if not GaneshaReclaimContract.server_identity_command:
+            parser.error("--server-identity-command must not be empty")
+    if (arguments.recovery_root_identity_command is not None
+            and arguments.server_identity_command is None):
+        parser.error("--recovery-root-identity-command requires --server-identity-command")
     if not GaneshaReclaimContract.restart_command:
         parser.error("--restart-command must not be empty")
+    GaneshaReclaimContract.mount = require_nfs41_krb5p_mount(arguments.mount)
     unittest.main(argv=[__file__], verbosity=2)

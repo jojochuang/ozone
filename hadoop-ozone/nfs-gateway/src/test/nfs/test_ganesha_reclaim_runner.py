@@ -17,6 +17,7 @@
 """Unit tests for the mounted Ganesha reclaim contract."""
 
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,6 +27,24 @@ import test_ganesha_reclaim
 
 
 class GaneshaReclaimRunnerTest(unittest.TestCase):
+    def test_shared_recovery_root_requires_server_identity_probe(self):
+        script = Path(test_ganesha_reclaim.__file__)
+        result = subprocess.run(
+            [sys.executable, str(script),
+             "--mount", "/mnt/test",
+             "--restart-command", "promote-standby",
+             "--serving-host-id-command", "serving-host-id",
+             "--recovery-root-identity-command", "recovery-root-id"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10)
+
+        self.assertEqual(2, result.returncode)
+        self.assertIn(
+            "--recovery-root-identity-command requires --server-identity-command",
+            result.stderr)
+
     def test_read_host_identity_trims_command_output(self):
         with patch.object(test_ganesha_reclaim.subprocess, "run") as run:
             run.return_value = subprocess.CompletedProcess([], 0, " host-a\n", "")
@@ -65,11 +84,33 @@ class GaneshaReclaimRunnerTest(unittest.TestCase):
             contract.restart_command = ["promote-standby"]
             contract.serving_host_id_command = ["serving-host-id"]
             contract.recovery_root_identity_command = ["recovery-root-id"]
+            contract.server_identity_command = ["server-identity"]
 
             with patch.object(test_ganesha_reclaim, "read_host_identity",
-                              side_effect=("host-a", "shared-root", "host-b", "shared-root")):
+                              side_effect=("host-a", "shared-root", "server-v1", "host-b",
+                                           "shared-root", "server-v1")):
                 with patch.object(test_ganesha_reclaim.subprocess, "run") as run:
                     contract.test_open_state_survives_server_restart()
+
+            run.assert_called_once_with(
+                ["promote-standby"], check=True, timeout=90)
+
+    def test_contract_rejects_changed_nfs_server_identity(self):
+        with tempfile.TemporaryDirectory() as mount:
+            contract = test_ganesha_reclaim.GaneshaReclaimContract()
+            contract.mount = Path(mount)
+            contract.restart_command = ["promote-standby"]
+            contract.serving_host_id_command = ["serving-host-id"]
+            contract.recovery_root_identity_command = ["recovery-root-id"]
+            contract.server_identity_command = ["server-identity"]
+
+            with patch.object(test_ganesha_reclaim, "read_host_identity",
+                              side_effect=("host-a", "shared-root", "server-v1", "host-b",
+                                           "shared-root", "server-v2")):
+                with patch.object(test_ganesha_reclaim.subprocess, "run") as run:
+                    with self.assertRaisesRegex(
+                            AssertionError, "NFSv4 server identity changed after failover"):
+                        contract.test_open_state_survives_server_restart()
 
             run.assert_called_once_with(
                 ["promote-standby"], check=True, timeout=90)
