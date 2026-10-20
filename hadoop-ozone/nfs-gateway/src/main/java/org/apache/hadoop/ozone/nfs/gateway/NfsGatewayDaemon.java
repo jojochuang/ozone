@@ -34,6 +34,7 @@ import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.scm.ScmInfo;
 import org.apache.hadoop.hdds.utils.HAUtils;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.ozone.OmUtils;
 import org.apache.hadoop.ozone.OzoneSecurityUtil;
 import org.apache.hadoop.ozone.nfs.NfsExportBinding;
@@ -56,10 +57,15 @@ public final class NfsGatewayDaemon {
     if (args.length != 0) {
       throw new IllegalArgumentException("NFS gateway does not accept positional arguments");
     }
-    OzoneConfiguration configuration = new OzoneConfiguration();
-    try (NfsGatewayServer server = start(configuration)) {
-      LOG.info("NFS gateway listening on {}", server.getPort());
-      server.awaitTermination();
+    DefaultMetricsSystem.initialize("NfsGateway");
+    try {
+      OzoneConfiguration configuration = new OzoneConfiguration();
+      try (NfsGatewayServer server = start(configuration)) {
+        LOG.info("NFS gateway listening on {}", server.getPort());
+        server.awaitTermination();
+      }
+    } finally {
+      DefaultMetricsSystem.shutdown();
     }
   }
 
