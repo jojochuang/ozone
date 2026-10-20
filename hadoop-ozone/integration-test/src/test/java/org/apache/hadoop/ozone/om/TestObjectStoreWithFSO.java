@@ -92,6 +92,7 @@ import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.ozone.DataTestUtil;
 import org.apache.hadoop.ozone.MiniOzoneCluster;
 import org.apache.hadoop.ozone.OmUtils;
+import org.apache.hadoop.ozone.OzoneAcl;
 import org.apache.hadoop.ozone.OzoneConsts;
 import org.apache.hadoop.ozone.client.BucketArgs;
 import org.apache.hadoop.ozone.client.ObjectStore;
@@ -154,6 +155,8 @@ import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFile
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsFileLeaseRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsTransferRangeRequest;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.NfsTransferRangeResponse;
+import org.apache.hadoop.ozone.security.acl.OzoneObj;
+import org.apache.hadoop.ozone.security.acl.OzoneObjInfo;
 import org.apache.hadoop.ozone.storage.proto.OzoneManagerStorageProtos.PersistedNfsObjectInfo;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.StringUtils;
@@ -1142,6 +1145,15 @@ public abstract class TestObjectStoreWithFSO implements NonHATests.TestCase {
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> bucket.deleteObjectTagging(key)).getResult());
     assertTrue(bucket.getKey(key).getTags().isEmpty());
+    String fileTableKey = metadata.getOzonePathKey(volumeId, bucketId, leasedFile.getParentObjectID(), "client-write");
+    List<OzoneAcl> aclsBefore = metadata.getKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED).get(fileTableKey).getAcls();
+    OzoneObj keyObject = OzoneObjInfo.Builder.newBuilder().setResType(OzoneObj.ResourceType.KEY)
+        .setStoreType(OzoneObj.StoreType.OZONE).setVolumeName(volumeName).setBucketName(bucketName).setKeyName(key)
+        .build();
+    assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
+        () -> client.getObjectStore().setAcl(keyObject,
+            Collections.singletonList(OzoneAcl.parseAcl("user:nfs-test:r[ACCESS]")))).getResult());
+    assertEquals(aclsBefore, metadata.getKeyTable(BucketLayout.FILE_SYSTEM_OPTIMIZED).get(fileTableKey).getAcls());
     assertEquals(NFS_LEASE_CONFLICT, assertThrows(OMException.class,
         () -> bucket.completeMultipartUpload(key, pendingUpload.getUploadID(), Collections.singletonMap(1, partETag)))
         .getResult());
