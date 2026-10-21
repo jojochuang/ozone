@@ -370,11 +370,14 @@ EXPORT {
                     mount = OPTIONS.mount_contract
                     mount.mkdir(parents=True, exist_ok=True)
                     mount_result = subprocess.run([
-                        "mount", "-t", "nfs4", "-o", "vers=4.1,proto=tcp,sec=krb5p,port=2049",
+                        "mount", "-v", "-t", "nfs4", "-o", "vers=4.1,proto=tcp,sec=krb5p,port=2049",
                         "localhost:/ozone/data", str(mount)], capture_output=True, text=True, timeout=30)
                     if mount_result.returncode != 0:
-                        self.fail("NFSv4.1 krb5p mount failed:\n{}{}\nGanesha log:\n{}".format(
-                            mount_result.stdout, mount_result.stderr, log_path.read_text()[-20000:]))
+                        rpc_gssd_log = Path("/tmp/ozone-nfs-rpc-gssd.log")
+                        rpc_gssd_output = (rpc_gssd_log.read_text()[-20000:]
+                                           if rpc_gssd_log.exists() else "unavailable")
+                        self.fail("NFSv4.1 krb5p mount failed:\n{}{}\nrpc.gssd log:\n{}\nGanesha log:\n{}".format(
+                            mount_result.stdout, mount_result.stderr, rpc_gssd_output, log_path.read_text()[-20000:]))
                     mounted = True
                     subprocess.run([
                         sys.executable,
