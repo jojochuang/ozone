@@ -332,7 +332,8 @@ EXPORT {
         Timeout_Millis = 5000;
     }
 }
-''' % ("nfs/localhost@EXAMPLE.COM" if OPTIONS.ganesha_keytab else "nfs",
+''' % ("nfs/{}@EXAMPLE.COM".format(OPTIONS.mount_server)
+       if OPTIONS.ganesha_keytab else "nfs",
        "/contract/nfs.keytab" if OPTIONS.ganesha_keytab else "",
        "true" if OPTIONS.ganesha_keytab else "false", "krb5p" if OPTIONS.ganesha_keytab else "sys",
        endpoint_host, endpoint_port))
@@ -371,7 +372,8 @@ EXPORT {
                     mount.mkdir(parents=True, exist_ok=True)
                     mount_result = subprocess.run([
                         "mount", "-v", "-t", "nfs4", "-o", "vers=4.1,proto=tcp,sec=krb5p,port=2049",
-                        "localhost:/ozone/data", str(mount)], capture_output=True, text=True, timeout=30)
+                        "{}:/ozone/data".format(OPTIONS.mount_server), str(mount)],
+                        capture_output=True, text=True, timeout=30)
                     if mount_result.returncode != 0:
                         rpc_gssd_log = Path("/tmp/ozone-nfs-rpc-gssd.log")
                         rpc_gssd_output = (rpc_gssd_log.read_text()[-20000:]
@@ -414,6 +416,7 @@ if __name__ == "__main__":
     parser.add_argument("--ganesha-image")
     parser.add_argument("--ganesha-keytab")
     parser.add_argument("--mount-contract", type=Path)
+    parser.add_argument("--mount-server", default="localhost")
     OPTIONS, remaining = parser.parse_known_args()
     if bool(OPTIONS.ganesha_keytab) != bool(OPTIONS.mount_contract):
         parser.error("--ganesha-keytab and --mount-contract must be supplied together")

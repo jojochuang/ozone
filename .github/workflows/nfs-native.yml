@@ -243,4 +243,5 @@ jobs:
             --ganesha-image ozone-nfs-ganesha:ci \
             --ganesha-keytab /tmp/ozone-nfs.keytab \
             --mount-contract /tmp/ozone-nfs-mount \
+            --mount-server ozone-ci \
             GrpcTlsContract.test_ganesha_loads_ozone_export_and_completes_capability_handshake
