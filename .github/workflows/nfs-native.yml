@@ -93,7 +93,7 @@ jobs:
           mvn --batch-mode --settings dev-support/ci/maven-settings.xml
           -Ddevelocity.enabled=false
           -pl :ozone-integration-test -am
-          -Dtest=TestNfsCallerAuthorizationSecure -DfailIfNoTests=false
+          -Dtest=TestNfsCallerAuthorizationSecure,TestNfsGatewayKerberosRenewal -DfailIfNoTests=false
           -Dmaven-surefire-plugin.argLineAccessArgs="--add-opens=java.base/java.lang=ALL-UNNAMED"
           verify -DskipShade -DskipRecon -DskipDocs
 
