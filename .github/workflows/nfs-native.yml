@@ -182,7 +182,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            krb5-kdc krb5-user nfs-common
+            krb5-admin-server krb5-kdc krb5-user nfs-common
           sudo tee /etc/krb5.conf >/dev/null <<'EOF'
           [libdefaults]
             default_realm = EXAMPLE.COM
@@ -221,7 +221,12 @@ jobs:
           sudo mkdir -p /run/rpc_pipefs
           sudo mountpoint -q /run/rpc_pipefs || \
             sudo mount -t rpc_pipefs rpc_pipefs /run/rpc_pipefs
-          sudo systemctl start rpc-gssd
+          sudo rpc.gssd -f >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if pgrep -x rpc.gssd >/dev/null; then break; fi
+            sleep 1
+          done
+          pgrep -x rpc.gssd >/dev/null
           sudo sh -c 'printf "alice\n" | KRB5CCNAME=FILE:/tmp/krb5cc_0 kinit -c FILE:/tmp/krb5cc_0 alice'
           classpath="hadoop-ozone/nfs-gateway/target/classes"
           classpath="$classpath:hadoop-ozone/nfs-gateway/target/test-classes"
