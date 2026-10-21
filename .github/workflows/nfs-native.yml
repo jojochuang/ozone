@@ -224,14 +224,14 @@ jobs:
           sudo mkdir -p /run/rpc_pipefs
           sudo mountpoint -q /run/rpc_pipefs || \
             sudo mount -t rpc_pipefs rpc_pipefs /run/rpc_pipefs
-          sudo install -m 600 /tmp/ozone-nfs.keytab /etc/krb5.keytab
-          sudo rpc.gssd -f -vvv >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
+          sudo rpc.gssd -n -f -vvv >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
           for attempt in $(seq 1 30); do
             if pgrep -x rpc.gssd >/dev/null; then break; fi
             sleep 1
           done
           pgrep -x rpc.gssd >/dev/null
           sudo sh -c 'printf "alice\n" | KRB5CCNAME=FILE:/tmp/krb5cc_0 kinit -c FILE:/tmp/krb5cc_0 alice'
+          sudo klist -c FILE:/tmp/krb5cc_0
           classpath="hadoop-ozone/nfs-gateway/target/classes"
           classpath="$classpath:hadoop-ozone/nfs-gateway/target/test-classes"
           classpath="$classpath:hadoop-ozone/interface-client/target/classes"
