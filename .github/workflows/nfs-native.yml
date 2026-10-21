@@ -223,6 +223,7 @@ jobs:
           sudo mkdir -p /run/rpc_pipefs
           sudo mountpoint -q /run/rpc_pipefs || \
             sudo mount -t rpc_pipefs rpc_pipefs /run/rpc_pipefs
+          sudo install -m 600 /tmp/ozone-nfs.keytab /etc/krb5.keytab
           sudo rpc.gssd -f >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
           for attempt in $(seq 1 30); do
             if pgrep -x rpc.gssd >/dev/null; then break; fi
