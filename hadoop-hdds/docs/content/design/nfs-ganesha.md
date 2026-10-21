@@ -411,6 +411,12 @@ The current Dockerfile is a local prototype, not a release artifact. It builds G
 
 The pinned-source license evidence is [Ganesha `src/LICENSE.txt`](https://github.com/nfs-ganesha/nfs-ganesha/blob/3113f970511289ae8928078cf392d17c0df81b38/src/LICENSE.txt) and [Ganesha `fsal_api.h`](https://github.com/nfs-ganesha/nfs-ganesha/blob/3113f970511289ae8928078cf392d17c0df81b38/src/include/fsal_api.h). The ASF [source-header policy](https://www.apache.org/legal/src-headers.html#treatment-of-third-party-works) requires third-party works to retain their license and requires each third-party work in an ASF distribution to include its associated license.
 
+## Acceptance status (2026-10-21)
+
+The earlier mounted-write failure above describes the retained test cluster while it was unfinalized; it does not describe all later acceptance runs. On 2026-10-18, a secure Linux NFSv4.1 `sec=krb5p` mount passed 13 enabled publication tests, including byte-exact 32 MiB publication, OzoneFS readback, concurrent transfers, export isolation, stale handles, and rename/open-handle behavior. A separate mounted Kerberos-expiry test also passed a post-expiry write and OzoneFS readback. These runs establish local mounted acceptance for the covered operations, but not hosted kernel-mount acceptance or separate-physical-host recovery.
+
+The dedicated hosted `nfs-native` workflow passed on `04a73db3938` in run [39522740231](https://github.com/jojochuang/ozone/actions/runs/39522740231), including gateway tests, secure MiniOzoneCluster authorization and Kerberos renewal, distribution packaging, native handle and mutual-TLS contracts, and the Ganesha capability handshake. It does not mount a Linux kernel client against Ozone. On 2026-10-21, the retained Docker cluster again had OM3 and SCM2/SCM3 stopped; existing secure client mounts timed out, and OM1 could not resolve `om3`. No services were restarted or OM finalized during this check. Hosted mounted acceptance, separate-host recovery with shared durable `RecoveryRoot`, representative performance, and legal/operator review remain open.
+
 # References
 
 - [Ozone Enhancement Proposal process and template](ozone-enhancement-proposals.md)
