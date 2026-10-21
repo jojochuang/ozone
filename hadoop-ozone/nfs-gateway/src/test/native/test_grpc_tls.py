@@ -271,6 +271,7 @@ class GrpcTlsContract(unittest.TestCase):
             self.skipTest("Ganesha runtime image was not supplied")
         self.capabilities_marker.unlink(missing_ok=True)
         (self.root / "recovery").mkdir()
+        (self.root / "ccache").mkdir()
         endpoint_host = "host.docker.internal" if platform.system() == "Darwin" else "localhost"
         docker_network = "bridge" if platform.system() == "Darwin" else "host"
         proxy = None
@@ -291,6 +292,7 @@ NFS_CORE_PARAM {
 NFS_KRB5 {
     PrincipalName = "%s";
     KeytabPath = "%s";
+    CCacheDir = "/contract/ccache";
     Active_krb5 = %s;
 }
 
@@ -349,8 +351,9 @@ EXPORT {
                     "--mount", "type=bind,source=/etc/krb5.conf,target=/etc/krb5.conf,readonly"])
             docker_command.extend([
                 OPTIONS.ganesha_image, "sh", "-c",
-                "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT "
-                "-p /contract/ganesha.pid -f /contract/ganesha.conf"])
+                "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT{} "
+                "-p /contract/ganesha.pid -f /contract/ganesha.conf".format(
+                    " -N FULL_DEBUG" if OPTIONS.mount_contract else "")])
             process = subprocess.Popen(docker_command, stdout=ganesha_log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 30

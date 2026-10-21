@@ -210,7 +210,9 @@ jobs:
           sudo kadmin.local -q 'addprinc -pw alice alice@EXAMPLE.COM'
           sudo kadmin.local -q 'addprinc -randkey nfs/localhost@EXAMPLE.COM'
           sudo kadmin.local -q 'addprinc -randkey nfs/ozone-ci@EXAMPLE.COM'
-          sudo kadmin.local -q 'ktadd -k /tmp/ozone-nfs.keytab nfs/localhost@EXAMPLE.COM nfs/ozone-ci@EXAMPLE.COM'
+          sudo kadmin.local -q 'addprinc -randkey host/localhost@EXAMPLE.COM'
+          sudo kadmin.local -q 'addprinc -randkey host/ozone-ci@EXAMPLE.COM'
+          sudo kadmin.local -q 'ktadd -k /tmp/ozone-nfs.keytab nfs/localhost@EXAMPLE.COM nfs/ozone-ci@EXAMPLE.COM host/localhost@EXAMPLE.COM host/ozone-ci@EXAMPLE.COM'
           sudo chmod 644 /tmp/ozone-nfs.keytab
           sudo krb5kdc -n >/tmp/ozone-nfs-kdc.log 2>&1 &
           for attempt in $(seq 1 30); do
