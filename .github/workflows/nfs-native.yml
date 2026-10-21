@@ -85,8 +85,9 @@ jobs:
       - name: Set short hostname for secure MiniOzoneCluster certificates
         run: |
           sudo hostname ozone-ci
-          echo "127.0.0.1 ozone-ci" | sudo tee -a /etc/hosts
+          sudo sed -i 's/^127\.0\.0\.1[[:space:]][[:space:]]*localhost/127.0.0.1 ozone-ci localhost/' /etc/hosts
           test "$(hostname)" = ozone-ci
+          test "$(getent hosts 127.0.0.1 | awk '{print $2}')" = ozone-ci
 
       - name: Run secure NFS gateway integration test
         run: >-
