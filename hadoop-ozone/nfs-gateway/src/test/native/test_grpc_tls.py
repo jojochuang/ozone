@@ -406,7 +406,9 @@ EXPORT {
                         ganesha_lines = log_path.read_text().splitlines()
                         ganesha_diagnostics = [line for line in ganesha_lines
                                                if "OZONE_TRACE" in line or "Calling open2" in line
-                                               or "test_access got" in line or "fsal_access got" in line]
+                                               or "Calling reopen2" in line or "Found existing state" in line
+                                               or "Creating new state" in line or "test_access got" in line
+                                               or "fsal_access got" in line or "Not opening file" in line]
 
                         self.fail("Mounted read-only NFS contract timed out:\nstdout:\n{}\nstderr:\n{}"
                                   "\nJava fixture log:\n{}\nGanesha operation log:\n{}".format(

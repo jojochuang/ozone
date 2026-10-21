@@ -19,6 +19,7 @@
 #include "fsal_up.h"
 
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -320,9 +321,13 @@ static fsal_status_t ozone_getattrs(struct fsal_obj_handle *obj_hdl,
 							       struct ozone_fsal_handle,
 							       obj_handle);
 	struct ozone_nfs_attributes attributes = {0};
-	fsal_status_t status = ozone_get_attributes(handle, &attributes);
+	fsal_status_t status;
 
-	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE getattrs callback");
+	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE getattrs begin object=%" PRIu64,
+		     handle->attributes.object_id);
+	status = ozone_get_attributes(handle, &attributes);
+	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE getattrs end object=%" PRIu64 " status=%u minor=%u",
+		     handle->attributes.object_id, status.major, status.minor);
 	if (FSAL_IS_ERROR(status))
 		return status;
 	if (attributes.size < handle->attributes.size) {

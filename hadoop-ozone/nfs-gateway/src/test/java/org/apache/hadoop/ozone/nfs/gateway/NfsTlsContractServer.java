@@ -148,6 +148,7 @@ public final class NfsTlsContractServer {
           }
           OzoneFileStatus status = handle.getObjectId() == 3 ? fileStatus()
               : fileStatus("created", 4, publishedFile.get().length);
+          System.err.println("Contract object lookup complete id=" + handle.getObjectId());
           return new NfsObjectLookup(status, 9);
         });
     org.mockito.Mockito.when(reader.lookupChildren(
