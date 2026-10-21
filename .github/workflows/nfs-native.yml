@@ -224,7 +224,8 @@ jobs:
           sudo mkdir -p /run/rpc_pipefs
           sudo mountpoint -q /run/rpc_pipefs || \
             sudo mount -t rpc_pipefs rpc_pipefs /run/rpc_pipefs
-          sudo rpc.gssd -n -f -vvv >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
+          sudo env KRB5_TRACE=/tmp/ozone-nfs-krb5.trace rpc.gssd -n -f -vvv \
+            >/tmp/ozone-nfs-rpc-gssd.log 2>&1 &
           for attempt in $(seq 1 30); do
             if pgrep -x rpc.gssd >/dev/null; then break; fi
             sleep 1
@@ -232,6 +233,7 @@ jobs:
           pgrep -x rpc.gssd >/dev/null
           sudo sh -c 'printf "alice\n" | KRB5CCNAME=FILE:/tmp/krb5cc_0 kinit -c FILE:/tmp/krb5cc_0 alice'
           sudo klist -c FILE:/tmp/krb5cc_0
+          sudo env KRB5CCNAME=FILE:/tmp/krb5cc_0 kvno nfs/ozone-ci@EXAMPLE.COM
           classpath="hadoop-ozone/nfs-gateway/target/classes"
           classpath="$classpath:hadoop-ozone/nfs-gateway/target/test-classes"
           classpath="$classpath:hadoop-ozone/interface-client/target/classes"
