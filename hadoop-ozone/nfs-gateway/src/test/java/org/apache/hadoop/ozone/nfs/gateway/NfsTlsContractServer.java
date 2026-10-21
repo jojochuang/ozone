@@ -140,6 +140,7 @@ public final class NfsTlsContractServer {
             }
             return new NfsObjectLookup(root, 7);
           }
+          System.err.println("Contract object lookup id=" + handle.getObjectId());
           validateCaller(context);
           if (handle.getObjectId() != 3 && handle.getObjectId() != 4) {
             throw new org.apache.hadoop.ozone.om.exceptions.OMException("Stale handle",
@@ -155,6 +156,7 @@ public final class NfsTlsContractServer {
         .thenAnswer(invocation -> {
           validateCaller(invocation.getArgument(0));
           String name = invocation.getArgument(2);
+          System.err.println("Contract child lookup name=" + name);
           if (name != null && !"child".equals(name) && !"café 文件".equals(name)
               && !(name.startsWith("write-contract-") && fileCreated.get())) {
             throw new org.apache.hadoop.ozone.om.exceptions.OMException("File not found",

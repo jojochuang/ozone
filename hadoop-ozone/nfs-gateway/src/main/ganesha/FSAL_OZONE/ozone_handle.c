@@ -175,6 +175,7 @@ static fsal_status_t ozone_lookup(struct fsal_obj_handle *dir_hdl, const char *n
 	int transport;
 	struct ozone_fsal_handle *object;
 
+	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE lookup callback");
 	if (dir_hdl->type != DIRECTORY)
 		return fsalstat(ERR_FSAL_NOTDIR, 0);
 	if (name == NULL || strlen(name) > OZONE_NFS_MAX_NAME_BYTES)
@@ -321,6 +322,7 @@ static fsal_status_t ozone_getattrs(struct fsal_obj_handle *obj_hdl,
 	struct ozone_nfs_attributes attributes = {0};
 	fsal_status_t status = ozone_get_attributes(handle, &attributes);
 
+	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE getattrs callback");
 	if (FSAL_IS_ERROR(status))
 		return status;
 	if (attributes.size < handle->attributes.size) {
@@ -357,6 +359,8 @@ static fsal_status_t ozone_open2(struct fsal_obj_handle *obj_hdl,
 	(void)state;
 	(void)attrs_in;
 	(void)verifier;
+	LogFullDebug(COMPONENT_FSAL, "OZONE_TRACE open2 callback flags=%u create-mode=%d",
+		     openflags, createmode);
 	if ((openflags & FSAL_O_TRUNC) != 0 && createmode == FSAL_NO_CREATE)
 		return fsalstat(ERR_FSAL_ACCESS, EACCES);
 	if ((openflags & FSAL_O_WRITE) != 0 && createmode == FSAL_NO_CREATE)

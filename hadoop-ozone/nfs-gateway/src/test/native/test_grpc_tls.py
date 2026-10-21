@@ -403,11 +403,16 @@ EXPORT {
                                 return output.decode(errors="replace")
                             return output or ""
 
+                        ganesha_lines = log_path.read_text().splitlines()
+                        ganesha_diagnostics = [line for line in ganesha_lines
+                                               if "OZONE_TRACE" in line or "Calling open2" in line
+                                               or "test_access got" in line or "fsal_access got" in line]
+
                         self.fail("Mounted read-only NFS contract timed out:\nstdout:\n{}\nstderr:\n{}"
-                                  "\nJava fixture log:\n{}\nGanesha log:\n{}".format(
+                                  "\nJava fixture log:\n{}\nGanesha operation log:\n{}".format(
                                       output_text(failure.stdout), output_text(failure.stderr),
-                                      (self.root / "server.log").read_text()[-4000:],
-                                      log_path.read_text()[-20000:]))
+                                      (self.root / "server.log").read_text()[-12000:],
+                                      "\n".join(ganesha_diagnostics[-200:])))
                     self.assertEqual(0, readonly_result.returncode,
                                      readonly_result.stdout + readonly_result.stderr)
             finally:
