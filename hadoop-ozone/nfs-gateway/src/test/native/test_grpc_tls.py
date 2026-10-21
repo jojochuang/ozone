@@ -376,8 +376,11 @@ EXPORT {
                         rpc_gssd_log = Path("/tmp/ozone-nfs-rpc-gssd.log")
                         rpc_gssd_output = (rpc_gssd_log.read_text()[-20000:]
                                            if rpc_gssd_log.exists() else "unavailable")
-                        self.fail("NFSv4.1 krb5p mount failed:\n{}{}\nrpc.gssd log:\n{}\nGanesha log:\n{}".format(
-                            mount_result.stdout, mount_result.stderr, rpc_gssd_output, log_path.read_text()[-20000:]))
+                        self.fail("NFSv4.1 krb5p mount failed:\n{}{}\nrpc.gssd log:\n{}\nJava fixture log:\n{}"
+                                  "\nGanesha log:\n{}".format(
+                                      mount_result.stdout, mount_result.stderr, rpc_gssd_output,
+                                      (self.root / "server.log").read_text()[-4000:],
+                                      log_path.read_text()[-20000:]))
                     mounted = True
                     subprocess.run([
                         sys.executable,

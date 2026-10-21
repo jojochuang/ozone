@@ -131,6 +131,8 @@ public final class NfsTlsContractServer {
                 org.apache.hadoop.ozone.om.exceptions.OMException.ResultCodes.FILE_NOT_FOUND);
           }
           if (handle.getObjectId() == 2 && handle.getKind() == NfsFileHandle.Kind.BUCKET) {
+            System.err.println("Contract export-root lookup caller=" + context.getCaller().getKerberosPrincipal()
+                + " protection=" + context.getCaller().getProtection());
             OzoneFileStatus root = org.mockito.Mockito.mock(OzoneFileStatus.class);
             org.mockito.Mockito.when(root.isDirectory()).thenReturn(true);
             if (!"nfs/localhost@EXAMPLE.COM".equals(context.getCaller().getKerberosPrincipal())) {
