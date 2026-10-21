@@ -390,10 +390,26 @@ EXPORT {
                                       (self.root / "server.log").read_text()[-4000:],
                                       krb5_output, kdc_output, log_path.read_text()[-20000:]))
                     mounted = True
-                    subprocess.run([
+                    readonly_command = [
                         sys.executable,
                         str(Path(__file__).resolve().parents[1] / "nfs" / "test_ganesha_readonly.py"),
-                        "--mount", str(mount)], check=True, timeout=60)
+                        "--mount", str(mount)]
+                    try:
+                        readonly_result = subprocess.run(
+                            readonly_command, capture_output=True, text=True, timeout=60)
+                    except subprocess.TimeoutExpired as failure:
+                        def output_text(output):
+                            if isinstance(output, bytes):
+                                return output.decode(errors="replace")
+                            return output or ""
+
+                        self.fail("Mounted read-only NFS contract timed out:\nstdout:\n{}\nstderr:\n{}"
+                                  "\nJava fixture log:\n{}\nGanesha log:\n{}".format(
+                                      output_text(failure.stdout), output_text(failure.stderr),
+                                      (self.root / "server.log").read_text()[-4000:],
+                                      log_path.read_text()[-20000:]))
+                    self.assertEqual(0, readonly_result.returncode,
+                                     readonly_result.stdout + readonly_result.stderr)
             finally:
                 if mounted:
                     subprocess.run(["umount", str(OPTIONS.mount_contract)], check=False, timeout=15)
