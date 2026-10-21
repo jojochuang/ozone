@@ -417,6 +417,8 @@ The earlier mounted-write failure above describes the retained test cluster whil
 
 The dedicated hosted `nfs-native` workflow passed on `04a73db3938` in run [39522740231](https://github.com/jojochuang/ozone/actions/runs/39522740231), including gateway tests, secure MiniOzoneCluster authorization and Kerberos renewal, distribution packaging, native handle and mutual-TLS contracts, and the Ganesha capability handshake. It does not mount a Linux kernel client against Ozone. On 2026-10-21, the retained Docker cluster again had OM3 and SCM2/SCM3 stopped; existing secure client mounts timed out, and OM1 could not resolve `om3`. No services were restarted or OM finalized during this check. Hosted mounted acceptance, separate-host recovery with shared durable `RecoveryRoot`, representative performance, and legal/operator review remain open.
 
+The 2026-10-21 diagnostic run [39539142480](https://github.com/jojochuang/ozone/actions/runs/39539142480) on `2232db83bce` passed Java gateway build/unit tests, secure gateway integration, FSO identity/readiness, distribution packaging, native handles, C++/Java mutual TLS, mounted-runner tests, the pinned Ganesha V5.7 build, and the export handshake. Its final Linux NFSv4.1 `sec=krb5p` mount failed with server access denied. The added failure report contained no `rpc.gssd` output and no Java export-root callback, so the NFS request did not reach the Ozone backend; the available evidence does not distinguish client GSS credential setup from Ganesha export authorization. The next run enables verbose `rpc.gssd` logging. Mounted acceptance on the latest head remains unverified.
+
 # References
 
 - [Ozone Enhancement Proposal process and template](ozone-enhancement-proposals.md)
