@@ -85,9 +85,13 @@ jobs:
       - name: Set short hostname for secure MiniOzoneCluster certificates
         run: |
           sudo hostname ozone-ci
-          sudo sed -i 's/^127\.0\.0\.1[[:space:]][[:space:]]*localhost/127.0.0.1 ozone-ci localhost/' /etc/hosts
+          mount_server=$(hostname -f)
+          test "${mount_server#*.}" != "$mount_server"
+          printf 'NFS_MOUNT_SERVER=%s\n' "$mount_server" >> "$GITHUB_ENV"
+          sudo sed -i "s/^127\.0\.0\.1[[:space:]][[:space:]]*localhost/127.0.0.1 ozone-ci $mount_server localhost/" /etc/hosts
           test "$(hostname)" = ozone-ci
           test "$(getent hosts 127.0.0.1 | awk '{print $2}')" = ozone-ci
+          test "$(getent hosts "$mount_server" | awk '{print $1}')" = 127.0.0.1
 
       - name: Run secure NFS gateway integration test
         run: >-
@@ -209,11 +213,8 @@ jobs:
           EOF
           sudo kdb5_util create -s -P ozone-nfs-ci-master
           sudo kadmin.local -q 'addprinc -pw alice alice@EXAMPLE.COM'
-          sudo kadmin.local -q 'addprinc -randkey nfs/localhost@EXAMPLE.COM'
-          sudo kadmin.local -q 'addprinc -randkey nfs/ozone-ci@EXAMPLE.COM'
-          sudo kadmin.local -q 'addprinc -randkey host/localhost@EXAMPLE.COM'
-          sudo kadmin.local -q 'addprinc -randkey host/ozone-ci@EXAMPLE.COM'
-          sudo kadmin.local -q 'ktadd -k /tmp/ozone-nfs.keytab nfs/localhost@EXAMPLE.COM nfs/ozone-ci@EXAMPLE.COM host/localhost@EXAMPLE.COM host/ozone-ci@EXAMPLE.COM'
+          sudo kadmin.local -q "addprinc -randkey nfs/$NFS_MOUNT_SERVER@EXAMPLE.COM"
+          sudo kadmin.local -q "ktadd -k /tmp/ozone-nfs.keytab nfs/$NFS_MOUNT_SERVER@EXAMPLE.COM"
           sudo chmod 644 /tmp/ozone-nfs.keytab
           sudo krb5kdc -n >/tmp/ozone-nfs-kdc.log 2>&1 &
           for attempt in $(seq 1 30); do
@@ -233,7 +234,7 @@ jobs:
           pgrep -x rpc.gssd >/dev/null
           sudo sh -c 'printf "alice\n" | KRB5CCNAME=FILE:/tmp/krb5cc_0 kinit -c FILE:/tmp/krb5cc_0 alice'
           sudo klist -c FILE:/tmp/krb5cc_0
-          sudo env KRB5CCNAME=FILE:/tmp/krb5cc_0 kvno nfs/ozone-ci@EXAMPLE.COM
+          sudo env KRB5CCNAME=FILE:/tmp/krb5cc_0 kvno "nfs/$NFS_MOUNT_SERVER@EXAMPLE.COM"
           classpath="hadoop-ozone/nfs-gateway/target/classes"
           classpath="$classpath:hadoop-ozone/nfs-gateway/target/test-classes"
           classpath="$classpath:hadoop-ozone/interface-client/target/classes"
@@ -246,5 +247,5 @@ jobs:
             --ganesha-image ozone-nfs-ganesha:ci \
             --ganesha-keytab /tmp/ozone-nfs.keytab \
             --mount-contract /tmp/ozone-nfs-mount \
-            --mount-server ozone-ci \
+            --mount-server "$NFS_MOUNT_SERVER" \
             GrpcTlsContract.test_ganesha_loads_ozone_export_and_completes_capability_handshake
