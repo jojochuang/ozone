@@ -21,6 +21,7 @@ from pathlib import Path
 import platform
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -288,7 +289,9 @@ NFS_CORE_PARAM {
 }
 
 NFS_KRB5 {
-    Active_krb5 = false;
+    PrincipalName = "nfs";
+    KeytabPath = "%s";
+    Active_krb5 = %s;
 }
 
 NFSv4 {
@@ -311,7 +314,7 @@ EXPORT {
     Access_Type = RW;
     Protocols = 4;
     Transports = TCP;
-    SecType = sys;
+    SecType = %s;
     Squash = Root_Squash;
     Attr_Expiration_Time = 0;
 
@@ -327,18 +330,26 @@ EXPORT {
         Timeout_Millis = 5000;
     }
 }
-''' % (endpoint_host, endpoint_port))
+''' % ("/contract/nfs.keytab" if OPTIONS.ganesha_keytab else "", "true" if OPTIONS.ganesha_keytab else "false",
+       "krb5p" if OPTIONS.ganesha_keytab else "sys", endpoint_host, endpoint_port))
         container_name = "ozone-nfs-ganesha-contract-{}".format(os.getpid())
         log_path = self.root / "ganesha.log"
+        mounted = False
         with open(log_path, "w") as ganesha_log:
-            process = subprocess.Popen([
+            docker_command = [
                 "docker", "run", "--rm", "--name", container_name,
                 "--network", docker_network,
-                "--mount", "type=bind,source={},target=/contract".format(self.root),
+                "--mount", "type=bind,source={},target=/contract".format(self.root)]
+            if OPTIONS.ganesha_keytab:
+                docker_command.extend([
+                    "--mount", "type=bind,source={},target=/contract/nfs.keytab,readonly".format(
+                        OPTIONS.ganesha_keytab),
+                    "--mount", "type=bind,source=/etc/krb5.conf,target=/etc/krb5.conf,readonly"])
+            docker_command.extend([
                 OPTIONS.ganesha_image, "sh", "-c",
                 "rpcbind -w && exec ganesha.nfsd -I 0 -F -L STDOUT "
-                "-p /contract/ganesha.pid "
-                "-f /contract/ganesha.conf"], stdout=ganesha_log, stderr=subprocess.STDOUT)
+                "-p /contract/ganesha.pid -f /contract/ganesha.conf"])
+            process = subprocess.Popen(docker_command, stdout=ganesha_log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 30
                 while not self.capabilities_marker.exists():
@@ -350,7 +361,20 @@ EXPORT {
                     time.sleep(0.1)
                 time.sleep(1)
                 self.assertIsNone(process.poll(), log_path.read_text()[-20000:])
+                if OPTIONS.mount_contract:
+                    mount = OPTIONS.mount_contract
+                    mount.mkdir(parents=True, exist_ok=True)
+                    subprocess.run([
+                        "mount", "-t", "nfs4", "-o", "vers=4.1,proto=tcp,sec=krb5p,port=2049",
+                        "localhost:/ozone/data", str(mount)], check=True, timeout=30)
+                    mounted = True
+                    subprocess.run([
+                        sys.executable,
+                        str(Path(__file__).resolve().parents[1] / "nfs" / "test_ganesha_readonly.py"),
+                        "--mount", str(mount)], check=True, timeout=60)
             finally:
+                if mounted:
+                    subprocess.run(["umount", str(OPTIONS.mount_contract)], check=False, timeout=15)
                 subprocess.run(["docker", "rm", "--force", container_name],
                                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 try:
@@ -374,5 +398,11 @@ if __name__ == "__main__":
     parser.add_argument("--java-classpath", required=True)
     parser.add_argument("--native-client", required=True)
     parser.add_argument("--ganesha-image")
+    parser.add_argument("--ganesha-keytab")
+    parser.add_argument("--mount-contract", type=Path)
     OPTIONS, remaining = parser.parse_known_args()
+    if bool(OPTIONS.ganesha_keytab) != bool(OPTIONS.mount_contract):
+        parser.error("--ganesha-keytab and --mount-contract must be supplied together")
+    if OPTIONS.mount_contract and platform.system() != "Linux":
+        parser.error("--mount-contract requires Linux")
     unittest.main(argv=["test_grpc_tls.py"] + remaining)

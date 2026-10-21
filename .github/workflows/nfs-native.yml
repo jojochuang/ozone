@@ -177,3 +177,62 @@ jobs:
             --native-client unused \
             --ganesha-image ozone-nfs-ganesha:ci \
             GrpcTlsContract.test_ganesha_loads_ozone_export_and_completes_capability_handshake
+
+      - name: Mount FSAL_OZONE with NFSv4.1 Kerberos privacy
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            krb5-kdc krb5-user nfs-common
+          sudo tee /etc/krb5.conf >/dev/null <<'EOF'
+          [libdefaults]
+            default_realm = EXAMPLE.COM
+            dns_canonicalize_hostname = false
+            dns_lookup_realm = false
+            rdns = false
+          [realms]
+            EXAMPLE.COM = {
+              kdc = 127.0.0.1:88
+            }
+          EOF
+          sudo tee /etc/krb5kdc/kdc.conf >/dev/null <<'EOF'
+          [kdcdefaults]
+            kdc_ports = 88
+          [realms]
+            EXAMPLE.COM = {
+              database_name = /var/lib/krb5kdc/principal
+              key_stash_file = /etc/krb5kdc/stash
+              acl_file = /etc/krb5kdc/kadm5.acl
+              max_life = 24h
+              max_renewable_life = 7d
+            }
+          EOF
+          sudo kdb5_util create -s -P ozone-nfs-ci-master
+          sudo kadmin.local -q 'addprinc -pw alice alice@EXAMPLE.COM'
+          sudo kadmin.local -q 'addprinc -randkey nfs/localhost@EXAMPLE.COM'
+          sudo kadmin.local -q 'addprinc -randkey nfs/ozone-ci@EXAMPLE.COM'
+          sudo kadmin.local -q 'ktadd -k /tmp/ozone-nfs.keytab nfs/localhost@EXAMPLE.COM nfs/ozone-ci@EXAMPLE.COM'
+          sudo chmod 644 /tmp/ozone-nfs.keytab
+          sudo krb5kdc -n >/tmp/ozone-nfs-kdc.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if nc -z 127.0.0.1 88; then break; fi
+            sleep 1
+          done
+          nc -z 127.0.0.1 88
+          sudo mkdir -p /run/rpc_pipefs
+          sudo mountpoint -q /run/rpc_pipefs || \
+            sudo mount -t rpc_pipefs rpc_pipefs /run/rpc_pipefs
+          sudo systemctl start rpc-gssd
+          sudo sh -c 'printf "alice\n" | KRB5CCNAME=FILE:/tmp/krb5cc_0 kinit -c FILE:/tmp/krb5cc_0 alice'
+          classpath="hadoop-ozone/nfs-gateway/target/classes"
+          classpath="$classpath:hadoop-ozone/nfs-gateway/target/test-classes"
+          classpath="$classpath:hadoop-ozone/interface-client/target/classes"
+          classpath="$classpath:hadoop-ozone/common/target/classes"
+          classpath="$classpath:hadoop-ozone/nfs-gateway/target/dependency/*"
+          sudo env KRB5CCNAME=FILE:/tmp/krb5cc_0 python3 \
+            hadoop-ozone/nfs-gateway/src/test/native/test_grpc_tls.py \
+            --java-classpath "$classpath" \
+            --native-client unused \
+            --ganesha-image ozone-nfs-ganesha:ci \
+            --ganesha-keytab /tmp/ozone-nfs.keytab \
+            --mount-contract /tmp/ozone-nfs-mount \
+            GrpcTlsContract.test_ganesha_loads_ozone_export_and_completes_capability_handshake
