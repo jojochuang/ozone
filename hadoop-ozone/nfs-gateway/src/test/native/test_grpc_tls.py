@@ -408,7 +408,11 @@ EXPORT {
                                                if "OZONE_TRACE" in line or "Calling open2" in line
                                                or "Calling reopen2" in line or "Found existing state" in line
                                                or "Creating new state" in line or "test_access got" in line
-                                               or "fsal_access got" in line or "Not opening file" in line]
+                                               or "fsal_access got" in line or "Not opening file" in line
+                                               or "OP_OPEN" in line or "OP_ACCESS" in line
+                                               or "NFS4ERR" in line or "opcode " in line
+                                               or "process_one_op" in line or "complete_op" in line
+                                               or "nfs4_op_open" in line or "nfs4_op_access" in line]
 
                         self.fail("Mounted read-only NFS contract timed out:\nstdout:\n{}\nstderr:\n{}"
                                   "\nJava fixture log:\n{}\nGanesha operation log:\n{}".format(
