@@ -30,8 +30,13 @@ ${EARLIER_SNAPSHOTS}
 
 *** Keywords ***
 Snapshot diff should be done
-    ${output} =         Execute          ozone sh snapshot diff --get-report --json /${PREFIX}-volume/${PREFIX}-bucket ${FROM_SNAPSHOT} ${SNAPSHOT} | jq -r '.jobStatus'
-                        Should contain   ${output}    DONE
+    # Older clients do not support --get-report or --json. Use their legacy diff command instead.
+    ${status}    ${output} =    Run Keyword And Ignore Error
+    ...    Execute    ozone sh snapshot diff --get-report /${PREFIX}-volume/${PREFIX}-bucket ${FROM_SNAPSHOT} ${SNAPSHOT}
+    IF    '${status}' == 'FAIL'
+        ${output} =    Execute    ozone sh snapshot diff /${PREFIX}-volume/${PREFIX}-bucket ${FROM_SNAPSHOT} ${SNAPSHOT}
+    END
+    Should contain    ${output}    Difference between snapshot: ${FROM_SNAPSHOT} and snapshot: ${SNAPSHOT}
 
 *** Test Cases ***
 Create snapshot
