@@ -85,9 +85,11 @@ jobs:
       - name: Set short hostname for secure MiniOzoneCluster certificates
         run: |
           sudo hostname ozone-ci
-          mount_server=$(hostname -f)
-          test "${mount_server#*.}" != "$mount_server"
+          mount_domain=$(awk '$1 == "search" { print $2; exit }' /etc/resolv.conf)
+          test -n "$mount_domain"
+          mount_server="ozone-ci.$mount_domain"
           printf 'NFS_MOUNT_SERVER=%s\n' "$mount_server" >> "$GITHUB_ENV"
+          printf 'Using NFS mount server: %s\n' "$mount_server"
           sudo sed -i "s/^127\.0\.0\.1[[:space:]][[:space:]]*localhost/127.0.0.1 ozone-ci $mount_server localhost/" /etc/hosts
           test "$(hostname)" = ozone-ci
           test "$(getent hosts 127.0.0.1 | awk '{print $2}')" = ozone-ci
