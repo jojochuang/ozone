@@ -32,6 +32,8 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
@@ -292,8 +294,11 @@ public final class NfsTlsContractServer {
     try (NfsGatewayServer server = new NfsGatewayServer(new InetSocketAddress("127.0.0.1", 0),
         new File(args[0]), new File(args[1]), new File(args[2]),
         Map.of(NfsTlsPeerInterceptor.fingerprint(allowed), Set.of(export)), bindableService)) {
-      Files.write(java.nio.file.Paths.get(args[4]),
+      Path portFile = java.nio.file.Paths.get(args[4]);
+      Path temporaryPortFile = portFile.resolveSibling(portFile.getFileName() + ".tmp");
+      Files.write(temporaryPortFile,
           Integer.toString(server.getPort()).getBytes(StandardCharsets.UTF_8));
+      Files.move(temporaryPortFile, portFile, StandardCopyOption.ATOMIC_MOVE);
       long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(10);
       while (!Files.exists(java.nio.file.Paths.get(args[5])) && System.nanoTime() < deadline) {
         Thread.sleep(100);
