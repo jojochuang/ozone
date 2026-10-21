@@ -358,9 +358,9 @@ static fsal_status_t ozone_open2(struct fsal_obj_handle *obj_hdl,
 	(void)attrs_in;
 	(void)verifier;
 	if ((openflags & FSAL_O_TRUNC) != 0 && createmode == FSAL_NO_CREATE)
-		return fsalstat(ERR_FSAL_NOTSUPP, EOPNOTSUPP);
+		return fsalstat(ERR_FSAL_ACCESS, EACCES);
 	if ((openflags & FSAL_O_WRITE) != 0 && createmode == FSAL_NO_CREATE)
-		return fsalstat(ERR_FSAL_NOTSUPP, EOPNOTSUPP);
+		return fsalstat(ERR_FSAL_ACCESS, EACCES);
 	if ((openflags & (FSAL_O_READ | FSAL_O_WRITE)) == 0)
 		return fsalstat(ERR_FSAL_INVAL, EINVAL);
 	if (createmode != FSAL_NO_CREATE) {

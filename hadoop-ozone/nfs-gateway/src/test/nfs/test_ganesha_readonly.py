@@ -42,9 +42,14 @@ class GaneshaReadOnlyContract(unittest.TestCase):
             os.close(fd)
 
     def test_export_rejects_writes(self):
-        with self.assertRaises(OSError) as failure:
-            os.open(self.mount / "child", os.O_WRONLY)
-        self.assertIn(failure.exception.errno, (errno.EACCES, errno.EROFS))
+        path = self.mount / "child"
+        for flags in (os.O_WRONLY, os.O_WRONLY | os.O_TRUNC):
+            with self.subTest(flags=flags):
+                with self.assertRaises(OSError) as failure:
+                    os.open(path, flags)
+                self.assertIn(failure.exception.errno, (errno.EACCES, errno.EROFS))
+        with path.open("rb") as stream:
+            self.assertEqual(self.expected, stream.read())
 
 
 def require_nfs41_krb5p_mount(path):
