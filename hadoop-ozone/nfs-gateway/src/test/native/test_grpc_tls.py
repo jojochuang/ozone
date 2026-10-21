@@ -289,7 +289,7 @@ NFS_CORE_PARAM {
 }
 
 NFS_KRB5 {
-    PrincipalName = "nfs";
+    PrincipalName = "%s";
     KeytabPath = "%s";
     Active_krb5 = %s;
 }
@@ -330,8 +330,10 @@ EXPORT {
         Timeout_Millis = 5000;
     }
 }
-''' % ("/contract/nfs.keytab" if OPTIONS.ganesha_keytab else "", "true" if OPTIONS.ganesha_keytab else "false",
-       "krb5p" if OPTIONS.ganesha_keytab else "sys", endpoint_host, endpoint_port))
+''' % ("nfs/localhost@EXAMPLE.COM" if OPTIONS.ganesha_keytab else "nfs",
+       "/contract/nfs.keytab" if OPTIONS.ganesha_keytab else "",
+       "true" if OPTIONS.ganesha_keytab else "false", "krb5p" if OPTIONS.ganesha_keytab else "sys",
+       endpoint_host, endpoint_port))
         container_name = "ozone-nfs-ganesha-contract-{}".format(os.getpid())
         log_path = self.root / "ganesha.log"
         mounted = False
@@ -364,9 +366,12 @@ EXPORT {
                 if OPTIONS.mount_contract:
                     mount = OPTIONS.mount_contract
                     mount.mkdir(parents=True, exist_ok=True)
-                    subprocess.run([
+                    mount_result = subprocess.run([
                         "mount", "-t", "nfs4", "-o", "vers=4.1,proto=tcp,sec=krb5p,port=2049",
-                        "localhost:/ozone/data", str(mount)], check=True, timeout=30)
+                        "localhost:/ozone/data", str(mount)], capture_output=True, text=True, timeout=30)
+                    if mount_result.returncode != 0:
+                        self.fail("NFSv4.1 krb5p mount failed:\n{}{}\nGanesha log:\n{}".format(
+                            mount_result.stdout, mount_result.stderr, log_path.read_text()[-20000:]))
                     mounted = True
                     subprocess.run([
                         sys.executable,
