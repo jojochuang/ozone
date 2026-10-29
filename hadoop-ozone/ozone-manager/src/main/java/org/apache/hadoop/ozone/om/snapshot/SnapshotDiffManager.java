@@ -750,7 +750,7 @@ public class SnapshotDiffManager implements AutoCloseable, SnapshotDiffManagerMX
     OFSPath path = getSnapshotRootPath(volumeName, bucketName);
 
     Pair<List<DiffReportEntry>, String> pageResponse =
-        createPageResponse(snapDiffJob, jobKey, index, pageSize);
+        createPageResponse(snapDiffJob, jobKey, index, pageSize, idx);
     List<DiffReportEntry> diffReportList = pageResponse.getLeft();
     String tokenString = pageResponse.getRight();
 
@@ -762,7 +762,8 @@ public class SnapshotDiffManager implements AutoCloseable, SnapshotDiffManagerMX
       final SnapshotDiffJob snapDiffJob,
       final String jobKey,
       final String index,
-      final int pageSize
+      final int pageSize,
+      final int pageStartIdx
   ) throws IOException {
     List<DiffReportEntry> diffReportList = new ArrayList<>();
 
@@ -787,7 +788,8 @@ public class SnapshotDiffManager implements AutoCloseable, SnapshotDiffManagerMX
       String nextTokenString = iterator.hasNext() ?
           getIndexFromReportKey(StringCodec.get().fromPersistedFormat(iterator.next().getKey())) : null;
 
-      checkReportsIntegrity(snapDiffJob, jobKey, pageLastKey, nextTokenString == null);
+      checkReportsIntegrity(snapDiffJob, jobKey, pageLastKey, nextTokenString == null,
+          pageStartIdx, diffReportList.size());
       return Pair.of(diffReportList, nextTokenString);
     }
 
@@ -795,35 +797,41 @@ public class SnapshotDiffManager implements AutoCloseable, SnapshotDiffManagerMX
   }
 
   /**
-   * Check that total number of entries after creating the last page matches
-   * that the total number of entries set after the diff report generation.
-   * If check fails, it marks the job failed so that it is GC-ed by clean up
-   * service and throws the exception to client.
+   * Check the report integrity. Jobs recorded with a largest entry key must
+   * end on that key. Jobs written before that field existed are checked
+   * against the recorded total entry count.
+   * If the check fails, the job is marked failed under its snapshot-pair key
+   * so the cleanup service can remove it, and the client is told to retry.
    */
   @VisibleForTesting
   synchronized void checkReportsIntegrity(final SnapshotDiffJob diffJob,
-                             final String jobKey,
-                             final String largestPageIndex,
-                             boolean lastPage) throws IOException {
-    // A DONE job persisted before largestEntryKey was introduced deserializes with a
-    // null largestEntryKey. Such a legacy job carries no stored last-entry to compare,
-    // so skip the integrity assertion for it rather than treating it as a failure.
-    if (lastPage && diffJob.getLargestEntryKey() != null &&
-        !diffJob.getLargestEntryKey().equals(largestPageIndex)) {
-      LOG.error("Expected last entry: {} but found " +
-              "Largest Page entry: {}", diffJob.getLargestEntryKey(), largestPageIndex);
-      // The job is stored under jobKey (fromSnapshotId + DELIMITER + toSnapshotId), not
-      // under its jobId; passing the jobId here would look up a missing row.
-      // Cleanup deletes job rows without the manager lock, so share the DB monitor with cleanup as well.
-      synchronized (db) {
-        SnapshotDiffJob currentJob = snapDiffJobTable.get(jobKey);
-        if (currentJob != null && currentJob.getJobId().equals(diffJob.getJobId()) && currentJob.getStatus() == DONE) {
-          updateJobStatus(jobKey, DONE, FAILED);
-        }
+      final String jobKey,
+      final String largestPageIndex,
+      final boolean lastPage,
+      final int pageStartIdx,
+      final int numberOfEntriesInPage) throws IOException {
+    if (diffJob.getLargestEntryKey() != null) {
+      if (lastPage && !diffJob.getLargestEntryKey().equals(largestPageIndex)) {
+        LOG.error("Expected last entry: {} but found Largest Page entry: {}",
+            diffJob.getLargestEntryKey(), largestPageIndex);
+        markReportIntegrityFailed(jobKey, diffJob.getJobId());
       }
-      throw new IOException("Report integrity check failed. Retry after: " +
-          ozoneManager.getOmSnapshotManager().getDiffCleanupServiceInterval());
+      return;
     }
+    if ((pageStartIdx >= diffJob.getTotalDiffEntries() && numberOfEntriesInPage != 0) ||
+        (pageStartIdx < diffJob.getTotalDiffEntries() && numberOfEntriesInPage == 0)) {
+      LOG.error("Expected TotalDiffEntries: {} but found TotalDiffEntries: {}",
+          diffJob.getTotalDiffEntries(), pageStartIdx + numberOfEntriesInPage);
+      markReportIntegrityFailed(jobKey, diffJob.getJobId());
+    }
+  }
+
+  private void markReportIntegrityFailed(String jobKey, String jobId) throws IOException {
+    synchronized (db) {
+      updateJobStatus(jobKey, jobId, DONE, FAILED);
+    }
+    throw new IOException("Report integrity check failed. Retry after: " +
+        ozoneManager.getOmSnapshotManager().getDiffCleanupServiceInterval());
   }
 
   @SuppressWarnings("parameternumber")
@@ -1732,7 +1740,20 @@ public class SnapshotDiffManager implements AutoCloseable, SnapshotDiffManagerMX
   private synchronized void updateJobStatus(String jobKey,
                                             JobStatus oldStatus,
                                             JobStatus newStatus) {
+    updateJobStatus(jobKey, null, oldStatus, newStatus);
+  }
+
+  private synchronized void updateJobStatus(String jobKey,
+                                            String jobId,
+                                            JobStatus oldStatus,
+                                            JobStatus newStatus) {
     SnapshotDiffJob snapshotDiffJob = snapDiffJobTable.get(jobKey);
+    // A page read can outlive the generation it checked. A resubmit reuses the jobKey.
+    if (jobId != null && !snapshotDiffJob.getJobId().equals(jobId)) {
+      LOG.warn("Not marking snapshot diff job {} as {}: task jobId {} was superseded by jobId {}.",
+          jobKey, newStatus, jobId, snapshotDiffJob.getJobId());
+      return;
+    }
     if (snapshotDiffJob.getStatus() != oldStatus) {
       throw new IllegalStateException("Invalid job status for jobID: " +
           snapshotDiffJob.getJobId() + ". Job's current status is '" +
