@@ -33,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.hadoop.fs.FSExceptionMessages;
 import org.apache.hadoop.hdds.client.BlockID;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
@@ -301,6 +302,7 @@ public final class ECStreamTestUtil {
     private int ecReplicaIndex = 0;
     private CountDownLatch readBarrier;
     private final AtomicInteger positionedReads = new AtomicInteger();
+    private volatile boolean closed = false;
     private static final byte EOF = -1;
 
     TestBlockInputStream(BlockID blockId, long blockLen, ByteBuffer data) {
@@ -346,6 +348,7 @@ public final class ECStreamTestUtil {
 
     @Override
     protected int readPositioned(long position, ByteBuffer buffer) throws IOException {
+      checkOpen();
       positionedReads.incrementAndGet();
       if (position >= length) {
         return EOF;
@@ -380,6 +383,7 @@ public final class ECStreamTestUtil {
 
     @Override
     public int read(ByteBuffer buf) throws IOException {
+      checkOpen();
       if (shouldError && data.position() >= shouldErrorPosition) {
         throwError();
       }
@@ -408,6 +412,7 @@ public final class ECStreamTestUtil {
           Thread.currentThread().interrupt();
           throw new IOException(e);
         }
+        checkOpen();
       }
     }
 
@@ -426,7 +431,15 @@ public final class ECStreamTestUtil {
     }
 
     @Override
-    public void close() { }
+    public void close() {
+      closed = true;
+    }
+
+    private void checkOpen() throws IOException {
+      if (closed) {
+        throw new IOException(FSExceptionMessages.STREAM_IS_CLOSED);
+      }
+    }
 
     @Override
     public void unbuffer() {

@@ -382,10 +382,7 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
       Throwables.throwIfUnchecked(unexpected);
       throw new IOException(unexpected);
     }
-    BadDataLocationException failure = readFailure(results, locations::get);
-    if (failure != null) {
-      throw failure;
-    }
+    throwPositionedReadFailures(results, locations::get);
     buffer.position(bufferStart + length);
     LOG.trace("{}: positioned read of {} bytes at {} from {} indexes", this, length, offset, tasks.size());
     return length;
@@ -610,14 +607,40 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
   }
 
   /**
+   * Reports index read failures from a positioned read. Failures on an index whose stream was closed concurrently,
+   * for example by a sequential retry switching to a spare, are not bad locations.
+   */
+  private void throwPositionedReadFailures(Map<Integer, IndexReadResult> results,
+      IntFunction<DatanodeDetails> location) throws IOException {
+    BadDataLocationException failure = readFailure(results, location, true);
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  /**
    * Returns an exception carrying every failed index with the location it was read from, or null if none failed.
    */
-  private static BadDataLocationException readFailure(Map<Integer, IndexReadResult> results,
-      IntFunction<DatanodeDetails> location) {
+  private BadDataLocationException readFailure(Map<Integer, IndexReadResult> results,
+      IntFunction<DatanodeDetails> location) throws IOException {
+    return readFailure(results, location, false);
+  }
+
+  private BadDataLocationException readFailure(Map<Integer, IndexReadResult> results,
+      IntFunction<DatanodeDetails> location, boolean ignoreClosedStreams) throws IOException {
     Map<Integer, DatanodeDetails> failures = new TreeMap<>();
     IOException cause = null;
+    IOException closedStreamCause = null;
     for (IndexReadResult result : results.values()) {
       if (result.error != null) {
+        if (ignoreClosedStreams && isIndexStreamClosed(result.index)) {
+          if (closedStreamCause == null) {
+            closedStreamCause = result.error;
+          } else {
+            closedStreamCause.addSuppressed(result.error);
+          }
+          continue;
+        }
         failures.put(result.index, location.apply(result.index));
         if (cause == null) {
           cause = result.error;
@@ -626,7 +649,19 @@ public class ECBlockInputStream extends BlockExtendedInputStream {
         }
       }
     }
-    return cause == null ? null : new BadDataLocationException(failures, cause);
+    if (cause != null) {
+      return new BadDataLocationException(failures, cause);
+    }
+    if (closedStreamCause != null) {
+      throw closedStreamCause;
+    }
+    return null;
+  }
+
+  private boolean isIndexStreamClosed(int index) {
+    synchronized (streamLock) {
+      return blockStreams[index] == null;
+    }
   }
 
   /**

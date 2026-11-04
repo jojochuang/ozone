@@ -897,6 +897,31 @@ public class TestECBlockInputStream {
   }
 
   @Test
+  public void testPositionedReadFailingOnConcurrentIndexCloseDoesNotReportLocations() throws Exception {
+    repConfig = new ECReplicationConfig(3, 2, ECReplicationConfig.EcCodec.RS, 100);
+    int blockLength = 3 * 300;
+    ECStreamTestUtil.TestBlockInputStreamFactory dataStreamFactory = createDataStreamFactory(blockLength);
+    BlockLocationInfo keyInfo = ECStreamTestUtil.createKeyInfo(repConfig, 5, blockLength);
+    dataStreamFactory.setCurrentPipeline(keyInfo.getPipeline());
+    CountDownLatch barrier = new CountDownLatch(2);
+    dataStreamFactory.setReadBarrier(barrier);
+
+    ExecutorService reader = Executors.newSingleThreadExecutor();
+    try (ECBlockInputStream ecb = createStream(keyInfo, dataStreamFactory, conf.getObject(OzoneClientConfig.class))) {
+      Future<Integer> pread = reader.submit(() -> ecb.read(10, ByteBuffer.allocate(50)));
+      GenericTestUtils.waitFor(() -> barrier.getCount() == 1, 10, 10_000);
+      // sequential retry closes one index stream without closing the EC stream
+      ecb.closeStream(0);
+      barrier.countDown();
+
+      ExecutionException e = assertThrows(ExecutionException.class, () -> pread.get(10, TimeUnit.SECONDS));
+      assertThat(e.getCause()).isInstanceOf(IOException.class).isNotInstanceOf(BadDataLocationException.class);
+    } finally {
+      reader.shutdownNow();
+    }
+  }
+
+  @Test
   public void testPositionedReadFailingOnConcurrentCloseDoesNotReportLocations() throws Exception {
     repConfig = new ECReplicationConfig(3, 2, ECReplicationConfig.EcCodec.RS, 100);
     int blockLength = 3 * 300;
