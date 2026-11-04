@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.freon;
 import static org.apache.hadoop.ozone.OzoneConsts.OM_MULTIPART_MIN_SIZE;
 
 import com.codahale.metrics.Timer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -80,7 +81,7 @@ public class S3KeyGenerator extends S3EntityGenerator
 
   private Timer timer;
 
-  private String content;
+  private byte[] content;
 
   @Override
   public Void call() throws Exception {
@@ -92,7 +93,8 @@ public class S3KeyGenerator extends S3EntityGenerator
 
     s3ClientInit();
 
-    content = RandomStringUtils.secure().nextAscii(fileSize);
+    // Avoid the uppercase charset added by RequestBody.fromString when S3 Gateway validates the signature.
+    content = RandomStringUtils.secure().nextAscii(fileSize).getBytes(StandardCharsets.UTF_8);
 
     timer = getMetrics().timer("key-create");
 
@@ -114,7 +116,7 @@ public class S3KeyGenerator extends S3EntityGenerator
           final int partNumber = i;
           final UploadPartResponse response = getS3().uploadPart(request -> request
               .bucket(bucketName).key(keyName).partNumber(partNumber).uploadId(uploadId),
-              RequestBody.fromString(content));
+              RequestBody.fromBytes(content));
           parts.add(CompletedPart.builder().partNumber(i).eTag(response.eTag()).build());
         }
 
@@ -122,8 +124,9 @@ public class S3KeyGenerator extends S3EntityGenerator
             .multipartUpload(CompletedMultipartUpload.builder().parts(parts).build()));
 
       } else {
-        getS3().putObject(request -> request.bucket(bucketName).key(generateObjectName(counter)),
-            RequestBody.fromString(content));
+        getS3().putObject(request -> request
+            .bucket(bucketName).key(generateObjectName(counter)).contentType("text/plain"),
+            RequestBody.fromBytes(content));
       }
 
       return null;

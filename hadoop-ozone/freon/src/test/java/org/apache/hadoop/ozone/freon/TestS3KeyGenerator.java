@@ -45,11 +45,20 @@ class TestS3KeyGenerator {
   @Test
   void putsObjectWithConfiguredSize() throws Exception {
     S3Client client = mock(S3Client.class);
+    when(client.putObject(ArgumentMatchers.<Consumer<PutObjectRequest.Builder>>any(), any(RequestBody.class)))
+        .thenAnswer(invocation -> {
+          PutObjectRequest.Builder request = PutObjectRequest.builder();
+          invocation.<Consumer<PutObjectRequest.Builder>>getArgument(0).accept(request);
+          assertEquals("text/plain", request.build().contentType());
+          return null;
+        });
     S3KeyGenerator generator = generator(client, "--size", "128");
     generator.call();
     ArgumentCaptor<RequestBody> body = ArgumentCaptor.forClass(RequestBody.class);
     verify(client).putObject(ArgumentMatchers.<Consumer<PutObjectRequest.Builder>>any(), body.capture());
     assertEquals(128, body.getValue().contentLength());
+    // S3 Gateway lowercases Content-Type when validating signatures. Avoid an uppercase charset parameter.
+    assertEquals("application/octet-stream", body.getValue().contentType());
   }
 
   @Test
@@ -65,6 +74,7 @@ class TestS3KeyGenerator {
           UploadPartRequest request = builder.build();
           assertEquals("upload", request.uploadId());
           assertEquals(5242880, invocation.<RequestBody>getArgument(1).contentLength());
+          assertEquals("application/octet-stream", invocation.<RequestBody>getArgument(1).contentType());
           return UploadPartResponse.builder().eTag("etag-" + request.partNumber()).build();
         });
     when(client.completeMultipartUpload(
