@@ -63,18 +63,22 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.hdds.client.DefaultReplicationConfig;
 import org.apache.hadoop.hdds.client.ECReplicationConfig;
+import org.apache.hadoop.hdds.client.OzoneQuota;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
@@ -189,6 +193,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.MetadataDirective;
+import software.amazon.awssdk.services.s3.model.MultipartUpload;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectAttributes;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
@@ -262,6 +267,224 @@ public abstract class AbstractS3SDKV2Tests extends OzoneTestBase implements NonH
   private MiniOzoneCluster cluster;
   private S3Client s3Client;
   private S3AsyncClient s3AsyncClient;
+
+  @ParameterizedTest
+  @ValueSource(ints = {10, 5000})
+  public void testListMultipartUploadsPagination(int requestedMaxUploads) {
+    final String bucketName = getBucketName() + "-" + requestedMaxUploads;
+    final String multipartKeyPrefix = getKeyName("multipart");
+
+    s3Client.createBucket(b -> b.bucket(bucketName));
+
+    // Create multipart uploads to test pagination
+    List<String> allKeys = new ArrayList<>();
+    Map<String, String> keyToUploadId = new HashMap<>();
+
+    final int effectiveMaxUploads = Math.min(requestedMaxUploads, 1000);
+    final int uploadsCreated = 2 * effectiveMaxUploads + 5;
+    final int expectedPages = uploadsCreated / effectiveMaxUploads + 1;
+
+    for (int i = 0; i < uploadsCreated; i++) {
+      String key = String.format("%s-%04d", multipartKeyPrefix, i);
+      allKeys.add(key);
+      String uploadId = s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(key)).uploadId();
+      keyToUploadId.put(key, uploadId);
+    }
+    Collections.sort(allKeys);
+
+    // Test pagination
+    Set<String> retrievedKeys = new HashSet<>();
+    String keyMarker = null;
+    String uploadIdMarker = null;
+    boolean truncated = true;
+    int pageCount = 0;
+
+    do {
+      ListMultipartUploadsRequest request = ListMultipartUploadsRequest.builder().bucket(bucketName)
+          .maxUploads(requestedMaxUploads)
+          .keyMarker(keyMarker)
+          .uploadIdMarker(uploadIdMarker).build();
+
+      ListMultipartUploadsResponse result = s3Client.listMultipartUploads(request);
+      pageCount++;
+
+      // Verify page size
+      if (pageCount < expectedPages) {
+        assertEquals(effectiveMaxUploads, result.uploads().size());
+        assertTrue(result.isTruncated());
+      } else {
+        assertEquals(uploadsCreated % effectiveMaxUploads, result.uploads().size());
+        assertFalse(result.isTruncated());
+      }
+
+      // Collect keys and verify uploadIds
+      for (MultipartUpload upload : result.uploads()) {
+        String key = upload.key();
+        retrievedKeys.add(key);
+        assertEquals(keyToUploadId.get(key), upload.uploadId());
+      }
+
+      // Verify response
+      assertNull(result.prefix());
+      assertEquals(result.uploadIdMarker(), uploadIdMarker);
+      assertEquals(result.keyMarker(), keyMarker);
+      assertEquals(effectiveMaxUploads, result.maxUploads());
+
+      // Verify next markers content
+      if (result.isTruncated()) {
+        MultipartUpload lastUploadOnPage = result.uploads()
+            .get(result.uploads().size() - 1);
+        assertEquals(lastUploadOnPage.key(), result.nextKeyMarker());
+        assertEquals(lastUploadOnPage.uploadId(), result.nextUploadIdMarker());
+      } else {
+        assertThat(result.nextKeyMarker()).isNullOrEmpty();
+        assertThat(result.nextUploadIdMarker()).isNullOrEmpty();
+      }
+
+      // Update markers for next page
+      keyMarker = result.nextKeyMarker();
+      uploadIdMarker = result.nextUploadIdMarker();
+
+      truncated = result.isTruncated();
+
+    } while (truncated);
+
+    // Verify pagination results
+    assertEquals(expectedPages, pageCount);
+    assertEquals(uploadsCreated, retrievedKeys.size(), "Should retrieve all uploads");
+    assertEquals(
+        allKeys,
+        retrievedKeys.stream().sorted().collect(Collectors.toList()),
+        "Retrieved keys should match expected keys in order");
+
+    // Test with prefix
+    String prefix = multipartKeyPrefix + "-001";
+    ListMultipartUploadsRequest prefixRequest = ListMultipartUploadsRequest.builder().bucket(bucketName)
+        .prefix(prefix).build();
+
+    ListMultipartUploadsResponse prefixResult = s3Client.listMultipartUploads(prefixRequest);
+
+    assertEquals(prefix, prefixResult.prefix());
+    assertEquals(
+        IntStream.rangeClosed(0, 9)
+            .mapToObj(i -> prefix + i)
+            .collect(Collectors.toList()),
+        prefixResult.uploads().stream()
+            .map(MultipartUpload::key)
+            .collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testListMultipartUploadsPaginationCornerCases() {
+    final String bucketName = getBucketName();
+    final String keyA = getKeyName("samekey");
+    final String keyB = getKeyName("after");
+
+    s3Client.createBucket(b -> b.bucket(bucketName));
+
+    // Create multiple MPUs for the same key to verify upload-id-marker semantics
+    List<String> keyAUploadIds = new ArrayList<>();
+    keyAUploadIds.add(s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(keyA)).uploadId());
+    keyAUploadIds.add(s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(keyA)).uploadId());
+    keyAUploadIds.add(s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(keyA)).uploadId());
+    // Also create another key to ensure listing proceeds past keyA
+    s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(keyB)).uploadId();
+
+    // Sort upload IDs lexicographically to match listing order for the same key
+    Collections.sort(keyAUploadIds);
+
+    // Case 1: key-marker=keyA and upload-id-marker set to the lowest uploadId
+    // Per spec, same-key uploads MAY be included if uploadId > marker
+    ListMultipartUploadsRequest request1 = ListMultipartUploadsRequest.builder().bucket(bucketName)
+        .keyMarker(keyA)
+        .uploadIdMarker(keyAUploadIds.get(0))
+        .maxUploads(100).build();
+    ListMultipartUploadsResponse result1 = s3Client.listMultipartUploads(request1);
+
+    List<MultipartUpload> uploads1 = result1.uploads();
+    // Collect same-key uploads and verify none are <= marker
+    List<String> sameKeyIds1 = uploads1.stream()
+        .filter(u -> keyA.equals(u.key()))
+        .map(MultipartUpload::uploadId)
+        .collect(Collectors.toList());
+    assertThat(sameKeyIds1).allSatisfy(id -> assertTrue(id.compareTo(keyAUploadIds.get(0)) > 0));
+
+    // Case 2: key-marker=keyA and upload-id-marker set to the highest uploadId
+    // Expect no same-key (keyA) uploads to be returned
+    ListMultipartUploadsRequest request2 = ListMultipartUploadsRequest.builder().bucket(bucketName)
+        .keyMarker(keyA)
+        .uploadIdMarker(keyAUploadIds.get(2))
+        .maxUploads(100).build();
+    ListMultipartUploadsResponse result2 = s3Client.listMultipartUploads(request2);
+    assertTrue(result2.uploads().stream().noneMatch(u -> keyA.equals(u.key())));
+  }
+
+  @Test
+  public void testQuotaExceeded() throws IOException {
+    final String bucketName = getBucketName();
+    final String keyName = getKeyName();
+    s3Client.createBucket(b -> b.bucket(bucketName));
+    try (OzoneClient client = cluster.newClient()) {
+      client.getObjectStore().getS3Volume().getBucket(bucketName)
+          .setQuota(OzoneQuota.parseQuota("1", "10"));
+    }
+    S3Exception exception = assertThrows(S3Exception.class,
+        () -> s3Client.putObject(b -> b.bucket(bucketName).key(keyName),
+            RequestBody.fromString(RandomStringUtils.secure().nextAlphanumeric(1024))));
+    assertEquals(403, exception.statusCode());
+    assertEquals("QuotaExceeded", exception.awsErrorDetails().errorCode());
+  }
+
+  @Test
+  public void testDeleteBucketNotExist() {
+    S3Exception exception = assertThrows(S3Exception.class,
+        () -> s3Client.deleteBucket(b -> b.bucket(getBucketName())));
+    assertEquals(404, exception.statusCode());
+    assertEquals("NoSuchBucket", exception.awsErrorDetails().errorCode());
+  }
+
+  @Test
+  public void testDeleteBucketNonEmptyWithKeys() {
+    final String bucketName = getBucketName();
+    s3Client.createBucket(b -> b.bucket(bucketName));
+    s3Client.putObject(b -> b.bucket(bucketName).key(getKeyName()), RequestBody.fromString("content"));
+    S3Exception exception = assertThrows(S3Exception.class,
+        () -> s3Client.deleteBucket(b -> b.bucket(bucketName)));
+    assertEquals(409, exception.statusCode());
+    assertEquals("BucketNotEmpty", exception.awsErrorDetails().errorCode());
+  }
+
+  @Test
+  public void testDeleteBucketNonEmptyWithIncompleteMultipartUpload() {
+    final String bucketName = getBucketName();
+    final String keyName = getKeyName();
+    s3Client.createBucket(b -> b.bucket(bucketName));
+    String uploadId = s3Client.createMultipartUpload(b -> b.bucket(bucketName).key(keyName)).uploadId();
+    s3Client.uploadPart(b -> b.bucket(bucketName).key(keyName).uploadId(uploadId).partNumber(1),
+        RequestBody.fromString("content"));
+    S3Exception exception = assertThrows(S3Exception.class,
+        () -> s3Client.deleteBucket(b -> b.bucket(bucketName)));
+    assertEquals(409, exception.statusCode());
+    assertEquals("BucketNotEmpty", exception.awsErrorDetails().errorCode());
+  }
+
+  @Test
+  public void testGetObjectWithoutETag() throws Exception {
+    final String bucketName = getBucketName();
+    final String keyName = getKeyName();
+    byte[] content = "sample value".getBytes(StandardCharsets.UTF_8);
+    s3Client.createBucket(b -> b.bucket(bucketName));
+    try (OzoneClient client = cluster.newClient();
+         OzoneOutputStream out = client.getObjectStore().getS3Volume().getBucket(bucketName).createKey(keyName,
+             content.length, ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS, ReplicationFactor.ONE),
+             Collections.emptyMap())) {
+      out.write(content);
+    }
+    try (ResponseInputStream<GetObjectResponse> response = s3Client.getObject(b -> b.bucket(bucketName).key(keyName))) {
+      assertNull(response.response().eTag());
+      assertArrayEquals(content, IOUtils.toByteArray(response));
+    }
+  }
 
   @BeforeAll
   void createClient() throws Exception {

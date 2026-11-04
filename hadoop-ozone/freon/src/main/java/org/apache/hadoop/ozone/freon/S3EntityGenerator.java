@@ -17,12 +17,14 @@
 
 package org.apache.hadoop.ozone.freon;
 
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import java.net.URI;
 import picocli.CommandLine;
+import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 
 /**
  * Initiliazing common aspects of S3BucketGenerator and S3KeyGenerator.
@@ -33,33 +35,30 @@ public class S3EntityGenerator extends BaseFreonGenerator {
           defaultValue = "http://localhost:9878")
   private String endpoint;
 
-  private AmazonS3 s3;
+  private S3Client s3;
 
   protected void s3ClientInit() {
     init();
 
-    AmazonS3ClientBuilder amazonS3ClientBuilder =
-        AmazonS3ClientBuilder.standard()
-            .withCredentials(new EnvironmentVariableCredentialsProvider());
+    S3ClientBuilder builder = S3Client.builder()
+        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+        .region(Region.US_EAST_1)
+        .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+        .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
+        .overrideConfiguration(conf -> conf.addExecutionInterceptor(new FreonS3TraceContextRequestHandler()));
 
     if (!endpoint.isEmpty()) {
-      amazonS3ClientBuilder
-          .withPathStyleAccessEnabled(true)
-          .withEndpointConfiguration(
-                  new EndpointConfiguration(endpoint, "us-east-1"));
-    } else {
-      amazonS3ClientBuilder.withRegion(Regions.DEFAULT_REGION);
+      builder.forcePathStyle(true).endpointOverride(URI.create(endpoint));
     }
 
-    amazonS3ClientBuilder.withRequestHandlers(new FreonS3TraceContextRequestHandler());
-    s3 = amazonS3ClientBuilder.build();
+    s3 = builder.build();
   }
 
   public String getEndpoint() {
     return endpoint;
   }
 
-  public AmazonS3 getS3() {
+  public S3Client getS3() {
     return s3;
   }
 }

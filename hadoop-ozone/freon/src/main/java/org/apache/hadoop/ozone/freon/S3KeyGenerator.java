@@ -19,15 +19,7 @@ package org.apache.hadoop.ozone.freon;
 
 import static org.apache.hadoop.ozone.OzoneConsts.OM_MULTIPART_MIN_SIZE;
 
-import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.UploadPartRequest;
-import com.amazonaws.services.s3.model.UploadPartResult;
 import com.codahale.metrics.Timer;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -38,6 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
 /**
  * Generate random keys via the s3 interface.
@@ -100,7 +96,6 @@ public class S3KeyGenerator extends S3EntityGenerator
 
     timer = getMetrics().timer("key-create");
 
-    System.setProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", "true");
     runTests(this::createKey);
 
     return null;
@@ -111,38 +106,24 @@ public class S3KeyGenerator extends S3EntityGenerator
       if (multiPart) {
 
         final String keyName = generateObjectName(counter);
-        final InitiateMultipartUploadRequest initiateRequest =
-            new InitiateMultipartUploadRequest(bucketName, keyName);
+        final String uploadId = getS3().createMultipartUpload(request -> request.bucket(bucketName).key(keyName))
+            .uploadId();
 
-        final InitiateMultipartUploadResult initiateMultipartUploadResult =
-            getS3().initiateMultipartUpload(initiateRequest);
-        final String uploadId = initiateMultipartUploadResult.getUploadId();
-
-        List<PartETag> parts = new ArrayList<>();
+        List<CompletedPart> parts = new ArrayList<>();
         for (int i = 1; i <= numberOfParts; i++) {
-
-          final UploadPartRequest uploadPartRequest = new UploadPartRequest()
-              .withBucketName(bucketName)
-              .withKey(keyName)
-              .withPartNumber(i)
-              .withLastPart(i == numberOfParts)
-              .withUploadId(uploadId)
-              .withPartSize(fileSize)
-              .withInputStream(new ByteArrayInputStream(content.getBytes(
-                  StandardCharsets.UTF_8)));
-
-          final UploadPartResult uploadPartResult =
-                  getS3().uploadPart(uploadPartRequest);
-          parts.add(uploadPartResult.getPartETag());
+          final int partNumber = i;
+          final UploadPartResponse response = getS3().uploadPart(request -> request
+              .bucket(bucketName).key(keyName).partNumber(partNumber).uploadId(uploadId),
+              RequestBody.fromString(content));
+          parts.add(CompletedPart.builder().partNumber(i).eTag(response.eTag()).build());
         }
 
-        getS3().completeMultipartUpload(
-            new CompleteMultipartUploadRequest(bucketName, keyName, uploadId,
-                parts));
+        getS3().completeMultipartUpload(request -> request.bucket(bucketName).key(keyName).uploadId(uploadId)
+            .multipartUpload(CompletedMultipartUpload.builder().parts(parts).build()));
 
       } else {
-        getS3().putObject(bucketName, generateObjectName(counter),
-            content);
+        getS3().putObject(request -> request.bucket(bucketName).key(generateObjectName(counter)),
+            RequestBody.fromString(content));
       }
 
       return null;
