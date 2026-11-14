@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.hadoop.fs.CompositeCrcFileChecksum;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.MD5MD5CRC32FileChecksum;
 import org.apache.hadoop.fs.MD5MD5CRC32GzipFileChecksum;
@@ -295,6 +296,56 @@ public class TestFileChecksumHelper {
     return computer.getFileChecksum();
   }
 
+  /**
+   * Exercises {@link BaseFileChecksumHelper#checksumBlocks()} and counts how many blocks are read.
+   */
+  private static final class CountingChecksumHelper extends ReplicatedFileChecksumHelper {
+    private final byte[] firstBlock;
+    private final byte[] secondBlock;
+    private byte[] currentBlock;
+    private int blocksChecksumed;
+
+    CountingChecksumHelper(OmKeyInfo keyInfo, RpcClient rpcClient, long requestLength,
+        byte[] firstBlock, byte[] secondBlock) throws IOException {
+      super("vol1", "bucket", keyInfo.getKeyName(), requestLength, COMPOSITE_CRC, rpcClient, keyInfo);
+      this.firstBlock = firstBlock;
+      this.secondBlock = secondBlock;
+    }
+
+    int getBlocksChecksumed() {
+      return blocksChecksumed;
+    }
+
+    @Override
+    protected List<ContainerProtos.ChunkInfo> getChunkInfos(OmKeyLocationInfo keyLocationInfo) {
+      blocksChecksumed++;
+      currentBlock = keyLocationInfo.getBlockID().getLocalID() == 1 ? firstBlock : secondBlock;
+      return Collections.singletonList(ContainerProtos.ChunkInfo.newBuilder()
+          .setChunkName("dummy_chunk")
+          .setOffset(0)
+          .setLen(currentBlock.length)
+          .setChecksumData(ContainerProtos.ChecksumData.newBuilder()
+              .setType(CRC32C)
+              .setBytesPerChecksum(BYTES_PER_CRC))
+          .build());
+    }
+
+    @Override
+    protected AbstractBlockChecksumComputer getBlockChecksumComputer(
+        List<ContainerProtos.ChunkInfo> chunkInfos, long blockLength) {
+      final byte[] block = currentBlock;
+      PureJavaCrc32C crc = new PureJavaCrc32C();
+      crc.update(block, 0, block.length);
+      final byte[] blockChecksum = CrcUtil.intToBytes((int) crc.getValue());
+      return new AbstractBlockChecksumComputer() {
+        @Override
+        public void compute(OzoneClientConfig.ChecksumCombineMode mode) {
+          setOutBytes(blockChecksum);
+        }
+      };
+    }
+  }
+
   private static FileChecksum expectedComposite(byte[]... data) {
     return new CompositeCrcFileChecksum(
         crc32c(data), DataChecksum.Type.CRC32C, BYTES_PER_CRC);
@@ -394,6 +445,20 @@ public class TestFileChecksumHelper {
     byte[] b = randomBytes(700, 5);
     assertEquals(expectedComposite(a, b),
         compositeChecksum(helperType, a, EMPTY_BLOCK, b));
+  }
+
+  @Test
+  public void testCompositeCrcStopsAtExactBlockBoundary() throws IOException {
+    byte[] a = randomBytes(1000, 13);
+    byte[] b = randomBytes(700, 14);
+    List<OmKeyLocationInfo> located = locationsFor(a, b);
+    CountingChecksumHelper helper = new CountingChecksumHelper(
+        omKeyInfo(ReplicationType.RATIS, noCachedChecksum, located, a.length + b.length),
+        mockRpcClientForChecksumHelper(), a.length, a, b);
+    helper.compute();
+    assertEquals(1, helper.getBlocksChecksumed(),
+        "must not checksum the second block when length matches the first block");
+    assertEquals(expectedComposite(a), helper.getFileChecksum());
   }
 
   @Test
